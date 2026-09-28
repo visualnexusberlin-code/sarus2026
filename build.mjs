@@ -5,7 +5,7 @@ import zlib from 'zlib';
 const r = await build({ entryPoints: ['js/main.js'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020', legalComments: 'none' });
 let js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const pack = (f) => zlib.gzipSync(fs.readFileSync(f), { level: 9 }).toString('base64').replace(/.{1,4096}/g, '$&\n');
-const b64 = pack('saturn6.glb'), b64f = pack('ships8.glb');
+const b64 = pack('saturn6.glb'), b64f = pack('ships9.glb');
 let html = fs.readFileSync('index.html', 'utf8');
 const start = html.indexOf('<script type="importmap">');
 const end = html.indexOf('<script type="module" src="js/main.js"></script>') + '<script type="module" src="js/main.js"></script>'.length;

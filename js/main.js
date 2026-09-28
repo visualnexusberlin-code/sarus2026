@@ -1216,7 +1216,7 @@ function tick(dt) {
 const firstGesture = () => { if (G.state === 'title' || G.state === 'loading') audio.music(true); else audio.music(); removeEventListener('pointerdown', firstGesture); removeEventListener('keydown', firstGesture); };
 addEventListener('pointerdown', firstGesture); addEventListener('keydown', firstGesture);
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
-G.begin = begin; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
+G.showChoice = showChoice; G.begin = begin; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer;
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
