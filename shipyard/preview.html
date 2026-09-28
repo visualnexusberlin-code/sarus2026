@@ -1,0 +1,66 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#dcdad4}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/game/node_modules/three/build/three.module.js","three/addons/":"/game/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { BUILDERS, AUDIT } from './shipyard.js';
+import { LOGOS, logoMesh } from './logos.js';
+window.audit = () => { AUDIT.length = 0; for (const k of Object.keys(BUILDERS)) BUILDERS[k](); return AUDIT.slice(); };
+const W = 900, H = 560;
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(W, H); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xdcdad4);
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(4, 8, 5); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); scene.add(key);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.25 })); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.7; ground.receiveShadow = true; scene.add(ground);
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 100);
+let current = null;
+window.show = (name, view, cull) => {
+  if (current) scene.remove(current);
+  current = BUILDERS[name]();
+  if (cull) current.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.side = THREE.FrontSide; } });
+  scene.add(current);
+  const V = { hero: [-1, 0.52, 1.05], heroR: [1, 0.52, 1.05], side: [1, 0.04, 0], top: [0, 1, 0.001], rear: [-0.45, 0.4, -1], front: [0.35, 0.3, 1], close: [-0.8, 0.55, 0.7], under: [0.5, -0.6, 0.6] }[view];
+  const bb = new THREE.Box3().setFromObject(current), c = bb.getCenter(new THREE.Vector3()), rad = bb.getSize(new THREE.Vector3()).length() / 2;
+  const d = rad / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2)) * (view === 'close' ? 0.3 : 0.66);
+  cam.position.copy(c).add(new THREE.Vector3(...V).normalize().multiplyScalar(d)); cam.lookAt(c); cam.updateProjectionMatrix();
+  r.render(scene, cam);
+  const b = new THREE.Box3().setFromObject(current); const s = b.getSize(new THREE.Vector3());
+  let v = 0, t = 0; current.traverse((o) => { if (o.isMesh) { v += o.geometry.attributes.position.count; t += o.geometry.attributes.position.count / 3; } });
+  return { size: s.toArray().map((x) => +x.toFixed(2)), verts: v, meshes: current.children.length };
+};
+window.showLogos = () => {
+  if (current) scene.remove(current);
+  current = new THREE.Group();
+  Object.keys(LOGOS).forEach((k, i) => { const m = logoMesh(k, 0.42); m.position.set((i % 6 - 2.5) * 1.05, 0.9 - Math.floor(i / 6) * 1.05, 0); m.rotation.y = -0.35; current.add(m); });
+  scene.add(current);
+  cam.position.set(0.6, 0.6, 8.2); cam.lookAt(0, 0.4, 0); cam.fov = 40; cam.updateProjectionMatrix();
+  r.render(scene, cam);
+  return Object.keys(LOGOS).length;
+};
+window.exportFleet = async (primexUrl) => {
+  const root = new THREE.Scene(); root.name = 'SATURN-6 FLEET v08';
+  for (const k of Object.keys(BUILDERS)) root.add(BUILDERS[k]());
+  const logos = new THREE.Group(); logos.name = 'LOGOS';
+  for (const k of Object.keys(LOGOS)) logos.add(logoMesh(k, 0.5));
+  root.add(logos);
+  const old = await new GLTFLoader().loadAsync(primexUrl);
+  let px = null; old.scenes.forEach((s) => s.traverse((o) => { if (!px && (o.userData.name || o.name) === 'PRIMEX_5') px = o; }));
+  if (px) { px.parent?.remove(px); px.name = 'PRIMEX_5'; root.add(px); }
+  // JPEG más ligero en el GLB (el exportador no expone la calidad)
+  const tb = HTMLCanvasElement.prototype.toBlob;
+  HTMLCanvasElement.prototype.toBlob = function (cb, type, q) { return tb.call(this, cb, type, type === 'image/jpeg' ? (q ?? 0.8) : q); };
+  const buf = await new GLTFExporter().parseAsync(root, { binary: true });
+  HTMLCanvasElement.prototype.toBlob = tb;
+  let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+// Tipografías de escudería (OFL, @fontsource) → se graban en las libreas
+const FONTS = ['archivo-black', 'audiowide', 'black-ops-one', 'bungee', 'cinzel', 'faster-one', 'michroma', 'orbitron', 'racing-sans-one', 'syncopate', 'zen-dots', 'monoton', 'bungee-shade', 'tektur', 'big-shoulders-stencil-display', 'knewave', 'wallpoet', 'unbounded', 'major-mono-display', 'zen-tokyo-zoo', 'russo-one'];
+await Promise.all(FONTS.map(async (f) => { const ff = new FontFace('SRS ' + f, `url(/shipyard/fonts/${f}.woff2)`); await ff.load(); document.fonts.add(ff); }));
+window.ready = true;
+</script>

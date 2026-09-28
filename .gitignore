@@ -1,0 +1,7 @@
+node_modules/
+dist/
+saturn6.b64.txt
+ships6.glb
+ships7.glb
+*.zip
+.firebase/

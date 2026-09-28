@@ -1,0 +1,192 @@
+// ARCADIA-2: paisaje terrestre y colorido sobre la geometría de SATURN-6.
+// Terreno (hierba, roca ocre, campos de lavanda / girasol / amapola, playas), mar turquesa,
+// fachadas mediterráneas, piezas pintadas y arbolado instanciado (cipreses, pinos piñoneros, arbustos en flor).
+import * as THREE from 'three';
+import { lavaUniforms } from './atmosphere.js';
+
+const NOISE = /* glsl */`
+  float th(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+  float tn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+    return mix(mix(th(i), th(i+vec2(1,0)), f.x), mix(th(i+vec2(0,1)), th(i+vec2(1,1)), f.x), f.y); }
+`;
+const worldVarying = (sh, v = 'vLW') => {
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', `#include <common>\nvarying vec3 ${v};\nvarying vec3 ${v}N;`)
+    .replace('#include <begin_vertex>', `#include <begin_vertex>\n${v} = (modelMatrix * vec4(transformed, 1.0)).xyz;\n${v}N = normalize(mat3(modelMatrix) * objectNormal);`);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 ${v};\nvarying vec3 ${v}N;\n${NOISE}`);
+};
+
+// ── Terreno ──
+export function terrainMaterial() {
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.0 });
+  m.onBeforeCompile = (sh) => {
+    worldVarying(sh);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+      {
+        vec3 P = vLW; float up = normalize(vLWN).y;
+        float n1 = tn(P.xz * 0.012), n2 = tn(P.xz * 0.05), n3 = tn(P.xz * 0.23);
+        float grassM = smoothstep(0.5, 0.74, up + (n2 - 0.5) * 0.3);
+        vec3 grass = mix(vec3(0.17, 0.36, 0.08), vec3(0.46, 0.55, 0.14), n1) * (0.78 + 0.42 * n3);
+        float strata = tn(vec2(P.y * 0.085, (P.x + P.z) * 0.006));
+        vec3 rock = mix(vec3(0.56, 0.38, 0.24), vec3(0.83, 0.67, 0.46), smoothstep(0.25, 0.75, strata)) * (0.72 + 0.36 * n3);
+        vec3 col = mix(rock, grass, grassM);
+        // campos de cultivo en llano: lavanda, girasol, amapola (en hileras)
+        float field = smoothstep(0.6, 0.66, tn(P.xz * 0.0032 + 7.0)) * smoothstep(0.7, 0.85, up);
+        float kind = tn(P.xz * 0.0019 + 3.0);
+        vec3 fc = kind < 0.42 ? vec3(0.48, 0.34, 0.78) : (kind < 0.62 ? vec3(0.98, 0.76, 0.1) : vec3(0.86, 0.12, 0.08));
+        float rows = 0.55 + 0.45 * step(0.45, fract((P.x * 0.6 + P.z * 0.8) * 0.16));
+        col = mix(col, mix(vec3(0.3, 0.42, 0.12), fc, rows), field);
+        // flores silvestres sueltas
+        vec2 fcell = floor(P.xz * 0.45);
+        float fl = step(0.955, th(fcell)) * grassM * (1.0 - field);
+        vec3 flc = th(fcell + 3.1) > 0.5 ? vec3(0.95, 0.28, 0.6) : vec3(1.0, 0.9, 0.3);
+        col = mix(col, flc, fl * 0.9);
+        // playas y roca clara junto al mar
+        float sand = 1.0 - smoothstep(-50.0, -38.0, P.y + (n2 - 0.5) * 8.0);
+        col = mix(col, vec3(0.9, 0.8, 0.6), sand);
+        diffuseColor.rgb = col;
+      }`);
+  };
+  return m;
+}
+
+// ── Mar: turquesa en calma con oleaje suave y brillos ──
+export function seaMaterial() {
+  const m = new THREE.MeshStandardMaterial({ color: 0x0f6f8a, roughness: 0.07, metalness: 0.0, envMapIntensity: 1.25 });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = lavaUniforms.uTime;
+    worldVarying(sh, 'vSW');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;')
+      .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+        {
+          float n = tn(vSW.xz * 0.0035 + uTime * 0.004) * 0.6 + tn(vSW.xz * 0.012 - uTime * 0.01) * 0.4;
+          diffuseColor.rgb = mix(vec3(0.015, 0.17, 0.3), vec3(0.04, 0.5, 0.56), smoothstep(0.35, 0.8, n));
+        }`)
+      .replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
+        {
+          vec2 q = vSW.xz;
+          float t = uTime;
+          vec2 w = vec2(sin(q.x * 0.045 + t * 1.1) + sin((q.x + q.y) * 0.07 - t * 1.4) * 0.6 + (tn(q * 0.08 + t * 0.2) - 0.5) * 1.6,
+                        sin(q.y * 0.05 - t * 0.9) + sin((q.y - q.x) * 0.083 + t * 1.2) * 0.6 + (tn(q * 0.08 - t * 0.2 + 4.0) - 0.5) * 1.6);
+          normal = normalize(normal + mat3(viewMatrix) * vec3(w.x, 0.0, w.y) * 0.09);
+        }`);
+  };
+  return m;
+}
+
+// ── Fachadas: color por manzana (cal, terracota, ocre, azul, rosa), ventanas de día ──
+export function facadeMaterial(base) {
+  const m = base.clone();
+  m.onBeforeCompile = (sh) => {
+    worldVarying(sh, 'vFW');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
+      {
+        float win = clamp(dot(totalEmissiveRadiance, vec3(0.333)) / 2.4, 0.0, 1.0);
+        float h = th(floor(vFW.xz / 34.0) + floor(vFW.y / 60.0) * 7.0);
+        vec3 pal = h < 0.22 ? vec3(0.95, 0.93, 0.88) : h < 0.4 ? vec3(0.84, 0.44, 0.27) : h < 0.57 ? vec3(0.96, 0.78, 0.44)
+          : h < 0.72 ? vec3(0.5, 0.7, 0.84) : h < 0.86 ? vec3(0.93, 0.6, 0.6) : vec3(0.98, 0.97, 0.94);
+        diffuseColor.rgb = mix(pal * (0.85 + 0.25 * dot(diffuseColor.rgb, vec3(0.333))), vec3(0.08, 0.14, 0.19), win * 0.8);
+        totalEmissiveRadiance *= 0.03;
+      }`);
+  };
+  m.emissiveIntensity = 1;
+  m.metalness = 0.05; m.roughness = 0.8;
+  return m;
+}
+
+// ── Piezas pintadas por celdas del mundo (cada monolito / bloque con su color) ──
+export function paintedMaterial(base, palette, cell = 240) {
+  const m = base.clone();
+  m.color.setRGB(1, 1, 1);
+  m.metalness = 0.08; m.roughness = 0.72;
+  const cols = palette.map((h) => new THREE.Color(h));
+  m.onBeforeCompile = (sh) => {
+    worldVarying(sh, 'vPW');
+    const list = cols.map((c) => `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+      {
+        float h = th(floor(vPW.xz / ${cell.toFixed(1)}) + 0.37);
+        int k = int(floor(h * ${list.length}.0));
+        vec3 c = ${list.map((v, i) => i < list.length - 1 ? `k == ${i} ? ${v} : ` : v).join('')};
+        diffuseColor.rgb *= c;
+      }`);
+  };
+  return m;
+}
+
+// ── Arbolado ──
+// Muestrea triángulos del terreno orientados hacia arriba y reparte cipreses, pinos y arbustos en flor.
+export function plantTrees(parent, landMeshes, track, count = 2600) {
+  const tris = [], areas = [];
+  let total = 0;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  for (const o of landMeshes) {
+    const g = o.geometry, p = g.attributes.position, idx = g.index;
+    const tc = idx ? idx.count / 3 : p.count / 3;
+    for (let t = 0; t < tc; t++) {
+      const i0 = idx ? idx.getX(t * 3) : t * 3, i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1, i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+      a.fromBufferAttribute(p, i0).applyMatrix4(o.matrixWorld);
+      b.fromBufferAttribute(p, i1).applyMatrix4(o.matrixWorld);
+      c.fromBufferAttribute(p, i2).applyMatrix4(o.matrixWorld);
+      n.crossVectors(e1.subVectors(b, a), e2.subVectors(c, a));
+      const ar = n.length() / 2;
+      if (ar < 1) continue;
+      n.normalize();
+      if (Math.abs(n.y) < 0.8) continue;
+      if ((a.y + b.y + c.y) / 3 < -38) continue;           // ni en la playa ni bajo el agua
+      tris.push([a.clone(), b.clone(), c.clone()]);
+      total += ar; areas.push(total);
+    }
+  }
+  if (!tris.length) return null;
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const clump = (x, z) => Math.sin(x * 0.011) * Math.sin(z * 0.013 + 1.7) + Math.sin((x + z) * 0.004) * 0.8;
+  const spots = [];
+  const loc = {};
+  for (let k = 0; k < count * 4 && spots.length < count; k++) {
+    const r = rnd() * total;
+    let lo = 0, hi = areas.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (areas[mid] < r) lo = mid + 1; else hi = mid; }
+    const [A, B, C] = tris[lo];
+    let u = rnd(), v = rnd(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
+    const P = A.clone().addScaledVector(e1.subVectors(B, A), u).addScaledVector(e2.subVectors(C, A), v);
+    if (clump(P.x, P.z) < -0.2 + rnd() * 0.6) continue;     // bosquetes, no una alfombra uniforme
+    track.locate(P, loc);
+    if (!loc.far && loc.dist < 34) continue;               // fuera del trazado y de los pilares
+    spots.push(P);
+  }
+
+  const group = new THREE.Group();
+  const leaf = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, flatShading: true });
+  const bark = new THREE.MeshStandardMaterial({ color: 0x6b4a33, roughness: 0.9 });
+  const kinds = {
+    cypress: { geo: new THREE.ConeGeometry(2.1, 17, 7).translate(0, 8.5, 0), mat: leaf, list: [] },
+    pineTop: { geo: new THREE.SphereGeometry(1, 9, 5).scale(7.5, 2.6, 7.5).translate(0, 11, 0), mat: leaf, list: [] },
+    trunk: { geo: new THREE.CylinderGeometry(0.45, 0.8, 11, 6).translate(0, 5.5, 0), mat: bark, list: [] },
+    bush: { geo: new THREE.IcosahedronGeometry(3.4, 0).translate(0, 2.4, 0), mat: leaf, list: [] },
+  };
+  const greens = [0x2c5a26, 0x3e6b2a, 0x4f7d2e, 0x2f4f2a];
+  const blooms = [0xd8338a, 0xf2c230, 0xe8563a, 0x9a6fd0, 0x3e7a2c, 0x5a8a34];
+  const col = new THREE.Color();
+  for (const P of spots) {
+    const r = rnd(), s = 0.75 + rnd() * 0.6, rot = rnd() * Math.PI * 2;
+    const m = new THREE.Matrix4().compose(P.clone().setY(P.y - 0.5), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot), new THREE.Vector3(s, s * (0.85 + rnd() * 0.4), s));
+    if (r < 0.42) kinds.cypress.list.push([m, col.setHex(greens[(rnd() * 2) | 0]).clone()]);
+    else if (r < 0.72) { kinds.pineTop.list.push([m, col.setHex(greens[1 + ((rnd() * 3) | 0)]).clone()]); kinds.trunk.list.push([m, col.setHex(0xffffff).clone()]); }
+    else kinds.bush.list.push([m, col.setHex(blooms[(rnd() * blooms.length) | 0]).clone()]);
+  }
+  for (const k of Object.values(kinds)) {
+    if (!k.list.length) continue;
+    const im = new THREE.InstancedMesh(k.geo, k.mat, k.list.length);
+    k.list.forEach(([m, c], i) => { im.setMatrixAt(i, m); im.setColorAt(i, c); });
+    im.instanceMatrix.needsUpdate = true;
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    im.receiveShadow = true;
+    im.computeBoundingSphere();
+    group.add(im);
+  }
+  parent.add(group);
+  return { group, count: spots.length };
+}
