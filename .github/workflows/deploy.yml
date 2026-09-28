@@ -14,10 +14,10 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Publicar en Firebase (se salta si falta FIREBASE_PROJECT_ID)
-        if: ${{ vars.FIREBASE_PROJECT_ID != '' }}
+        if: ${{ vars.FIREBASE_PROJECT_ID != '' || vars.SARUS2026 != '' }}
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.SARUS2026 }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID || vars.SARUS2026 }}
           channelId: live
