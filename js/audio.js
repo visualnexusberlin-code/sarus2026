@@ -36,11 +36,11 @@ export class Audio {
     amb.connect(this.ambGain).connect(this.master); amb.start();
   }
 
-  // Música (Between Two Corners): incrustada en base64 en la versión publicada, music.mp3 en local
+  // Música (Obsidian Perimeter): incrustada en base64 en la versión publicada, archivo aparte en la web
   music(fromStart = false) {
     if (!this.track) {
       const el = document.getElementById('music-data');
-      const src = el ? 'data:audio/mpeg;base64,' + el.textContent.trim() : 'music.mp3';
+      const src = el ? 'data:audio/mpeg;base64,' + el.textContent.trim() : 'music-obsidian-perimeter.mp3';
       this.track = new window.Audio(src); this.track.loop = true; this.track.volume = 0.5;
     }
     this.track.muted = this.muted;

@@ -14,8 +14,8 @@ fs.mkdirSync('dist', { recursive: true });
 // 1) Web (Firebase): página ligera; modelos y música como archivos aparte (sin límite de tamaño, caché del navegador)
 const web = head + `<script>\n${js}\n</script>` + tail;
 fs.writeFileSync('dist/index.html', web);
-for (const f of ['saturn6.glb', 'ships16.glb', 'music.mp3']) fs.copyFileSync(f, 'dist/' + f);
+for (const f of ['saturn6.glb', 'ships16.glb', 'music-obsidian-perimeter.mp3']) fs.copyFileSync(f, 'dist/' + f);
 // 2) Visor de Claude: todo incrustado en un solo archivo (límite 16 MB)
-const single = head + `<script id="model-data" type="text/plain">\n${b64}</script>\n<script id="model-fleet" type="text/plain">\n${b64f}</script>\n<script id="music-data" type="text/plain">${fs.readFileSync('music.mp3').toString('base64')}</script>\n<script>\n${js}\n</script>` + tail;
+const single = head + `<script id="model-data" type="text/plain">\n${b64}</script>\n<script id="model-fleet" type="text/plain">\n${b64f}</script>\n<script id="music-data" type="text/plain">${fs.readFileSync('music-obsidian-perimeter.mp3').toString('base64')}</script>\n<script>\n${js}\n</script>` + tail;
 fs.writeFileSync('dist/single.html', single);
 console.log('web', (web.length / 1e6).toFixed(2), 'MB + modelos · single', (single.length / 1e6).toFixed(2), 'MB · js', (js.length / 1e3).toFixed(0), 'KB');

@@ -38,7 +38,7 @@ export class Showroom {
     }
 
     this.stage = new THREE.Group();
-    this.stage.scale.setScalar(1 / (CONFIG.shipScale || 1));   // en el hangar, a tamaño real
+    this.stage.scale.setScalar(0.78 / (CONFIG.shipScale || 1));   // en el hangar, algo por debajo del tamaño real
     s.add(this.stage);
     this.displays = ships.map((sh, k) => {
       const g = new THREE.Group();
