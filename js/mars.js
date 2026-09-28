@@ -260,7 +260,31 @@ export function buildMars(def, { world, own, srcMat }) {
   };
   const inNear = (x, z, m = 0) => x > near.x0 + m && x < near.x1 - m && z > near.z0 + m && z < near.z1 - m;
   const cx = (near.x0 + near.x1) / 2, cz = (near.z0 + near.z1) / 2;
-  const geoNear = grid(near.x0, near.x1, near.z0, near.z1, 18, ground);
+  // bocas del túnel: sin terreno sobre el pasillo de la pista (el campo de alturas no admite voladizos)
+  const portals = tunnel ? [tunnel.s, tunnel.s + tunnel.len].map((s) => { track.sample(s, F); return F.pos.clone(); }) : [];
+  const lcP = {}, pP = new THREE.Vector3();
+  const portalSkip = (x, z) => {
+    if (!portals.some((q) => (q.x - x) ** 2 + (q.z - z) ** 2 < 75 * 75)) return false;
+    track.locate(pP.set(x, 0, z), lcP); if (lcP.far || lcP.dist > 26) return false;
+    const d = track.delta(tunnel.s, lcP.s);
+    return (d > -24 && d < 16) || (d > tunnel.len - 16 && d < tunnel.len + 24);
+  };
+  const geoNear = grid(near.x0, near.x1, near.z0, near.z1, 18, ground, portalSkip);
+  // fachada de roca con el arco abierto en cada boca
+  if (tunnel) {
+    const outer = [[-23, -1.5], [-23, 10], [-18, 16], [-7, 18.5], [7, 18.5], [18, 16], [23, 10], [23, -1.5]];
+    for (const [s, sgn] of [[tunnel.s - 3, -1], [tunnel.s + tunnel.len + 3, 1]]) {
+      const sh = new THREE.Shape([new THREE.Vector2(-70, -30), new THREE.Vector2(70, -30), new THREE.Vector2(70, 52), new THREE.Vector2(-70, 52)]);
+      sh.holes.push(new THREE.Path(outer.map(([x, h]) => new THREE.Vector2(x * 0.97, h * 0.97)).reverse()));
+      const g = new THREE.ExtrudeGeometry(sh, { depth: 22, bevelEnabled: false, curveSegments: 4 });
+      g.translate(0, 0, sgn > 0 ? 0 : -22);
+      track.sample(s, F);
+      g.applyMatrix4(new THREE.Matrix4().makeBasis(F.right.clone().negate(), F.up, F.tan));
+      g.translate(F.pos.x, F.pos.y, F.pos.z);
+      g.computeVertexNormals();
+      const fm = new THREE.Mesh(g, tmat); fm.receiveShadow = true; world.add(fm);
+    }
+  }
   const MID = 22000;
   const geoMid = grid(cx - MID, cx + MID, cz - MID, cz + MID, 170, (x, z) => full(x, z) - (inNear(x, z, -400) ? 6 : 0), (x, z) => inNear(x, z, 170));
   // disco lejano (anillos polares)
@@ -366,7 +390,7 @@ class MarsDust {
       g.putImageData(img, 0, 0);
       const t = new THREE.CanvasTexture(c); return t;
     })();
-    this.count = 90; this.box = 700;
+    this.count = 140; this.box = 700;
     const geo = new THREE.PlaneGeometry(1, 1);
     this.mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, fog: true,
@@ -423,12 +447,15 @@ class MarsDust {
         }`,
     });
     const F = track.frame();
-    [[0.2, -1, 1400], [0.55, 1, 2100], [0.72, 1, 1700], [0.9, -1, 2600]].forEach(([f, side, off]) => {
+    const spots = [[0.2, -1, 1400], [0.55, 1, 2100], [0.72, 1, 1700], [0.9, -1, 2600]];
+    for (let i = 0; i < 16; i++) spots.push([(i + 0.5) / 16 + (Math.random() - 0.5) * 0.03, i % 2 ? 1 : -1, 160 + Math.random() * 520, true]);   // remolinos cercanos, a la vista desde la pista
+    spots.forEach(([f, side, off, small]) => {
       track.sample(f * track.length, F);
       const p = F.pos.clone().addScaledVector(F.right, side * off);
-      const h = 900 + Math.random() * 500;
-      const cone = new THREE.CylinderGeometry(90, 18, h, 24, 8, true); cone.translate(0, h / 2, 0);
+      const h = small ? 160 + Math.random() * 280 : 900 + Math.random() * 500;
+      const cone = small ? new THREE.CylinderGeometry(26 + Math.random() * 18, 6, h, 18, 6, true) : new THREE.CylinderGeometry(90, 18, h, 24, 8, true); cone.translate(0, h / 2, 0);
       const m = new THREE.Mesh(cone, dmat); m.position.set(p.x, ground(p.x, p.z) - 10, p.z);
+      m.userData = { base: m.position.clone(), ph: Math.random() * 6.28, r: small ? 40 + Math.random() * 60 : 0, spin: small ? 1.4 + Math.random() : 0.8 };
       parent.add(m); this.devils.push(m);
     });
   }
@@ -445,6 +472,7 @@ class MarsDust {
     }
     this.seeded = true;
     this.attr.needsUpdate = true;
-    for (const d of this.devils) d.rotation.y += dt * 0.8;
+    this.t = (this.t || 0) + dt;
+    for (const d of this.devils) { const u = d.userData; d.rotation.y += dt * u.spin; if (u.r) { d.position.x = u.base.x + Math.sin(this.t * 0.11 + u.ph) * u.r; d.position.z = u.base.z + Math.cos(this.t * 0.09 + u.ph) * u.r; d.scale.x = d.scale.z = 1 + 0.15 * Math.sin(this.t * 0.7 + u.ph); } }
   }
 }

@@ -24,6 +24,7 @@ import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { TouchControls, IS_TOUCH } from './touch.js';
 import { FLEET, DEFAULT_SHIP, statsFor, traits } from './fleet.js';
+import { Flyers } from './flyers.js';
 import { AIDriver, resolveCollisions } from './ai.js';
 import { Showroom } from './showroom.js';
 import { Pickups, Missiles } from './pickups.js';
@@ -344,7 +345,7 @@ function buildCircuit(def) {
   G.circuitId = def.id;
   applyLook(def);
   const own = G.disposables = [];
-  G.circuitFx = null; G.introKeys = null;
+  G.circuitFx = null; G.introKeys = null; G.flyers?.dispose(); G.flyers = null;
   if (def.generated === 'mars') return buildGenerated(def, own, t0);
   const circuit = G.circuitSrc.clone(true);
   circuit.updateMatrixWorld(true);
@@ -899,6 +900,7 @@ function updateRace(dt) {
       i = ai.update(dt, G.ships, rubber);
     }
     sh.update(dt, i, locked);
+    if (sh === ship && sh.landEvent) { G.chase.addShake(sh.landEvent); sh.landEvent = 0; }
   }
   if (running) {
     G.pickups.update(dt, G.ships, (sh, it) => {
@@ -1178,6 +1180,9 @@ function tick(dt) {
   }
   if (G.state !== 'select') G.fx.motes.update(camera, G.paused ? 0 : dt);
   if (G.state !== 'select' && !G.paused) G.circuitFx?.update(dt, camera);
+  if (!G.flyers && G.track && G.ships.length) G.flyers = new Flyers(scene, G.track, G.ships, G.circuitId === 'olympus' ? 8 : 6);
+  if (G.flyers && G.state !== 'select' && !G.paused) G.flyers.update(dt);
+  if (G.flyers) G.flyers.group.visible = G.state !== 'select';
 
   // dentro del túnel baja la luz global (el techo y las cuadernas ya arrojan sombra)
   trackUniforms.uTime.value = G.time;

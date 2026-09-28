@@ -206,7 +206,7 @@ export class Ship {
     this.throttle = 0; this.accel = 0;
     this.distance = 0;
     this.wallHit = 0; this.scraping = 0; this.bump = 0;
-    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.lift = 0; this.kv = 0;
+    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
     this.qt = 0; this.qtDir = 0; this.qtCool = 0; this.power = 0.2;
     this.hull = this.maxHull; this.dead = 0; this.invuln = 0; this.draft = 0;
     this.root.visible = true;
@@ -358,11 +358,21 @@ export class Ship {
     this.kv = kv;
     this.bump = Math.max(0, this.bump - dt * 3);
 
+    // Suspensión visual: el colchón magnético se comprime en valles y al aterrizar, y rebota
+    const inAir = tr.jumpLift(this.s, this.v) > 0.05;
+    if (this.wasAir && !inAir) { const imp = Math.min(7, 2 + this.v * 0.035); this.suspV -= imp; this.landEvent = Math.min(1.2, 0.35 + this.v * 0.004); }
+    this.wasAir = inAir;
+    const aV = inAir ? 0 : THREE.MathUtils.clamp(kv * this.v * this.v, -60, 60);   // aceleración vertical de la rasante
+    const Ks = 70 / C.mass, Ds = 6.5 / Math.sqrt(C.mass);
+    this.suspV += (-Ks * this.susp - Ds * this.suspV - aV * 0.4 + (inAir ? Ks * 0.22 : 0)) * dt;
+    this.susp = THREE.MathUtils.clamp(this.susp + this.suspV * dt, -0.6, 0.45);
+
     // Actitud visual
-    const rollT = -this.omega * C.lean + (abR - abL) * 0.12 * sp + (qtOn ? this.qtDir * 0.4 : 0);
+    const rollT = Math.sin(this.t * 17) * this.suspV * 0.012 - this.omega * C.lean + (abR - abL) * 0.12 * sp + (qtOn ? this.qtDir * 0.4 : 0);
     this.roll += (rollT - this.roll) * Math.min(1, dt * 5 / Math.sqrt(C.mass));
     const pitchT = -THREE.MathUtils.clamp(this.accel * 0.0025 * C.pitchK, -0.09, 0.09) + this.hv * 0.02
-      + THREE.MathUtils.clamp(-kv * this.v * 0.3, -0.07, 0.07);   // morro arriba en el valle, abajo en la cresta
+      + THREE.MathUtils.clamp(-kv * this.v * 0.3, -0.07, 0.07)
+      + THREE.MathUtils.clamp(-this.suspV * 0.018, -0.08, 0.08);   // morro arriba en el valle, abajo en la cresta
     this.pitch += (pitchT - this.pitch) * Math.min(1, dt * 3);
     this.yawVis += ((this.psi - this.phi) * C.driftYaw - this.yawVis) * Math.min(1, dt * 6);
     this.spin = Math.max(0, this.spin - dt * 0.9);
@@ -402,6 +412,7 @@ export class Ship {
     const spinYaw = this.spin > 0 ? Math.PI * 2 * (1 - Math.pow(1 - sp, 2)) : 0;
     _e.set(this.pitch + Math.sin(sp * 20) * this.spin * 0.25, this.yawVis + spinYaw, this.roll + Math.sin(sp * 14) * this.spin * 0.6, 'YXZ');
     this.body.quaternion.setFromEuler(_e);
+    this.body.position.y = this.susp || 0;
     const cp = Math.cos(this.phi), sphi = Math.sin(this.phi);
     this.velocity.copy(F.tan).multiplyScalar(cp).addScaledVector(F.right, -sphi).multiplyScalar(this.v);
   }
