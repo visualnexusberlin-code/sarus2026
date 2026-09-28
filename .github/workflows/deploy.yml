@@ -13,7 +13,9 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Publicar en Firebase (se salta si falta FIREBASE_PROJECT_ID)
+        if: ${{ vars.FIREBASE_PROJECT_ID != '' }}
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
