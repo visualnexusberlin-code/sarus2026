@@ -112,12 +112,14 @@ export function buildItaka(def, { world, own, srcMat }) {
     const w = 1 - sstep(26, 90, loc.dist);
     return lerp(h, loc.deckY - 2.2, w);
   };
+  const mouths = [];
+  for (let i = 0; i < buried.length; i++) { const a = buried[i], b = buried[(i + 1) % buried.length]; if (a !== b) mouths.push({ s: (i + 1) * 6, into: b }); }
   const lc2 = {}, p2 = new THREE.Vector3();
   const skipCell = (x, z) => {
     const d = Math.hypot(x - centroid.x, z - centroid.z); if (d > R_I) return true;
     const h = base(x, z); track.locate(p2.set(x, h, z), lc2);
-    if (lc2.far || lc2.dist > 30) return false;
-    return false;
+    if (lc2.far || lc2.dist > 28) return false;
+    return mouths.some((mo) => Math.abs(track.delta(mo.s, lc2.s)) < 34);   // boca: el campo de alturas no admite voladizos
   };
 
   // ── Materiales ──
@@ -232,7 +234,7 @@ export function buildItaka(def, { world, own, srcMat }) {
   }
 
   // ── Isla: superficie, borde rocoso inferior y rocas flotantes ──
-  const tmat = islandMaterial(); own.push(tmat);
+  const tmat = islandMaterial(); own.push(tmat, tmat.userData.grass);
   const grid = (x0, x1, z0, z1, step, hf, skip) => {
     const nx = Math.ceil((x1 - x0) / step), nz = Math.ceil((z1 - z0) / step);
     const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [];
@@ -254,8 +256,6 @@ export function buildItaka(def, { world, own, srcMat }) {
   // bocas: pared de roca con el arco del tubo recortado, donde el terreno se abre
   const rockM = underRockMaterial(); own.push(rockM);
   {
-    const mouths = [];
-    for (let i = 0; i < buried.length; i++) { const a = buried[i], b = buried[(i + 1) % buried.length]; if (a !== b) mouths.push({ s: (i + 1) * 6, into: b }); }
     const parts2 = [], litRings = [];
     const outer = [[-21, -3], ...arc.map(([x, h]) => [x * 1.07, h * 1.06 + 0.3]), [21, -3]];
     for (const mo of mouths) {
@@ -277,6 +277,7 @@ export function buildItaka(def, { world, own, srcMat }) {
   {
     const prof = []; const depth = 2600;
     for (let i = 0; i <= 24; i++) { const t = i / 24; prof.push(new THREE.Vector2(Math.max(8, (R_I + 30) * Math.pow(1 - t, 0.55) * (1 - 0.12 * Math.sin(t * 9))), 20 - 90 * sstep(0, 0.08, t) - depth * t)); }
+    prof.reverse();                                      // de abajo arriba: normales hacia fuera
     const g = new THREE.LatheGeometry(prof, 140);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
@@ -302,30 +303,62 @@ export function buildItaka(def, { world, own, srcMat }) {
     }
     im.computeBoundingSphere(); world.add(im);
   }
-  // bosques de pinos (conos) en manchas, lejos del tubo
+  // bosques: siluetas pintadas en tres planos cruzados alrededor de un eje vertical (pino y frondoso)
   {
-    const cone = new THREE.ConeGeometry(4, 16, 6); cone.translate(0, 8, 0); own.push(cone);
-    const tm = new THREE.MeshStandardMaterial({ color: 0x3a6b3c, roughness: 0.85 }); own.push(tm);
-    const n = 5000, im = new THREE.InstancedMesh(cone, tm, n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), lc = {};
-    let k = 0, tries = 0;
-    while (k < n && tries < n * 8) {
-      tries++;
-      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * (R_I - 150);
-      const x = centroid.x + Math.cos(a) * r, z = centroid.z + Math.sin(a) * r;
-      if (fbm(x * 0.0025 + 9, z * 0.0025, 3) < 0.52) continue;
-      track.locate(ps.set(x, 0, z), lc); if (!lc.far && lc.dist < 55) continue;
-      const s = 0.8 + Math.random() * 0.9;
-      ps.set(x, ground(x, z) - 1, z);
-      im.setMatrixAt(k++, m4.compose(ps, q.setFromEuler(new THREE.Euler(0, Math.random() * 6, 0)), sc.set(s, s * (0.8 + Math.random() * 0.6), s)));
+    const cross = (w, h) => {
+      const gs = [];
+      for (let k = 0; k < 3; k++) {
+        const g = new THREE.PlaneGeometry(w, h, 1, 2); g.translate(0, h / 2, 0); g.rotateY(k * Math.PI / 3);
+        const nn = g.attributes.normal, pp = g.attributes.position;
+        for (let i = 0; i < nn.count; i++) { const x = pp.getX(i), z = pp.getZ(i), l = Math.hypot(x, z) || 1; const v = new THREE.Vector3(x / l * 0.55, 0.85, z / l * 0.55).normalize(); nn.setXYZ(i, v.x, v.y, v.z); }
+        gs.push(g);
+      }
+      const m = mergeGeometries(gs, false); gs.forEach((g) => g.dispose()); return m;
+    };
+    const kinds = [
+      { geo: cross(9, 20), map: treeTexture('pine'), n: 3600 },
+      { geo: cross(13, 14), map: treeTexture('broad'), n: 1600 },
+    ];
+    const lc = {}, ps = new THREE.Vector3(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    for (const kd of kinds) {
+      own.push(kd.geo, kd.map);
+      const tm = new THREE.MeshStandardMaterial({ map: kd.map, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 }); own.push(tm);
+      const im = new THREE.InstancedMesh(kd.geo, tm, kd.n);
+      let k = 0, tries = 0;
+      while (k < kd.n && tries < kd.n * 10) {
+        tries++;
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * (R_I - 150);
+        const x = centroid.x + Math.cos(a) * r, z = centroid.z + Math.sin(a) * r;
+        const f = fbm(x * 0.0025 + 9, z * 0.0025, 3);
+        if (kd.n > 2000 ? f < 0.52 : (f < 0.44 || f > 0.56)) continue;                  // pinos en el bosque, frondosos en los lindes
+        track.locate(ps.set(x, 0, z), lc); if (!lc.far && lc.dist < 55) continue;
+        const s = 0.75 + Math.random() * 0.6;
+        ps.set(x, ground(x, z) - 0.8, z);
+        im.setMatrixAt(k++, m4.compose(ps, q.setFromEuler(new THREE.Euler(0, Math.random() * 6.28, 0)), sc.set(s, s * (0.85 + Math.random() * 0.4), s)));
+      }
+      im.count = k; im.computeBoundingSphere(); im.receiveShadow = true; world.add(im);
     }
-    im.count = k; im.computeBoundingSphere(); im.castShadow = false; im.receiveShadow = true; world.add(im);
   }
 
   // ── Cúpula de rejilla hexagonal sobre toda la isla ──
   const RD = R_I * 1.02;
-  const hexD = hexT.clone(); hexD.needsUpdate = true; hexD.repeat.set(90, 26); own.push(hexD);
-  const domeM = new THREE.MeshStandardMaterial({ color: 0xa9c7d6, transparent: true, alphaMap: hexD, roughness: 0.3, metalness: 0.9, depthWrite: false, side: THREE.DoubleSide, emissive: 0x4ad2ff, emissiveMap: hexD, emissiveIntensity: 0.45, fog: false });
-  domeM.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <alphamap_fragment>', 'diffuseColor.a *= 0.025 + 0.6 * texture2D( alphaMap, vAlphaMapUv ).g;'); };
+  const domeM = new THREE.MeshStandardMaterial({ color: 0xa9c7d6, transparent: true, roughness: 0.3, metalness: 0.9, depthWrite: false, side: THREE.DoubleSide, emissive: 0x4ad2ff, emissiveIntensity: 0.5, fog: false });
+  const CELLS = RD / 70;                                                     // celdas de ~70 m en toda la cúpula
+  domeM.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vDome;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvDome = normalize(position);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vDome;
+      const vec2 HS = vec2(1.0, 1.7320508);
+      float hexD(vec2 p){ p = abs(p); return max(dot(p, HS * 0.5), p.x); }
+      vec2 hexLocal(vec2 uv){ vec4 hC = floor(vec4(uv, uv - vec2(0.5, 1.0)) / HS.xyxy) + 0.5; vec4 h = vec4(uv - hC.xy * HS, uv - (hC.zw + 0.5) * HS); return dot(h.xy, h.xy) < dot(h.zw, h.zw) ? h.xy : h.zw; }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      float th = acos(clamp(vDome.y, -1.0, 1.0)), ph = atan(vDome.z, vDome.x);
+      vec2 uvD = vec2(cos(ph), sin(ph)) * th * ${CELLS.toFixed(2)};
+      float e = 0.5 - hexD(hexLocal(uvD)), aa = fwidth(e) * 1.2;
+      float mDome = 1.0 - smoothstep(0.035, 0.035 + aa, e);`)
+      .replace('#include <alphamap_fragment>', 'diffuseColor.a *= 0.02 + 0.62 * mDome;')
+      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance *= mDome;');
+  };
   own.push(domeM);
   const dome = new THREE.Mesh(new THREE.SphereGeometry(RD, 160, 48, 0, Math.PI * 2, 0, Math.PI / 2), domeM);
   dome.position.set(centroid.x, -60, centroid.z); dome.scale.y = 0.42; dome.renderOrder = 4; dome.frustumCulled = false;
@@ -346,19 +379,23 @@ export function buildItaka(def, { world, own, srcMat }) {
 
   let ymin = Infinity, ymax = -Infinity; for (const v of y) { ymin = Math.min(ymin, v); ymax = Math.max(ymax, v); }
   console.info(`[SRS] NUEVA-ITAKA: ${track.length.toFixed(0)} m · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · tramos bajo tierra ${runs.map((r) => r.len.toFixed(0)).join('+')} m · isla r=${R_I.toFixed(0)} m · ${(performance.now() - T0).toFixed(0)} ms`);
+  space.mouths = mouths;
   return { track, ground, tunnel, introKeys, fx: space };
 }
 
 // ── Praderas y bosque de la isla (verde apagado, caminos de piedra, roca en las pendientes) ──
 function islandMaterial() {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.0 });
+  const grass = grassTexture();
+  m.userData.grass = grass;
   m.onBeforeCompile = (sh) => {
+    sh.uniforms.uGrass = { value: grass };
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vMW;\nvarying vec3 vMN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvMN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying vec3 vMW; varying vec3 vMN;
+        varying vec3 vMW; varying vec3 vMN; uniform sampler2D uGrass;
         float mh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
         float mn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mh(i), mh(i+vec2(1,0)), f.x), mix(mh(i+vec2(0,1)), mh(i+vec2(1,1)), f.x), f.y); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -371,12 +408,61 @@ function islandMaterial() {
           // parcelas de cultivo (como el valle del Eifel)
           vec2 fld = floor(P.xz / vec2(140.0, 90.0)); float fv = mh(fld);
           c = mix(c, mix(vec3(0.5, 0.45, 0.24), vec3(0.3, 0.4, 0.16), fv), step(0.72, fv) * smoothstep(0.7, 0.95, up) * 0.6);
-          c = mix(c, rock, 1.0 - smoothstep(0.62, 0.86, up));
-          c *= 0.82 + 0.3 * n3;
+          // briznas: la misma textura a dos escalas y giradas, para no ver la repetición
+          vec3 g1 = texture2D(uGrass, P.xz * 0.19).rgb, g2 = texture2D(uGrass, mat2(0.8, -0.6, 0.6, 0.8) * P.xz * 0.037).rgb;
+          vec3 gd = mix(g1, g2, 0.45 + 0.3 * n2);
+          float grassy = smoothstep(0.7, 0.9, up);
+          c *= mix(vec3(1.0), gd * 1.9, grassy * 0.85);
+          c = mix(c, c * vec3(1.08, 1.02, 0.78), smoothstep(0.55, 0.75, mn(P.xz * 0.006 + 4.0)) * grassy * 0.5);   // manchas secas
+          c = mix(c, c * vec3(0.8, 0.95, 1.02), smoothstep(0.6, 0.8, mn(P.xz * 0.004 + 11.0)) * grassy * 0.4);  // manchas frescas
+          c = mix(c, rock * (0.8 + 0.4 * gd.g), 1.0 - smoothstep(0.62, 0.86, up));
+          c *= 0.85 + 0.25 * n3;
           diffuseColor.rgb = c;
         }`);
   };
   return m;
+}
+// Textura de hierba: miles de briznas cortas en verdes y pajizos (se repite en coordenadas de mundo)
+function grassTexture() {
+  const W = 256, c = document.createElement('canvas'); c.width = c.height = W; const g = c.getContext('2d');
+  g.fillStyle = 'rgb(88,112,52)'; g.fillRect(0, 0, W, W);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 9000; i++) {
+    const x = rnd() * W, y = rnd() * W, L = 3 + rnd() * 7, a = -Math.PI / 2 + (rnd() - 0.5) * 1.2;
+    const t = rnd(), v = 0.7 + rnd() * 0.6;
+    const col = t < 0.12 ? [150, 140, 80] : t < 0.3 ? [70, 100, 40] : t < 0.8 ? [95, 128, 55] : [120, 150, 70];
+    g.strokeStyle = `rgba(${(col[0] * v) | 0},${(col[1] * v) | 0},${(col[2] * v) | 0},0.85)`; g.lineWidth = 0.8 + rnd() * 0.8;
+    for (const dx of [0, W, -W]) for (const dy of [0, W, -W]) { g.beginPath(); g.moveTo(x + dx, y + dy); g.lineTo(x + dx + Math.cos(a) * L, y + dy + Math.sin(a) * L); g.stroke(); }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+// Silueta de árbol pintada (pino por pisos o frondoso por racimos), con luz a un lado
+function treeTexture(kind) {
+  const W = 128, H = kind === 'pine' ? 256 : 160, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  let seed = kind === 'pine' ? 3 : 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = 'rgb(58,42,30)'; g.fillRect(W / 2 - 3, H * 0.72, 6, H * 0.28);                     // tronco
+  if (kind === 'pine') {
+    for (let i = 0; i < 9; i++) {                                                                  // pisos de ramas colgantes
+      const y0 = H * 0.06 + i * H * 0.085, w = 10 + i * 6.2, hgt = H * 0.16;
+      const shade = 0.75 + i * 0.03;
+      for (let k = 0; k < 60; k++) {
+        const u = rnd(), side = rnd() < 0.5 ? -1 : 1, x = W / 2 + side * u * w, y = y0 + hgt * (0.35 + u * 0.65) + (rnd() - 0.5) * 6;
+        const lit = side > 0 ? 1.15 : 0.8;
+        g.fillStyle = `rgb(${(30 * shade * lit) | 0},${(62 * shade * lit + rnd() * 14) | 0},${(34 * shade * lit) | 0})`;
+        g.beginPath(); g.moveTo(W / 2, y0); g.lineTo(x, y); g.lineTo(x - side * 5, y + 3); g.closePath(); g.fill();
+      }
+    }
+  } else {
+    for (let k = 0; k < 140; k++) {                                                               // racimos de hojas
+      const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()), x = W / 2 + Math.cos(a) * r * W * 0.42, y = H * 0.38 + Math.sin(a) * r * H * 0.3;
+      const lit = 0.75 + 0.45 * ((x - W / 2) / W + 0.5) * (1 - (y / H)), rr = 5 + rnd() * 9;
+      g.fillStyle = `rgb(${(58 * lit) | 0},${(88 * lit + rnd() * 18) | 0},${(38 * lit) | 0})`;
+      g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
 }
 function underRockMaterial() {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.05 });
