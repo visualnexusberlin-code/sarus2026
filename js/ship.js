@@ -8,7 +8,42 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const _m = new THREE.Matrix4(), _e = new THREE.Euler();
 const _v = new THREE.Vector3();
 const ION_RE = /_Ion|Reactor red/i;
-const QT = 0.5;            // duración del giro brusco asistido
+const QT = 0.5;
+// Desgaste de carrera en el shader (espacio del modelo): mugre, regueros hacia atrás, desconchones, arañazos y hollín trasero.
+const WEAR = { LUDOX: 0.85, 'PRIME-EX': 0.8, WOLFEN: 0.6, ADAX: 0.8, MANTA: 0.85, NEXUS: 0.3, ILION: 0.35, X3LEE: 0.35, 'HUE-MING': 0.3 };
+const NO_WEAR = /Ion|Hover|glass|Glass|canopy|Canopy|visor|Visor|HUD|PILOT|Name|LOGO|lamp|light|Light|Red|Cyan|Chrome/;
+function addWear(mat, k) {
+  mat.userData.wear = k;
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = position; vWN = normal;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vWP; varying vec3 vWN;
+      float wh(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
+      float wn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+        return mix(mix(mix(wh(i), wh(i+vec3(1,0,0)), f.x), mix(wh(i+vec3(0,1,0)), wh(i+vec3(1,1,0)), f.x), f.y),
+                   mix(mix(wh(i+vec3(0,0,1)), wh(i+vec3(1,0,1)), f.x), mix(wh(i+vec3(0,1,1)), wh(i+vec3(1,1,1)), f.x), f.y), f.z); }
+      float wf(vec3 p){ return wn(p) * 0.55 + wn(p * 2.3) * 0.3 + wn(p * 5.1) * 0.15; }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      float wearK = ${k.toFixed(2)};
+      vec3 P = vWP; vec3 Nw = normalize(vWN);
+      float grime = smoothstep(0.32, 0.72, wf(P * 2.2)) * (0.55 + 0.45 * (1.0 - max(Nw.y, 0.0)));
+      float streak = smoothstep(0.55, 0.85, wn(vec3(P.x * 11.0, P.y * 11.0, P.z * 0.55))) * smoothstep(2.5, -2.5, P.z);
+      float soot = smoothstep(-1.9, -3.0, P.z) * (0.6 + 0.4 * wn(P * 6.0));
+      float chips = smoothstep(0.7, 0.74, wf(P * 11.0 + 3.0)) * smoothstep(0.4, 0.6, wn(P * 2.4));
+      float faded = smoothstep(0.62, 0.8, wf(P * 1.3 + 7.0));
+      float scratch = smoothstep(0.93, 0.99, wn(vec3(P.x * 3.0, P.y * 70.0, P.z * 3.0))) * smoothstep(0.3, 0.7, wn(P * 1.3));
+      vec3 dirt = vec3(0.16, 0.14, 0.12);
+      diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.33))) * 1.25 + 0.04, 0.6), faded * 0.6 * wearK);
+      diffuseColor.rgb = mix(diffuseColor.rgb, dirt * (0.6 + 0.4 * wf(P * 9.0)), clamp(grime * 0.7 + streak * 0.6, 0.0, 0.85) * wearK);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.028, 0.026), soot * 0.7 * wearK);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.6, 0.61, 0.63), clamp(chips * 0.85 + scratch * 0.7, 0.0, 1.0) * wearK);
+      float wearRough = clamp((grime + streak + soot) * wearK, 0.0, 1.0);`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n      roughnessFactor = mix(roughnessFactor, 0.85, wearRough * 0.8);');
+  };
+  const baseKey = mat.customProgramCacheKey.bind(mat);
+  mat.customProgramCacheKey = () => baseKey() + '|wear' + k.toFixed(2);
+}            // duración del giro brusco asistido
 
 export class Ship {
   // model: Object3D con la nave (morro +Z, escala real en metros). def: entrada de FLEET + stats.
@@ -69,6 +104,7 @@ export class Ship {
     for (const [mat, geos] of groups) {
       const geo = mergeGeometries(geos, false);
       const m = new THREE.Mesh(geo, mat.clone());
+      if (WEAR[this.name] && !NO_WEAR.test(mat.name) && m.material.isMeshStandardMaterial) addWear(m.material, WEAR[this.name]);
       m.castShadow = true; m.receiveShadow = true;
       m.material.envMapIntensity = 1.0;
       m.material.side = THREE.DoubleSide;        // interiores de toberas y tomas visibles
