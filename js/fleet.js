@@ -2,7 +2,7 @@
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
 export const FLEET = [
-  { num: '01', node: 'ILION_1', hull: 3, flame: [0.3, 0.5, 1.0], name: 'ILION', tag: 'Flecha de recta. Dirección lenta y pesada, pide anticipar la curva.',
+  { num: '01', node: 'ILION_1', hull: 3, flame: [1.0, 0.76, 0.42], name: 'ILION', tag: 'Flecha de recta. Dirección lenta y pesada, pide anticipar la curva.',
     V: 5, A: 4, M: 3,
     style: { response: 5.2, grip: 5.8, gripAB: 7.8, ab: 0.85, mass: 1.15, lean: 0.32, bob: 0.04, bobHz: 1.8, drift: 0.2, pitch: 0.7 } },
   { num: '02', node: 'SCUBA_2', hull: 5, flame: [1.0, 0.62, 0.1], name: 'SCUBA', tag: 'Cirujana. Entra al vértice como sobre raíles, pero la recta se le hace larga.',
