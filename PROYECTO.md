@@ -55,7 +55,14 @@ Pendiente: legibilidad del nombre en WOLFEN (se mezcla con su librea) y HUE-MING
 - Atardecer azul marciano (referencia de Dear): sol diminuto casi en el horizonte al final de la recta, halo azul frío, cielo tostado, suelo óxido con campos de rocas oscuras, bruma densa en las capas bajas, velos de polvo arrastrados por el viento y remolinos en la ladera. Grading más monocromo.
 - Se desbloquea tras ARCADIA-2; el campeonato pasa a 3 carreras.
 
-## Relieve del tablero (los tres circuitos)
+## NUEVA-ITAKA (cuarta fase, isla orbital)
+- Circuito generado (`js/itaka.js`): trazado digitalizado de la referencia del Nordschleife (103 puntos ajustados a la banda de la imagen), 10,5 km.
+- Isla flotante en órbita baja: praderas, parcelas y bosques de pinos; cara inferior de roca que cuelga en el vacío y rocas flotando alrededor. Dos colinas altas (Hohe Acht ≈ 290 m y Wehrseifen ≈ 250 m) con subidas de hasta el 26 %.
+- La pista va entera dentro de un **tubo continuo**: cristal liso con cuadernas, cristal con rejilla hexagonal en las subidas y en tramos alternos, y **paneles hexagonales luminosos** en los tramos subterráneos (Flugplatz y Schwalbenschwanz). Las bocas llevan pórtico en arco con aro de luz.
+- Cúpula de rejilla hexagonal sobre toda la isla. Fondo: espacio con 9000 estrellas, la **Tierra** (océanos, continentes, nubes, luces nocturnas y atmósfera) y la **Luna**.
+- Se desbloquea tras OLYMPUS-3; el campeonato pasa a 4 carreras.
+
+## Relieve del tablero (todos los circuitos)
 Piezas alzadas reales (`js/deckdetail.js`): costillas transversales en frenadas, bordillos en diente de sierra por el interior de las curvas, carriles en relieve y campos de placas hexagonales en rectas, cajones de parrilla en la salida.
 
 ## Dirección visual

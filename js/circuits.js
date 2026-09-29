@@ -140,5 +140,41 @@ CIRCUITS.push({
   wind: [24, 1.2, -9],
 });
 
+// Cuarta fase: NUEVA-ITAKA, isla flotante en órbita (circuito generado en itaka.js)
+CIRCUITS.push({
+  id: 'itaka',
+  name: 'NUEVA-ITAKA',
+  sub: 'Isla orbital · tubo de cristal',
+  blurb: 'Isla flotante en órbita · tubo de cristal continuo · túneles hexagonales y dos colinas',
+  unlockAfter: 'olympus',
+  generated: 'itaka',
+  inSectorOrder: false,
+  hoverMax: 7,
+  far: 320000,
+  rockets: false,
+  atmosphere: {
+    sunDir: new THREE.Vector3(-0.62, 0.36, -0.7).normalize(),
+    baseDensity: 0.000004, heightDensity: 0.0, heightFalloff: 0.001, fogMax: 0.3,
+    exposure: 0.95, saturation: 0.9,
+    bloom: { strength: 0.34, radius: 0.55, threshold: 0.86 },
+    sky: {
+      horizon: [0.006, 0.008, 0.014], zenith: [0.002, 0.003, 0.006], below: [0.004, 0.005, 0.01], zLow: -0.2, zHigh: 0.6,
+      glow: [0.9, 0.9, 1.0], glowK: 0.05, glowExp: 60, haloCol: [1.0, 0.97, 0.9], halo: 0.12, haloExp: 900,
+      sun: [1.0, 0.98, 0.94], corona: 0.6, coronaExp: 4000, disc: 6.0, discExp: 40000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff6ea, sunI: 3.0, hemiSky: 0x9fb8d8, hemiGround: 0x1d2a1f, hemiI: 0.55, env: 0.6 },
+  grade: { tint: [0.98, 1.0, 1.04], vignette: 0.4, grain: 0.03, contrast: 0.24 },
+  paint: {
+    edge: [0.85, 0.95, 1.0], chev: [0.2, 0.8, 1.0], lane: [0.88, 0.9, 0.92],
+    kerbA: [0.9, 0.92, 0.95], kerbB: [0.15, 0.7, 0.95], edgeGlow: 0.5, chevGlow: 0.35, kerbGlow: 0.2,
+    buoy: 0x39d5ff, guide: 0x7fe8ff,
+  },
+  structures: { dark: 0x23282c, pale: 0x9aa4ab, lamp: 0x4fdcff, ivory: 0xeef6ff },
+  pad: 0x23282c,
+  cards: ['Speed Racing Skies', 'NUEVA-ITAKA'],
+});
+
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];
 export { hex };

@@ -30,6 +30,7 @@ import { Showroom } from './showroom.js';
 import { Pickups, Missiles } from './pickups.js';
 import { buildStructures } from './structures.js';
 import { buildMars, marsSunDir } from './mars.js';
+import { buildItaka } from './itaka.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
@@ -346,7 +347,7 @@ function buildCircuit(def) {
   applyLook(def);
   const own = G.disposables = [];
   G.circuitFx = null; G.introKeys = null; G.flyers?.dispose(); G.flyers = null;
-  if (def.generated === 'mars') return buildGenerated(def, own, t0);
+  if (def.generated) return buildGenerated(def, own, t0);
   const circuit = G.circuitSrc.clone(true);
   circuit.updateMatrixWorld(true);
   const arcadia = def.id === 'arcadia';
@@ -582,11 +583,13 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = buildMars(def, { world, own, srcMat });
+  const r = (def.generated === 'itaka' ? buildItaka : buildMars)(def, { world, own, srcMat });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
-  G.structures = buildStructures(world, track, def.structures, { tunnel: r.tunnel || false, bridges: 2, ground: r.ground, rock: true });
+  const own_tube = def.generated === 'itaka';          // NUEVA-ITAKA trae su propio tubo continuo: sin túnel ni puentes añadidos
+  G.structures = buildStructures(world, track, def.structures, { tunnel: own_tube ? false : (r.tunnel || false), bridges: own_tube ? 0 : 2, ground: r.ground, rock: true });
+  if (own_tube) G.structures.tunnel = r.tunnel;
   G.structures.group.traverse((o) => { if (o.isMesh) own.push(o.geometry, o.material); });
   G.circuitFx = r.fx; G.introKeys = r.introKeys;
   if (G.fx.rockets) G.fx.rockets.enabled = false;
