@@ -104,11 +104,24 @@ export class Ship {
       return { pos: c, r: Math.max(0.08, Math.max(maxX - minX, maxY - minY) / 2) };
     };
     if (pts.length) {
-      const L = pts.filter((p) => p.x > 0.05), R = pts.filter((p) => p.x < -0.05), C0 = pts.filter((p) => Math.abs(p.x) <= 0.05);
-      if (L.length && R.length && C0.length === 0) this.nozzles.push(cluster(L), cluster(R));
-      else this.nozzles.push(cluster(pts));
+      // grupos de vértices próximos (≤ 0,1 m) = una tobera cada uno; admite 1, 2 o más motores
+      const par = pts.map((_, i) => i), find = (i) => (par[i] === i ? i : (par[i] = find(par[i])));
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) if (pts[i].distanceToSquared(pts[j]) < 0.1 * 0.1) par[find(i)] = find(j);
+      const groups = new Map(); pts.forEach((p, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(p); });
+      for (const g of groups.values()) if (g.length >= 3) this.nozzles.push(cluster(g));
+      if (!this.nozzles.length) this.nozzles.push(cluster(pts));
+      for (const n of this.nozzles) n.r = Math.min(n.r, 0.38);
     } else {
       this.nozzles.push({ pos: new THREE.Vector3(0, 0.1, -this.length / 2), r: 0.2 });
+    }
+    // que la llama y el halo nazcan fuera del casco: detrás del punto más retrasado del casco a la altura de cada tobera
+    for (const n of this.nozzles) {
+      let zMin = n.pos.z;
+      for (const m of this.meshes) {
+        const p = m.geometry.attributes.position;
+        for (let i = 0; i < p.count; i++) if (Math.abs(p.getX(i) - n.pos.x) < n.r + 0.12 && Math.abs(p.getY(i) - n.pos.y) < n.r + 0.12) zMin = Math.min(zMin, p.getZ(i));
+      }
+      n.pos.z = zMin - 0.04;
     }
 
     // Puntas de ala: vértices extremos en x (para las estelas)
