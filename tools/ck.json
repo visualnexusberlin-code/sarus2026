@@ -1,0 +1,6 @@
+[
+ {"node":"SCUBA_2","name":"SCUBA","ell":[0,0.8,0.55,0.75,0.45,0.75],"pz":0.4,"tol":115,"close":4,"pilotScale":1.0},
+ {"node":"THULE_3","name":"THULE","ell":[0,0.85,0.1,0.36,0.42,0.62],"pz":0.45,"pilotScale":0.85,"tub":{"depth":0.55}},
+ {"node":"ADAX_7","name":"ADAX","ell":[0,0.6,0.8,0.42,0.32,1.02],"pz":0.38,"mode":"sat","satTol":0.16,"lumMin":0.16,"close":5,"pilotScale":0.85,"head":0.04,"tub":{"depth":0.6}},
+ {"node":"BERLIN_10","name":"BERLIN","ell":[0,0.8,1.0,0.4,0.38,1.12],"pz":0.38,"pilotScale":0.95,"drop":["_helmet$","_visor$","_gold$","_tub$","_pilotBody$"],"glassMat":"CanopyGlass"}
+]

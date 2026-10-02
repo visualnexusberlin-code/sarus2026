@@ -14,6 +14,41 @@ const WEAR = { LUDOX: 0.85, 'PRIME-EX': 0.8, WOLFEN: 0.6, ADAX: 0.8, MANTA: 0.85
 // Pulido: normales suavizadas por ángulo (quita el aspecto abollado de mallas generadas)
 const POLISH = { MANTA: 35 };
 const NO_WEAR = /Ion|Hover|glass|Glass|canopy|Canopy|visor|Visor|HUD|PILOT|Name|LOGO|lamp|light|Light|Red|Cyan|Chrome/;
+// Cabina recortada por máscara: dentro del elipsoide, los píxeles con el color del cristal pintado
+// desaparecen del casco y solo esos se dibujan en el cristal (borde exacto, sin dientes de triángulo).
+// El cristal es oscuro, casi opaco, con suciedad pegada al marco (_rim, horneado en la flota).
+function addCanopy(mat, cfg, glass) {
+  const prev = mat.onBeforeCompile;
+  const [cx, cy, cz, rx, ry, rz] = cfg.ell || [0, 0, 0, 1, 1, 1];
+  const ref = (cfg.ref || [0, 0, 0]).map((v) => (v / 255).toFixed(4));
+  const mask = !cfg.none;
+  mat.onBeforeCompile = (sh, r) => {
+    prev?.call(mat, sh, r);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>\nvarying vec3 vCP;${glass ? '\nattribute float _rim; varying float vRim;' : ''}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>\nvCP = position;${glass ? ' vRim = _rim;' : ''}`);
+    const test = mask ? `vec3 cq = (vCP - vec3(${cx}, ${cy}, ${cz})) / vec3(${rx}, ${ry}, ${rz});
+      vec3 cs = pow(max(diffuseColor.rgb, 0.0), vec3(1.0 / 2.2));
+      float cMx = max(cs.r, max(cs.g, cs.b)), cMn = min(cs.r, min(cs.g, cs.b));
+      bool colOk = ${cfg.mode === 'sat' ? `cMx - cMn < ${(+cfg.satTol).toFixed(3)} && dot(cs, vec3(0.2126, 0.7152, 0.0722)) > ${(+cfg.lumMin).toFixed(3)}` : `distance(cs, vec3(${ref.join(',')})) < ${(cfg.tol / 255).toFixed(4)}`};
+      bool isGlass = dot(cq, cq) < 1.0 && cq.y > -${(cfg.below ?? 0.3).toFixed(3)} && colOk;` : 'bool isGlass = true;';
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vCP;${glass ? '\nvarying float vRim;' : ''}`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      ${test}
+      ${glass ? `if (!isGlass) discard;
+      float gN = 0.55 + 0.45 * sin(vCP.x * 41.0 + sin(vCP.z * 17.0) * 2.0) * sin(vCP.z * 29.0 + vCP.y * 13.0);
+      float grime = clamp(vRim * (0.75 + 0.5 * gN), 0.0, 1.0);
+      diffuseColor.rgb = mix(vec3(0.16, 0.19, 0.2), vec3(0.17, 0.15, 0.12), grime);
+      diffuseColor.a = 1.0;` : 'if (isGlass) discard;'}`);
+    if (glass) {
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n      roughnessFactor = mix(roughnessFactor, 0.75, grime);')
+        .replace('#include <transmission_fragment>', THREE.ShaderChunk.transmission_fragment.replace('material.transmission = transmission;', 'material.transmission = transmission * (1.0 - grime * 0.92);'));
+    }
+  };
+  const baseKey = mat.customProgramCacheKey.bind(mat);
+  mat.customProgramCacheKey = () => baseKey() + (glass ? '|cglass' : '|ccut') + JSON.stringify(cfg);
+}
+
 function addWear(mat, k) {
   mat.userData.wear = k;
   mat.onBeforeCompile = (sh) => {
@@ -94,7 +129,7 @@ export class Ship {
       if (!o.isMesh) return;
       const g = o.geometry.clone();
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
-      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', '_rim'].includes(k)) g.deleteAttribute(k);
       if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
       if (!g.index) g.setIndex([...Array(g.attributes.position.count).keys()]);
       if (!groups.has(o.material)) groups.set(o.material, []);
@@ -111,6 +146,12 @@ export class Ship {
       if (POLISH[this.name] && /Meshy/.test(mat.name)) { geo = toCreasedNormals(geo, POLISH[this.name] * Math.PI / 180); geo.setIndex([...Array(geo.attributes.position.count).keys()]); }
       const m = new THREE.Mesh(geo, mat.clone());
       if (WEAR[this.name] && !NO_WEAR.test(mat.name) && m.material.isMeshStandardMaterial) addWear(m.material, WEAR[this.name]);
+      if (mat.userData.canopyCut) addCanopy(m.material, mat.userData.canopyCut, false);
+      if (mat.userData.canopyGlass) {
+        addCanopy(m.material, mat.userData.canopyGlass, true);
+        Object.assign(m.material, { roughness: 0.06, depthWrite: true });
+        if (m.material.isMeshPhysicalMaterial) { m.material.transmission = 0.6; m.material.thickness = 0.02; m.material.clearcoat = 1; m.material.clearcoatRoughness = 0.05; }
+      }
       m.castShadow = true; m.receiveShadow = true;
       m.material.envMapIntensity = 1.0;
       m.material.side = THREE.DoubleSide;        // interiores de toberas y tomas visibles
