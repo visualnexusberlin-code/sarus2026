@@ -42,9 +42,9 @@ export class AIDriver {
     // ── Esquivar a quien va delante y más lento ──
     let avoidT = 0;
     for (const o of ships) {
-      if (o === sh || o.dead > 0) continue;
+      if (o === sh) continue;                              // también esquiva los restos en pista
       const ds = tr.delta(sh.s, o.s);
-      if (ds > 0 && ds < 18 + v * 0.22 && Math.abs(o.x - xt - this.avoid) < 3.4 && o.v < v + 3) {
+      if (ds > 0 && ds < (o.out ? 30 + v * 0.45 : 18 + v * 0.22) && Math.abs(o.x - xt - this.avoid) < 3.4 && o.v < v + 3) {
         const room = o.x > 0 ? -1 : 1;                      // pasa por el lado con más pista
         avoidT = clamp(o.x + room * 4.2 - xt, -9, 9);
         break;
@@ -115,7 +115,7 @@ export function resolveCollisions(ships, track, onHit) {
   for (let i = 0; i < ships.length; i++) {
     for (let j = i + 1; j < ships.length; j++) {
       const a = ships[i], b = ships[j];
-      if (a.dead > 0 || b.dead > 0) continue;
+      if (a.out && b.out) continue;
       const ds = track.delta(a.s, b.s);                    // + → b va delante
       const len = (a.length + b.length) * 0.5 * 0.92;
       if (Math.abs(ds) > len) continue;
@@ -126,6 +126,20 @@ export function resolveCollisions(ships, track, onHit) {
       const overlapS = len - Math.abs(ds);
       const [front, back] = ds >= 0 ? [b, a] : [a, b];
       let impact = 0;
+      if (a.out || b.out) {
+        // restos: masa muerta. Desvían a quien los toca y le roban velocidad; ellos apenas se mueven
+        const w = a.out ? a : b, l = a.out ? b : a;
+        const sgn = Math.sign(l.x - w.x) || 1;
+        if (overlapX < overlapS * 0.6 || l !== back) { l.x += sgn * (overlapX + 0.05); l.phi *= 0.5; impact = Math.abs(l.v * Math.sin(l.phi)) + 3; }
+        else {
+          impact = l.v - w.v;
+          l.x += sgn * Math.min(overlapX + 0.05, 1.2);
+          l.s = track.wrap(l.s - overlapS * (l === back ? 1 : -1));
+          if (impact > 0) { w.v = Math.max(w.v, l.v * 0.35); l.v *= 0.62; l.spin = Math.max(l.spin, 0.5); }
+        }
+        if (impact > 1.5) { a.bump = b.bump = 1; onHit?.(a, b, impact); }
+        continue;
+      }
       if (overlapX < overlapS * 0.6) {
         // roce lateral
         const push = overlapX + 0.04, sgn = Math.sign(dx) || 1;

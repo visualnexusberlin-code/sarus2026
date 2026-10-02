@@ -53,7 +53,7 @@ export class Ship {
     this.name = def.name || 'NAVE';
     this.player = player;
     this.C = { ...CONFIG.ship, ...(def.stats || {}) };
-    this.maxHull = def.hull || 4;
+    this.maxHull = 5 + ((def.hull || 4) - 4);   // 4–6 impactos según la escudería (5 la media)
     this.root = new THREE.Group();
     this.body = new THREE.Group();       // recibe balanceo/cabeceo visual
     this.root.add(this.body);
@@ -71,6 +71,9 @@ export class Ship {
     }
     this.analyse();
     this.buildExhaust();
+    // daño progresivo: colores base del casco (se ennegrecen con cada impacto)
+    this.dmgMats = this.meshes.map((m) => m.material).filter((m) => !this.reactorMats.includes(m) && m.color)
+      .map((m) => ({ m, c: m.color.clone(), r: m.roughness ?? 0.5 }));
     this.frame = track.frame();
     this.fwd = new THREE.Vector3();
     this.upv = new THREE.Vector3();
@@ -171,6 +174,20 @@ export class Ship {
       }
     }
     this.tips = [maxP, minP];
+
+    // Puntos bajos del casco (mín. y por franjas en x y en z): para que alas y morro no atraviesen el tablero
+    const NB = 20, bx = new Map(), bz = new Map();
+    const mn = new THREE.Box3(); for (const m of this.meshes) { m.geometry.computeBoundingBox(); mn.union(m.geometry.boundingBox); }
+    for (const m of this.meshes) {
+      const p = m.geometry.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        const ix = Math.floor((x - mn.min.x) / (mn.max.x - mn.min.x + 1e-6) * NB), iz = Math.floor((z - mn.min.z) / (mn.max.z - mn.min.z + 1e-6) * NB);
+        if (!bx.has(ix) || y < bx.get(ix).y) bx.set(ix, new THREE.Vector3(x, y, z));
+        if (!bz.has(iz) || y < bz.get(iz).y) bz.set(iz, new THREE.Vector3(x, y, z));
+      }
+    }
+    this.lowPts = [...bx.values(), ...bz.values(), maxP, minP];
   }
 
   buildExhaust() {
@@ -258,7 +275,9 @@ export class Ship {
     this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
     this.qt = 0; this.qtDir = 0; this.qtCool = 0; this.power = 0.2;
     this.hull = this.maxHull; this.dead = 0; this.invuln = 0; this.draft = 0;
+    this.out = false; this.outAt = 0; this.deckScrape = 0; this.scrapeT = 0;
     this.root.visible = true;
+    if (this.dmgMats) this.setDamage();
     this.t = Math.random() * 5;
     this.updateTransform();
   }
@@ -267,12 +286,8 @@ export class Ship {
   update(dt, input, locked = false) {
     const C = this.C;
     this.t += dt;
-    // destruida: fuera de carrera unos segundos y reaparece más atrás
-    if (this.dead > 0) {
-      this.dead -= dt;
-      if (this.dead <= 0) this.respawn();
-      else { this.updateTransform(); return; }
-    }
+    // eliminada: restos que se arrastran hasta pararse y quedan tendidos en la pista
+    if (this.out) { this.wreckUpdate(dt); return; }
     if (this.invuln > 0) { this.invuln = Math.max(0, this.invuln - dt); this.model.visible = this.invuln === 0 || Math.floor(this.invuln * 12) % 2 === 0; }
     const tr = this.track;
     tr.sample(this.s, this.frame);
@@ -294,7 +309,7 @@ export class Ship {
     this.boostKick = Math.max(0, this.boostKick - dt);
     const boostOn = this.boosting || this.boostKick > 0;
     const dr = CONFIG.draft;
-    const vmax = (boostOn ? C.vmaxBoost : C.vmax) * (1 + dr.vmax * this.draft);
+    const vmax = (boostOn ? C.vmaxBoost : C.vmax) * (1 + dr.vmax * this.draft) * (1 - 0.1 * this.dmg);   // tocada: pierde punta
 
     // Velocidad longitudinal
     let a = thr * C.accel * (1 + dr.accel * this.draft) * Math.max(0, 1 - this.v / vmax) * (1 + (boostOn ? C.boostAccel / C.accel : 0));
@@ -417,7 +432,7 @@ export class Ship {
     this.susp = THREE.MathUtils.clamp(this.susp + this.suspV * dt, -0.6, 0.45);
 
     // Actitud visual
-    const rollT = Math.sin(this.t * 17) * this.suspV * 0.012 - this.omega * C.lean + (abR - abL) * 0.12 * sp + (qtOn ? this.qtDir * 0.4 : 0);
+    const rollT = Math.sin(this.t * 17) * this.suspV * 0.012 + (this.dmg > 0.7 ? Math.sin(this.t * 7.3) * 0.06 * this.dmg : 0) - this.omega * C.lean + (abR - abL) * 0.12 * sp + (qtOn ? this.qtDir * 0.4 : 0);
     this.roll += (rollT - this.roll) * Math.min(1, dt * 5 / Math.sqrt(C.mass));
     const pitchT = -THREE.MathUtils.clamp(this.accel * 0.0025 * C.pitchK, -0.09, 0.09) + this.hv * 0.02
       + THREE.MathUtils.clamp(-kv * this.v * 0.3, -0.07, 0.07)
@@ -426,6 +441,8 @@ export class Ship {
     this.yawVis += ((this.psi - this.phi) * C.driftYaw - this.yawVis) * Math.min(1, dt * 6);
     this.spin = Math.max(0, this.spin - dt * 0.9);
 
+    if (this.deckScrape > 0.03) { this.v *= 1 - Math.min(0.12, this.deckScrape * 0.3) * dt; this.scrapeT += dt; }
+    else this.scrapeT = Math.max(0, this.scrapeT - dt * 2);
     this.updateEngine(dt, locked ? 0.25 + input.throttle * 0.5 : 0.2 + this.throttle * 0.8 + (boostOn ? 0.5 : 0), boostOn);
     this.updateTransform();
   }
@@ -462,25 +479,68 @@ export class Ship {
     _e.set(this.pitch + Math.sin(sp * 20) * this.spin * 0.25, this.yawVis + spinYaw, this.roll + Math.sin(sp * 14) * this.spin * 0.6, 'YXZ');
     this.body.quaternion.setFromEuler(_e);
     this.body.position.y = this.susp || 0;
+    // holgura: el punto más bajo del casco (ya inclinado) nunca baja del tablero; si lo intenta, roza
+    if (this.lowPts) {
+      const me = _m.makeRotationFromQuaternion(this.body.quaternion).elements, sc = CONFIG.shipScale || 1;
+      let low = Infinity, lp = null;
+      for (const p of this.lowPts) { const y = (me[1] * p.x + me[5] * p.y + me[9] * p.z) * sc; if (y < low) { low = y; lp = p; } }
+      const base = this.h - this.bottom + (this.out ? 0 : this.track.jumpLift(this.s, this.v)) + this.body.position.y;
+      const extra = Math.max(0, (this.out ? 0.02 : 0.1) - (base + low));
+      this.deckScrape = this.out ? 0 : extra; this.scrapePt = lp;
+      if (extra > 0) this.root.position.addScaledVector(F.up, extra);
+    }
     const cp = Math.cos(this.phi), sphi = Math.sin(this.phi);
     this.velocity.copy(F.tan).multiplyScalar(cp).addScaledVector(F.right, -sphi).multiplyScalar(this.v);
   }
 
   // Impacto de cohete: frenazo, trompo y un instante sin control. Devuelve 'hit' | 'destroyed' | null
   hit() {
-    if (this.dead > 0 || this.invuln > 0) return null;
+    if (this.out || this.invuln > 0) return null;
     this.hull -= 1;
-    if (this.hull <= 0) {
-      const R = CONFIG.respawn;
-      this.dead = R.time; this.v = 0; this.boost = 0; this.ammo = 0;
-      this.root.visible = false;
+    if (this.hull <= 0) {                                 // eliminada: sin reconstrucción
+      this.hull = 0; this.out = true; this.dead = 1e9; this.outAt = this.t;
+      this.boost = 0; this.ammo = 0; this.boosting = false; this.boostKick = 0; this.draft = 0;
+      this.v *= 0.55; this.spin = 1; this.hv += 4 / this.C.mass;
+      this.wreckRoll = (Math.random() < 0.5 ? -1 : 1) * (0.32 + Math.random() * 0.2);
+      this.setDamage();
       return 'destroyed';
     }
+    this.setDamage();
     this.v *= 0.38;
     this.spin = 1; this.stun = 0.7;
     this.hv += 3.5 / this.C.mass;
     this.boostKick = 0; this.boosting = false;
     return 'hit';
+  }
+
+  // 0 = intacta … 1 = último impacto antes de quedar fuera
+  setDamage() {
+    this.dmg = this.out ? 1 : (this.maxHull - this.hull) / Math.max(1, this.maxHull - 1);
+    const k = this.out ? 0.22 : 1 - 0.28 * this.dmg;
+    for (const d of this.dmgMats) { d.m.color.copy(d.c).multiplyScalar(k); if (d.m.roughness !== undefined) d.m.roughness = Math.min(1, d.r + 0.35 * this.dmg); }
+    const on = !this.out;
+    for (const e of [...this.exhausts, ...this.plumes, ...this.halos]) e.visible = on;
+    for (const m of this.reactorMats) m.emissiveIntensity = on ? 1.6 : 0.05;
+    if (this.engineLight) this.engineLight.visible = on;
+  }
+
+  wreckUpdate(dt) {
+    const tr = this.track;
+    tr.sample(this.s, this.frame);
+    this.v = Math.max(0, this.v * Math.exp(-1.4 * dt) - 9 * dt);
+    const ds = this.v * Math.cos(this.phi) * dt;
+    this.s = tr.wrap(this.s + ds);
+    this.x += -this.v * Math.sin(this.phi) * dt;
+    const lim = this.C.wallAt * tr.wAt(this.s) - this.halfWidthGeo * 0.85;
+    if (Math.abs(this.x) > lim) { this.x = Math.sign(this.x) * lim; this.phi *= -0.3; this.v *= 0.7; }
+    const rest = 0.05;                                   // tendida sobre el tablero
+    this.h += (rest - this.h) * Math.min(1, dt * 2.5); this.hv = 0;
+    this.susp *= Math.exp(-3 * dt); this.suspV = 0;
+    this.roll += (this.wreckRoll - this.roll) * Math.min(1, dt * 2);
+    this.pitch += (0.1 - this.pitch) * Math.min(1, dt * 2);
+    this.spin = Math.max(0, this.spin - dt * 0.6);
+    this.power = 0; this.throttle = 0;
+    this.updateTransform();
   }
 
   respawn() {

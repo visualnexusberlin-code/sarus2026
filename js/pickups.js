@@ -163,6 +163,13 @@ export class Missiles {
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
     this.flameTex = new THREE.CanvasTexture(c);
     this.flashes = [];
+    // todo precreado: ni materiales nuevos ni shaders que compilar en mitad de la carrera
+    this.flameMat = new THREE.SpriteMaterial({ map: this.flameTex, color: new THREE.Color(6, 3, 1.4), blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.flashPool = Array.from({ length: 12 }, () => {
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.flameTex, color: new THREE.Color(8, 4, 1.8), blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
+      spr.visible = false; spr.frustumCulled = false; this.scene.add(spr); return spr;
+    });
+    this.flashI = 0;
   }
 
   reset() { for (const m of this.list) this.scene.remove(m.obj); this.list.length = 0; }
@@ -179,7 +186,7 @@ export class Missiles {
     }
     const obj = new THREE.Group();
     obj.add(new THREE.Mesh(this.bodyGeo, this.bodyMat));
-    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.flameTex, color: new THREE.Color(6, 3, 1.4), blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    const flame = new THREE.Sprite(this.flameMat);
     flame.scale.set(1.6, 1.6, 1); flame.position.z = -0.9;
     obj.add(flame);
     this.scene.add(obj);
@@ -209,7 +216,7 @@ export class Missiles {
       // impacto
       let hit = null;
       for (const o of ships) {
-        if ((o === m.owner && m.life > 4.2) || o.dead > 0) continue;
+        if ((o === m.owner && m.life > 4.2) || o.out) continue;
         if (Math.abs(tr.delta(m.s, o.s)) < 3 && Math.abs(o.x - m.x) < 2.1) { hit = o; break; }
       }
       const wall = Math.abs(m.x) > 15.6;
@@ -225,7 +232,7 @@ export class Missiles {
       const k = f.t / 0.45;
       f.spr.scale.setScalar(4 + k * 14);
       f.spr.material.opacity = Math.max(0, 1 - k);
-      if (k >= 1) { this.scene.remove(f.spr); this.flashes.splice(i, 1); }
+      if (k >= 1) { f.spr.visible = false; this.flashes.splice(i, 1); }
     }
   }
 
@@ -235,8 +242,9 @@ export class Missiles {
       const d = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8, Math.random() - 0.5).multiplyScalar(10);
       this.fx.smoke?.emit(pos, d, 1.6 + Math.random(), 2, 9, 1.2, 1.5);
     }
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.flameTex, color: new THREE.Color(8, 4, 1.8), blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
-    spr.position.copy(pos); this.scene.add(spr);
+    const spr = this.flashPool[this.flashI++ % this.flashPool.length];
+    const old = this.flashes.findIndex((f) => f.spr === spr); if (old >= 0) this.flashes.splice(old, 1);
+    spr.position.copy(pos); spr.visible = true; spr.scale.setScalar(4); spr.material.opacity = 1;
     this.flashes.push({ spr, t: 0 });
   }
 }

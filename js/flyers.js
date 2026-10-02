@@ -24,8 +24,10 @@ export class Flyers {
       // fuera llamas y halos (materiales animados de la nave de carrera)
       const drop = []; m.traverse((o) => { if (o.isSprite || o.isLight || (o.material && o.material.isShaderMaterial)) drop.push(o); });
       drop.forEach((o) => o.parent.remove(o));
+      // materiales propios (el daño de la nave de carrera no les afecta) y sin sombra: van lejos
+      m.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); this.mats.push(o.material); o.castShadow = false; o.receiveShadow = false; } });
       const holder = new THREE.Group(); holder.add(m);
-      const gm = new THREE.SpriteMaterial({ map: this.tex, color: src.flame ?? 0xffa060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+      const gm = new THREE.SpriteMaterial({ map: this.tex, color: src.flame ?? 0xffa060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
       this.mats.push(gm);
       const glow = new THREE.Sprite(gm); glow.scale.setScalar(9); glow.position.set(0, 0.6, -4.8); holder.add(glow);
       this.group.add(holder);

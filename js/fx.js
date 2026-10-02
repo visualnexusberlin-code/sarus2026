@@ -149,6 +149,8 @@ class ParticlePool {
           gl_PointSize = min(aSize * uScale / max(-mv.z, 0.1), 2048.0);
           gl_Position = projectionMatrix * mv;
           #include <logdepthbuf_vertex>
+          // humo pegado a la cámara (invisible por el fundido) → fuera, sin rasterizar un punto enorme
+          if (vAlpha < 0.004) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); gl_PointSize = 0.0; }
         }`,
     });
     registerAtmos(this.mat, () => /* glsl */`
@@ -461,5 +463,17 @@ export class EngineTrails {
       }
       pos.needsUpdate = true;
     }
+  }
+}
+
+// ── Daño: humo oscuro y llamas para naves tocadas y restos en pista ──
+export class DamageFx {
+  constructor(scene) {
+    this.smoke = new ParticlePool(scene, 1400, { color: new THREE.Color(0.16, 0.15, 0.14), lit: true, fogScale: 0.6 });
+    this.fire = new ParticlePool(scene, 500, { additive: true, color: new THREE.Color(3.2, 1.25, 0.32), fogScale: 0.2 });
+  }
+  update(dt, cam, r) {
+    this.smoke.update(dt, cam, r, (t) => Math.min(1, t * 6) * Math.pow(1 - t, 1.3) * 0.8);
+    this.fire.update(dt, cam, r, (t) => (1 - t) * (1 - t));
   }
 }

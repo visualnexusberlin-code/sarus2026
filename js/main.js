@@ -18,7 +18,7 @@ import { CIRCUITS, circuitById } from './circuits.js';
 import { Track, normName } from './track.js';
 import { Ship } from './ship.js';
 import { ChaseCamera, EagleFlight, CAM_MODES } from './camera.js';
-import { Trails, Motes, Sparks, Rockets, IonTrail, EngineTrails } from './fx.js';
+import { Trails, Motes, Sparks, Rockets, IonTrail, EngineTrails, DamageFx } from './fx.js';
 import { HUD, fmt } from './hud.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
@@ -261,6 +261,7 @@ function onLoaded(gltf, fleetGltf) {
   G.chase = new ChaseCamera(camera);
   G.fx.motes = new Motes(scene);
   G.fx.sparks = new Sparks(scene);
+  G.fx.damage = new DamageFx(scene);
   G.fx.ion = new IonTrail(scene);
   G.fx.engine = new EngineTrails(scene);
 
@@ -686,6 +687,7 @@ function goSelect() {
   G.hud.show(false);
   $('select').hidden = false;
   G.pick = G.circuitId;
+  for (const sh of G.ships) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); }   // el hangar las muestra reparadas
   renderPass.scene = G.showroom.scene; renderPass.camera = G.showroom.camera;
   showChoice(G.choice);
 }
@@ -750,7 +752,7 @@ function pickCircuit(id) {
 document.querySelectorAll('[data-circ]').forEach((b) => b.addEventListener('click', () => pickCircuit(b.dataset.circ)));
 
 // Cambio de circuito con cortinilla (la reconstrucción tarda un par de segundos)
-function travel(id, then) {
+function travel(id, then, rebuild = true) {
   const c = circuitById(id);
   $('travelName').textContent = c.name;
   $('travelSub').textContent = c.blurb;
@@ -758,10 +760,30 @@ function travel(id, then) {
   G.state = 'travel';
   G.hud.show(false);
   setTimeout(() => {
-    buildCircuit(c);
-    $('travel').hidden = true;
-    then();
+    if (rebuild) buildCircuit(c);
+    warmup();
+    requestAnimationFrame(() => { $('travel').hidden = true; then(); });
   }, 60);
+}
+
+// Calentamiento tras la cortinilla: compila todos los shaders y sube a la GPU geometría y texturas
+// de todo el circuito (un fotograma sin recorte de frustum). Así la intro y la carrera no se atascan
+// la primera vez que la cámara descubre una zona, una explosión o una nave tocada.
+function warmup() {
+  const t0 = performance.now();
+  if (!G.flyers && G.track && G.ships.length) G.flyers = new Flyers(scene, G.track, G.ships, G.circuitId === 'olympus' ? 8 : 6);
+  resetRace();
+  const culled = [], hidden = [];
+  scene.traverse((o) => {
+    if (o.frustumCulled && (o.isMesh || o.isPoints || o.isSprite || o.isLine)) { culled.push(o); o.frustumCulled = false; }
+  });
+  // las piezas en reserva (destellos de explosión) también, aunque estén ocultas
+  G.missiles?.flashPool?.forEach((s) => { hidden.push(s); s.visible = true; });
+  renderPass.scene = scene; renderPass.camera = camera;
+  try { renderer.compile(scene, camera); composer.render(0.001); } catch (e) { console.warn('warmup', e); }
+  culled.forEach((o) => { o.frustumCulled = true; });
+  hidden.forEach((o) => { o.visible = false; });
+  G.warmMs = performance.now() - t0;
 }
 
 function confirmChoice() {
@@ -772,8 +794,7 @@ function confirmChoice() {
   audio.beep(true);
   // SATURN-6 abre el campeonato; ARCADIA-2 elegida suelta es una carrera independiente
   G.cup = G.pick === CIRCUITS[0].id ? { round: 0, results: [] } : null;
-  if (G.pick !== G.circuitId) travel(G.pick, startIntro);
-  else startIntro();
+  travel(G.pick, startIntro, G.pick !== G.circuitId);
 }
 
 function goNext() {
@@ -832,6 +853,7 @@ function updateIntro(dt) {
 // ── Vueltas y clasificación (todas las naves) ──
 function lapTrack(sh) {
   const r = sh.race, L = G.track.length, s = sh.s, ps = r.prevS, T = G.race.total;
+  if (sh.out) { r.prevS = s; r.progress = -1e7 + sh.outAt; return false; }   // eliminadas: al fondo, por orden de caída
   if (s > L * 0.45 && s < L * 0.55) r.halfway = true;
   let crossed = false;
   if (ps > L - 150 && s < 150 && r.halfway) {
@@ -929,11 +951,13 @@ function updateRace(dt) {
     }
     if (victim === ship) {
       G.chase.addShake(1.1);
-      hud.banner(destroyed ? 'Nave destruida' : 'Impacto', destroyed ? `Reconstrucción en ${CONFIG.respawn.time.toFixed(0)} s` : `Blindaje ${ship.hull}/${ship.maxHull} · ${shooter.name}`, true, destroyed ? 2.6 : 1.6);
-    } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} destruida` : `Impacto · ${victim.name}`, destroyed ? '' : `Blindaje ${victim.hull}/${victim.maxHull}`, false, 1.6);
-    else if (destroyed && d < 900) hud.banner(`${victim.name} destruida`, `por ${shooter.name}`, false, 1.4);
+      if (destroyed) hud.banner('Eliminado', `Fuera de carrera · ${shooter.name}`, true, 3.2);
+      else hud.banner(ship.hull === 1 ? 'Blindaje crítico' : 'Impacto', `Blindaje ${ship.hull}/${ship.maxHull} · ${shooter.name}`, true, 1.6);
+    } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} eliminada` : `Impacto · ${victim.name}`, destroyed ? 'Fuera de carrera' : `Blindaje ${victim.hull}/${victim.maxHull}`, false, 1.6);
+    else if (destroyed && d < 900) hud.banner(`${victim.name} eliminada`, `por ${shooter.name}`, false, 1.4);
   });
-  if (ship.respawned) hud.banner('Nave reconstruida', `Blindaje ${ship.maxHull}/${ship.maxHull}`, false, 1.4);
+  // jugador eliminado: unos segundos viendo los restos y a la clasificación
+  if (ship.out && G.state === 'race') { race.outTimer = (race.outTimer ?? 3.5) - dt; if (race.outTimer <= 0) finish(); }
   resolveCollisions(G.ships, track, (a, b, impact) => {
     if (a === ship || b === ship) {
       G.chase.addShake(Math.min(0.9, impact / 25));
@@ -952,7 +976,7 @@ function updateRace(dt) {
     updateStandings();
   }
 
-  if (G.state === 'race') {
+  if (G.state === 'race' && !ship.out) {
     race.lapTime += dt;
     const s = ship.s, ps = ship.race.prevS;
     const next = track.sectors[race.sectorIdx + 1];
@@ -972,7 +996,7 @@ function updateRace(dt) {
 
   if (G.state === 'finished') {
     race.resultsTimer -= dt;
-    if (race.resultsTimer <= 0) { renderStandings(); race.resultsTimer = 0.5; }
+    if (race.resultsTimer <= 0) { cupPoints(); renderStandings(); race.resultsTimer = 0.5; }
   }
 
   // impactos contra el muro (jugador)
@@ -985,6 +1009,7 @@ function updateRace(dt) {
     const p = ship.root.position.clone().addScaledVector(G.track.sample(ship.s, G.track.frame()).right, side * 1.0);
     G.fx.sparks.burst(p, ship.velocity.clone().normalize().multiplyScalar(-0.2), 3, 10);
   }
+  if (ship.deckScrape > 0.08 && !ship.out) G.chase.addShake(Math.min(0.25, ship.deckScrape * 0.6) * dt * 10);
   if (input.hit('KeyC', 'PadY')) hud.el.cam.textContent = G.chase.cycle().label;
   if (ship.quickEvent) { audio.whoosh(); G.chase.addShake(0.12); }
   for (const sh of G.ships) sh.quickEvent = false;
@@ -1012,24 +1037,30 @@ function finish() {
   G.playerAI = new AIDriver(G.ship, G.track, { skill: 0.85 });
   G.playerAI.cruise = 0.72;
   // puntos del campeonato (se sobrescriben si la carrera se repite)
-  if (G.cup) G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, POINTS[i] || 0]));
+  cupPoints();
   const nx = nextCircuit();
   const unlocking = nx && !G.unlocked.has(nx.id) && nx.unlockAfter === G.circuitId;
   if (unlocking) unlock(nx.id);
   const last = G.cup && G.cup.round === CIRCUITS.length - 1;
-  $('resLabel').textContent = last ? 'Campeonato · clasificación final' : `${G.circuit.name} · Carrera terminada`;
-  $('resPos').textContent = `${r.pos}º`;
-  $('resTotal').textContent = fmt(r.finishedAt);
-  $('resBest').textContent = `Mejor vuelta ${fmt(r.best)}` + (G.cup ? ` · +${POINTS[r.pos - 1] || 0} pts` : '');
+  const dnf = G.ship.out;
+  $('resLabel').textContent = last ? 'Campeonato · clasificación final' : `${G.circuit.name} · ${dnf ? 'Eliminado' : 'Carrera terminada'}`;
+  $('resPos').textContent = dnf ? 'DNF' : `${r.pos}º`;
+  $('resTotal').textContent = dnf ? `Vuelta ${Math.min(G.ship.race.lap, r.laps)} de ${r.laps}` : fmt(r.finishedAt);
+  $('resBest').textContent = `Mejor vuelta ${r.best < Infinity ? fmt(r.best) : '—'}` + (G.cup ? ` · +${dnf ? 0 : POINTS[r.pos - 1] || 0} pts` : '');
   const nb = $('nextBtn');
   nb.hidden = !(nx && G.unlocked.has(nx.id));
   if (nx) nb.textContent = `${G.cup ? 'Siguiente carrera' : 'Siguiente circuito'} · ${nx.name}`;
   $('resUnlock').hidden = !unlocking;
   if (unlocking) $('resUnlock').textContent = `Desbloqueado · ${nx.name}`;
   r.resultsTimer = 0;
-  G.hud.banner(r.pos === 1 ? 'Victoria' : `Meta · ${r.pos}º`, fmt(r.finishedAt), false, 3);
+  if (!dnf) G.hud.banner(r.pos === 1 ? 'Victoria' : `Meta · ${r.pos}º`, fmt(r.finishedAt), false, 3);
   setTimeout(() => { if (G.state === 'finished') { renderStandings(); $('results').hidden = false; } }, 1600);
   audio.beep(true);
+}
+
+// puntos de la ronda: las eliminadas no puntúan (se recalcula mientras el resto termina)
+function cupPoints() {
+  if (G.cup) G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, sh.out ? 0 : POINTS[i] || 0]));
 }
 
 function cupTotals() {
@@ -1049,12 +1080,13 @@ function renderStandings() {
   $('standings').innerHTML = G.order.map((sh, i) => {
     const r = sh.race;
     let t;
-    if (r.finished) t = i === 0 ? fmt(r.finishTime) : `+${(r.finishTime - lead.race.finishTime).toFixed(2)}`;
+    if (sh.out) t = 'Eliminada';
+    else if (r.finished) t = i === 0 ? fmt(r.finishTime) : `+${(r.finishTime - lead.race.finishTime).toFixed(2)}`;
     else {
       const gap = (lead.race.finished ? G.race.laps * L : lead.race.progress) - r.progress;
       t = gap > L ? `+${Math.floor(gap / L)} v` : 'en pista';
     }
-    const pts = G.cup ? ` <small>+${POINTS[i] || 0}</small>` : '';
+    const pts = G.cup ? ` <small>+${sh.out ? 0 : POINTS[i] || 0}</small>` : '';
     return `<li class="${sh === G.ship ? 'me' : ''}"><span>${i + 1}</span><b>${sh.name}</b><em>${t}${pts}</em></li>`;
   }).join('');
 }
@@ -1068,6 +1100,44 @@ function restart(withIntro = false) {
   G.state = 'countdown';
   G.race.countdown = 3.6;
   G.hud.show(true);
+}
+
+// ── Daño visible: humo, chispas y fuego según los impactos; restos humeando; roces del casco con el tablero ──
+const _dp = new THREE.Vector3(), _dv = new THREE.Vector3(), _dl = new THREE.Vector3();
+function emitDamage(dt) {
+  if (G.state === 'title' || G.state === 'select') return;
+  const D = G.fx.damage;
+  for (const sh of G.ships) {
+    if (sh.root.position.distanceToSquared(camera.position) > 450 * 450) continue;
+    const lvl = sh.out ? 1.4 : (sh.maxHull - sh.hull) / Math.max(1, sh.maxHull - 1);
+    // roce con el tablero: chispas en el punto de contacto, fuego si dura
+    if (sh.deckScrape > 0.03 && sh.scrapePt && sh.v > 15) {
+      sh.worldPoint(sh.scrapePt, _dp);
+      const n = Math.min(6, 1 + sh.deckScrape * 25) * (sh === G.ship ? 1 : 0.5);
+      G.fx.sparks.burst(_dp, _dv.copy(sh.fwd).multiplyScalar(-0.5), n < 1 ? (Math.random() < n ? 1 : 0) : Math.round(n), 6 + sh.v * 0.08);
+      if (sh.scrapeT > 0.5) for (let k = 0; k < 2; k++) D.fire.emit(_dp, _dv.copy(sh.velocity).multiplyScalar(0.4).add({ x: 0, y: 1.5, z: 0 }), 0.22, 0.7, 0.2, 2, 2);
+    }
+    if (lvl <= 0) continue;
+    sh._dmgAcc = (sh._dmgAcc || 0) + dt;
+    const step = sh.out ? 1 / 22 : 1 / (6 + lvl * 22);
+    if (sh._dmgAcc < step) continue;
+    const n = Math.min(4, Math.floor(sh._dmgAcc / step)); sh._dmgAcc -= n * step;
+    for (let k = 0; k < n; k++) {
+      _dl.set((Math.random() - 0.5) * sh.size.x * 0.4, sh.size.y * 0.25, (Math.random() - 0.3) * sh.length * 0.3);
+      sh.model.localToWorld(_dp.copy(_dl).divideScalar(CONFIG.shipScale || 1));
+      _dp.addScaledVector(sh.upv, 0.5);
+      _dv.copy(sh.velocity).multiplyScalar(0.25).addScaledVector(sh.upv, 3 + Math.random() * 2.5);
+      if (sh.out) {                                            // restos: columna de humo negro y llamas bajas
+        D.smoke.emit(_dp, _dv, 5 + Math.random() * 3, 1.2, 10 + Math.random() * 6, 0.35, 2.6);
+        if (Math.random() < 0.8) D.fire.emit(_dp, _dv.multiplyScalar(0.6), 0.35 + Math.random() * 0.25, 1.4 + Math.random() * 0.8, 0.3, 1.5, 3);
+        if (Math.random() < 0.03) G.fx.sparks.burst(_dp, _dv.set(0, 0.6, 0), 6, 6);
+      } else {
+        D.smoke.emit(_dp, _dv, 0.7 + lvl * 1.3, 0.35 + lvl * 0.3, 1.4 + lvl * 2.6, 1.2, 2.5);
+        if (lvl >= 0.5 && Math.random() < lvl * 0.25) G.fx.sparks.burst(_dp, _dv.copy(sh.fwd).multiplyScalar(-0.4), 3, 8);
+        if (lvl >= 0.75) D.fire.emit(_dp, _dv.copy(sh.velocity).multiplyScalar(0.6), 0.18 + Math.random() * 0.12, 0.9 + lvl * 0.5, 0.25, 2, 1);
+      }
+    }
+  }
 }
 
 // ── Chispas iónicas de las toberas (color de cada escudería) ──
@@ -1122,9 +1192,26 @@ if (CONFIG.debug) fpsEl.hidden = false;
 let fpsAcc = 0, fpsN = 0;
 let selPrevSteer = 0;
 
+// Resolución adaptativa: si el equipo no llega a ~50 fps baja la densidad de píxeles, y la recupera si sobra
+const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? 1.25 : 1.5), PR_MIN = Math.min(PR_MAX, 0.7);
+const perf = { pr: PR_MAX, acc: 0, n: 0, last: 0, good: 0 };
+function adaptRes() {
+  const now = performance.now(), d = now - perf.last; perf.last = now;
+  if (d > 250 || !['intro', 'countdown', 'race', 'finished'].includes(G.state) || G.paused) return;
+  perf.acc += d; perf.n++;
+  if (perf.acc < 2000) return;
+  const avg = perf.acc / perf.n; perf.acc = 0; perf.n = 0;
+  let pr = perf.pr;
+  if (avg > 20.5 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); perf.good = 0; }
+  else if (avg < 12.5 && pr < PR_MAX) { if (++perf.good >= 3) { pr = Math.min(PR_MAX, pr + 0.1); perf.good = 0; } }
+  else perf.good = 0;
+  if (pr !== perf.pr) { perf.pr = pr; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); }
+}
+
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 1 / 20);
+  adaptRes();
   tick(dt);
 }
 
@@ -1176,6 +1263,8 @@ function tick(dt) {
     }
     for (const sh of G.ships) sh.trails.update(sh, dt);
     emitIon(dt);
+    emitDamage(dt);
+    G.fx.damage.update(dt, camera, renderer);
     G.fx.engine.update(dt, camera, G.time);
     for (const sh of G.ships) sh.respawned = false;
     G.fx.sparks.update(dt, camera, renderer);
