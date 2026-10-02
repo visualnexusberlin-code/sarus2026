@@ -10,6 +10,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { N8AOPass } from 'n8ao';
 
 import { CONFIG } from './config.js';
 import { installFogChunks, applyAtmosphere, skyUniforms, createSky, createMoonMaterial, lavaMaterial, lavaUniforms, basaltMaterial, createWater, buildEnvironment } from './atmosphere.js';
@@ -45,7 +47,7 @@ try {
   window.__srsFail?.('Este visor no permite gráficos 3D (WebGL). Ábrelo en Chrome, Safari o Firefox, desde una web o el enlace del juego.');
   throw e;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.25 : 1.5));
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.25 : 1.5));   // arranca prudente; la resolución adaptativa sube a 2 si sobra
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.info.autoReset = false;
@@ -74,6 +76,20 @@ scene.add(hemi);
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
+// Oclusión ambiental en pantalla (N8AO, compatible con el búfer de profundidad logarítmico):
+// contacto de naves con el tablero, juntas, cuadernas y pliegues del relieve. A media resolución.
+const aoPass = new N8AOPass(scene, camera, innerWidth, innerHeight);
+Object.assign(aoPass.configuration, { aoRadius: 4, distanceFalloff: 1.2, intensity: 3.4, gammaCorrection: false, halfRes: true, denoiseRadius: 10 });
+aoPass.setQualityMode(IS_TOUCH ? 'Performance' : 'Low');
+Object.assign(aoPass.configuration, { halfRes: true });
+composer.addPass(aoPass);
+let aoOn = !IS_TOUCH;
+// qué escena va al compositor (circuito con AO, o el hangar sin ella)
+function setView(sc, cam) {
+  renderPass.scene = aoPass.scene = sc; renderPass.camera = aoPass.camera = cam;
+  aoPass.enabled = aoOn && sc === scene; renderPass.enabled = !aoPass.enabled;
+}
+setView(scene, camera);
 const B = CONFIG.atmosphere.bloom;
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), B.strength, B.radius, B.threshold);
 composer.addPass(bloom);
@@ -116,6 +132,9 @@ const grade = new ShaderPass({
     }`,
 });
 composer.addPass(grade);
+// suavizado de bordes al final (el lienzo va sin antialias nativo por el posproceso)
+const smaa = new SMAAPass(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio());
+composer.addPass(smaa);
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
@@ -688,7 +707,7 @@ function goSelect() {
   $('select').hidden = false;
   G.pick = G.circuitId;
   for (const sh of G.ships) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); }   // el hangar las muestra reparadas
-  renderPass.scene = G.showroom.scene; renderPass.camera = G.showroom.camera;
+  setView(G.showroom.scene, G.showroom.camera);
   showChoice(G.choice);
 }
 
@@ -762,7 +781,9 @@ function travel(id, then, rebuild = true) {
   setTimeout(() => {
     if (rebuild) buildCircuit(c);
     warmup();
-    requestAnimationFrame(() => { $('travel').hidden = true; then(); });
+    then();
+    tick(0.0001);          // primer plano de la intro ya pintado bajo la cortinilla: no se cuela la cámara de parrilla
+    requestAnimationFrame(() => { $('travel').hidden = true; });
   }, 60);
 }
 
@@ -779,7 +800,7 @@ function warmup() {
   });
   // las piezas en reserva (destellos de explosión) también, aunque estén ocultas
   G.missiles?.flashPool?.forEach((s) => { hidden.push(s); s.visible = true; });
-  renderPass.scene = scene; renderPass.camera = camera;
+  setView(scene, camera);
   try { renderer.compile(scene, camera); composer.render(0.001); } catch (e) { console.warn('warmup', e); }
   culled.forEach((o) => { o.frustumCulled = true; });
   hidden.forEach((o) => { o.visible = false; });
@@ -789,7 +810,7 @@ function warmup() {
 function confirmChoice() {
   if (G.state !== 'select') return;
   $('select').hidden = true;
-  renderPass.scene = scene; renderPass.camera = camera;
+  setView(scene, camera);
   setPlayer(G.choice);
   audio.beep(true);
   // SATURN-6 abre el campeonato; ARCADIA-2 elegida suelta es una carrera independiente
@@ -1193,8 +1214,8 @@ let fpsAcc = 0, fpsN = 0;
 let selPrevSteer = 0;
 
 // Resolución adaptativa: si el equipo no llega a ~50 fps baja la densidad de píxeles, y la recupera si sobra
-const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? 1.25 : 1.5), PR_MIN = Math.min(PR_MAX, 0.7);
-const perf = { pr: PR_MAX, acc: 0, n: 0, last: 0, good: 0 };
+const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2), PR_MIN = Math.min(PR_MAX, 1);
+const perf = { pr: renderer.getPixelRatio(), acc: 0, n: 0, last: 0, good: 0 };
 function adaptRes() {
   const now = performance.now(), d = now - perf.last; perf.last = now;
   if (d > 250 || !['intro', 'countdown', 'race', 'finished'].includes(G.state) || G.paused) return;
@@ -1202,8 +1223,9 @@ function adaptRes() {
   if (perf.acc < 2000) return;
   const avg = perf.acc / perf.n; perf.acc = 0; perf.n = 0;
   let pr = perf.pr;
-  if (avg > 20.5 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.15); perf.good = 0; }
-  else if (avg < 12.5 && pr < PR_MAX) { if (++perf.good >= 3) { pr = Math.min(PR_MAX, pr + 0.1); perf.good = 0; } }
+  if (avg > 22 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.25); perf.good = 0; }
+  else if (avg > 24 && aoOn) { aoOn = false; setView(renderPass.scene, renderPass.camera); perf.good = 0; }   // último recurso: sin AO
+  else if (avg < 13 && pr < PR_MAX) { if (++perf.good >= 3) { pr = Math.min(PR_MAX, pr + 0.25); perf.good = 0; } }
   else perf.good = 0;
   if (pr !== perf.pr) { perf.pr = pr; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); }
 }
@@ -1315,6 +1337,7 @@ addEventListener('pointerdown', firstGesture); addEventListener('keydown', first
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
 G.showChoice = showChoice; G.begin = begin; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer;
+G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };

@@ -3,7 +3,7 @@
 // y las puntas de ala por los vértices más exteriores.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const _m = new THREE.Matrix4(), _e = new THREE.Euler();
 const _v = new THREE.Vector3();
@@ -11,6 +11,8 @@ const ION_RE = /_Ion|Reactor red/i;
 const QT = 0.5;
 // Desgaste de carrera en el shader (espacio del modelo): mugre, regueros hacia atrás, desconchones, arañazos y hollín trasero.
 const WEAR = { LUDOX: 0.85, 'PRIME-EX': 0.8, WOLFEN: 0.6, ADAX: 0.8, MANTA: 0.85, NEXUS: 0.3, ILION: 0.35, X3LEE: 0.35, 'HUE-MING': 0.3 };
+// Pulido: normales suavizadas por ángulo (quita el aspecto abollado de mallas generadas)
+const POLISH = { MANTA: 35 };
 const NO_WEAR = /Ion|Hover|glass|Glass|canopy|Canopy|visor|Visor|HUD|PILOT|Name|LOGO|lamp|light|Light|Red|Cyan|Chrome/;
 function addWear(mat, k) {
   mat.userData.wear = k;
@@ -105,7 +107,8 @@ export class Ship {
     this.ionGeos = [];
     this.ionColor = new THREE.Color(1, 0.2, 0.06);
     for (const [mat, geos] of groups) {
-      const geo = mergeGeometries(geos, false);
+      let geo = mergeGeometries(geos, false);
+      if (POLISH[this.name] && /Meshy/.test(mat.name)) { geo = toCreasedNormals(geo, POLISH[this.name] * Math.PI / 180); geo.setIndex([...Array(geo.attributes.position.count).keys()]); }
       const m = new THREE.Mesh(geo, mat.clone());
       if (WEAR[this.name] && !NO_WEAR.test(mat.name) && m.material.isMeshStandardMaterial) addWear(m.material, WEAR[this.name]);
       m.castShadow = true; m.receiveShadow = true;
