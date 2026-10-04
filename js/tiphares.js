@@ -106,39 +106,39 @@ function petalGeo(len, wid, lift, curl) {
 }
 
 // Ciudadela Tiphares
-function buildCitadel(scale = 1) {
-  const s = scale, parts = { pearl: [], gold: [], silver: [], garden: [], glass: [], light: [] };
+function buildCitadel(scale = 1, baseScale = scale) {
+  const s = scale, b = Math.min(scale, baseScale), parts = { pearl: [], gold: [], silver: [], garden: [], glass: [], light: [] };
   const add = (k, g) => parts[k].push(g);
   // tallo de discos que se hunde en las nubes (de ancho a estrecho)
   let y = 0;
   for (let i = 0; i < 14; i++) {
-    const r = (150 - i * 9.5) * s * (i % 3 === 0 ? 1.12 : 1), t = (6 + (i % 2) * 3) * s;
+    const r = (150 - i * 9.5) * b * (i % 3 === 0 ? 1.12 : 1), t = (6 + (i % 2) * 3) * s;
     add(i % 3 === 0 ? 'gold' : 'pearl', lathe([[0, y - t], [r * 0.92, y - t], [r, y - t * 0.4], [r * 0.97, y], [0, y]]));
     if (i % 3 === 0) add('light', lathe([[r * 1.005, y - t * 0.7], [r * 1.005, y - t * 0.4]]));
     y -= t + (8 + i * 1.5) * s;
   }
   add('silver', lathe([[22 * s, 0], [18 * s, y * 0.6], [6 * s, y - 40 * s], [0, y - 90 * s]], 24));
   // plataforma principal: terrazas con jardín
-  add('pearl', lathe([[0, -10 * s], [210 * s, -10 * s], [228 * s, 0], [222 * s, 6 * s], [0, 6 * s]], 72));
-  add('gold', lathe([[229 * s, -2 * s], [231 * s, 3 * s]], 72));
-  add('garden', lathe([[150 * s, 6.2 * s], [205 * s, 6.2 * s], [200 * s, 9 * s], [160 * s, 10 * s]], 72));
-  add('pearl', lathe([[0, 6 * s], [150 * s, 6 * s], [148 * s, 18 * s], [0, 18 * s]], 64));
-  add('light', lathe([[150.6 * s, 10 * s], [150.6 * s, 12 * s]], 64));
-  add('pearl', lathe([[0, 18 * s], [120 * s, 18 * s], [118 * s, 32 * s], [0, 32 * s]], 64));
+  add('pearl', lathe([[0, -10 * s], [210 * b, -10 * s], [228 * b, 0], [222 * b, 6 * s], [0, 6 * s]], 72));
+  add('gold', lathe([[229 * b, -2 * s], [231 * b, 3 * s]], 72));
+  add('garden', lathe([[150 * b, 6.2 * s], [205 * b, 6.2 * s], [200 * b, 9 * s], [160 * b, 10 * s]], 72));
+  add('pearl', lathe([[0, 6 * s], [150 * b, 6 * s], [148 * b, 18 * s], [0, 18 * s]], 64));
+  add('light', lathe([[150.6 * b, 10 * s], [150.6 * b, 12 * s]], 64));
+  add('pearl', lathe([[0, 18 * s], [120 * b, 18 * s], [118 * b, 32 * s], [0, 32 * s]], 64));
   // pétalos: dos coronas, la exterior más larga y abierta
   for (const [n, len, wid, lift, rot0, base] of [[10, 260, 58, 150, 0, 120], [10, 180, 44, 190, Math.PI / 10, 95], [8, 110, 30, 170, 0.2, 70]]) {
     for (let i = 0; i < n; i++) {
       const g = petalGeo(len * s, wid * s, lift * s, 1);
-      g.translate(base * s, 24 * s, 0);
+      g.translate(base * b, 24 * s, 0);
       g.rotateY(rot0 + i / n * Math.PI * 2);
       add(i % 2 ? 'silver' : 'pearl', g);
       // nervio dorado
-      const rib = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([0, 0.25, 0.5, 0.75, 1].map((u) => new THREE.Vector3(base * s + len * s * u, 24 * s + lift * s * Math.pow(u, 1.8) + 2 * s, 0))), 16, 1.6 * s, 6);
+      const rib = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([0, 0.25, 0.5, 0.75, 1].map((u) => new THREE.Vector3(base * b + len * s * u, 24 * s + lift * s * Math.pow(u, 1.8) + 2 * s, 0))), 16, 1.6 * s, 6);
       rib.rotateY(rot0 + i / n * Math.PI * 2); add('gold', rib);
     }
   }
   // cúpula de cristal con agujas dentro
-  const R = 112 * s;
+  const R = 112 * b;
   // perfil: elipse alta, abierta arriba hacia la aguja
   const dp = []; for (let i = 0; i <= 28; i++) { const a = -Math.PI / 2 + i / 28 * Math.PI * 0.94; dp.push([Math.cos(a) * R, 32 * s + R * 1.45 * (Math.sin(a) + 1) * 0.95]); }
   add('glass', lathe(dp, 64));
@@ -324,7 +324,16 @@ export function buildTiphares(def, { world, own, srcMat }) {
   }
 
   // ── Ciudadela Tiphares, en el gran hueco interior ──
-  const cit = buildCitadel(1.55);
+  // tamaño de la ciudadela según el hueco: su base nunca alcanza la pista (deja 40 m de holgura)
+  const tp = []; for (let s = 0; s < L; s += 6) { track.sample(s, F); tp.push([F.pos.x, F.pos.z]); }
+  const dAt = (x, z) => { let d = Infinity; for (const [px, pz] of tp) d = Math.min(d, Math.hypot(px - x, pz - z)); return d; };
+  let dMin = dAt(citadel.x, citadel.z); const c0 = citadel.clone();
+  for (let gx = -500; gx <= 500; gx += 20) for (let gz = -300; gz <= 300; gz += 20) {     // centro con más hueco en el lago
+    const x = c0.x + gx, z = c0.z + gz, d = dAt(x, z);
+    if (d > dMin) { dMin = d; citadel.x = x; citadel.z = z; }
+  }
+  const citScale = 1.5, baseScale = Math.min(1.5, (dMin - 40) / 231);
+  const cit = buildCitadel(citScale, baseScale);
   cit.position.set(citadel.x, 20, citadel.z);
   world.add(cit);
   cit.traverse((o) => { if (o.isMesh) own.push(o.geometry, o.material); });
@@ -399,6 +408,6 @@ export function buildTiphares(def, { world, own, srcMat }) {
   ];
 
   let ymin = Infinity, ymax = -Infinity; for (const v of y) { ymin = Math.min(ymin, v); ymax = Math.max(ymax, v); }
-  console.info(`[SRS] TIPHARES: ${L.toFixed(0)} m · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · plataformas ${plats.length} · torres ${towers.length} · ${(performance.now() - T0).toFixed(0)} ms`);
+  console.info(`[SRS] TIPHARES: ${L.toFixed(0)} m · ciudadela ×${citScale.toFixed(2)} base ×${baseScale.toFixed(2)} (hueco ${dMin.toFixed(0)} m) · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · plataformas ${plats.length} · torres ${towers.length} · ${(performance.now() - T0).toFixed(0)} ms`);
   return { track, ground, tunnel: false, introKeys, fx };
 }
