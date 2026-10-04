@@ -37,11 +37,15 @@ export class Audio {
   }
 
   // Música (Obsidian Perimeter): incrustada en base64 en la versión publicada, archivo aparte en la web
-  music(fromStart = false) {
+  // name: 'perimeter' (Obsidian Perimeter, tema principal) | 'pursuit' (Obsidian Pursuit, fases de Marte)
+  music(fromStart = false, name) {
+    const want = name || this.trackName || 'perimeter';
+    if (this.track && this.trackName !== want) { this.track.pause(); this.track = null; }
     if (!this.track) {
-      const el = document.getElementById('music-data');
-      const src = el ? 'data:audio/mpeg;base64,' + el.textContent.trim() : 'music-obsidian-perimeter.mp3';
+      const el = want === 'perimeter' ? document.getElementById('music-data') : null;
+      const src = el ? 'data:audio/mpeg;base64,' + el.textContent.trim() : `music-obsidian-${want}.mp3`;
       this.track = new window.Audio(src); this.track.loop = true; this.track.volume = 0.5;
+      this.trackName = want; fromStart = true;
     }
     this.track.muted = this.muted;
     if (fromStart) { try { this.track.currentTime = 0; } catch (e) { /* aún sin cargar */ } }

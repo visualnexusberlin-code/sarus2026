@@ -857,7 +857,7 @@ function goNext() {
 }
 
 function startIntro() {
-  audio.music(true);                 // la intro del tema abre cada fase
+  audio.music(true, G.circuit?.music || 'perimeter');   // la intro del tema abre cada fase (Marte: Obsidian Pursuit)
   audio.setEngines(true);
   resetRace();
   G.state = 'intro';

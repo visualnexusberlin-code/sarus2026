@@ -257,7 +257,7 @@ export function buildTiphares(def, { world, own, srcMat }) {
   }
 
   // ── Plataformas flotantes bajo la pista: discos de nácar con jardín y enredaderas ──
-  const plats = [];
+  const plats = [], hang = [], bush = [];   // follaje: [x, y, z, tamaño, flor]
   for (let s = 40; s < L; s += 150 + rnd() * 90) {
     track.sample(s, F);
     const R = 36 + rnd() * 30, off = (rnd() - 0.5) * 16;
@@ -270,7 +270,20 @@ export function buildTiphares(def, { world, own, srcMat }) {
     // jardín en el anillo exterior que asoma fuera de la pista
     const gg = lathe([[R * 0.62, top + 1.25], [R * 0.95, top + 1.25], [R * 0.9, top + 3.2], [R * 0.7, top + 3.6]], 48); gg.translate(c.x, 0, c.z); extra.garden.push(gg);
     // enredaderas colgando
-    for (let k = 0; k < 18; k++) { const a = rnd() * Math.PI * 2, len = 8 + rnd() * 34; const vg = new THREE.CylinderGeometry(0.45, 0.2, len, 4); vg.translate(c.x + Math.cos(a) * R * 0.9, top - 4 - len / 2, c.z + Math.sin(a) * R * 0.9); extra.vine.push(vg); }
+    // terraformación: cortinas de plantas colgantes desde el borde, matas en el jardín
+    for (let k = 0; k < 46; k++) {
+      const a = (k + rnd() * 0.6) / 46 * Math.PI * 2, len = 6 + Math.pow(rnd(), 1.4) * 46;
+      const rr = R * (0.97 + rnd() * 0.04), x0 = c.x + Math.cos(a) * rr, z0 = c.z + Math.sin(a) * rr;
+      const vg = new THREE.CylinderGeometry(0.35, 0.15, len, 4); vg.translate(x0, top - 1 - len / 2, z0); extra.vine.push(vg);
+      for (let j = 0; j < len / 1.1; j++) {
+        const t = j / (len / 1.1), sway = Math.sin(t * 5 + k) * 1.2;
+        hang.push([x0 + Math.cos(a) * sway + (rnd() - 0.5) * 1.2, top - 1 - t * len, z0 + Math.sin(a) * sway + (rnd() - 0.5) * 1.2, (1.05 - t * 0.6) * (0.6 + rnd() * 0.6), rnd() < 0.1 ? 1 : 0]);
+      }
+    }
+    for (let k = 0; k < 40; k++) {
+      const a = rnd() * Math.PI * 2, rr = R * (0.66 + rnd() * 0.26);
+      bush.push([c.x + Math.cos(a) * rr, top + 2.6 + rnd(), c.z + Math.sin(a) * rr, 1.6 + rnd() * 2.6, rnd() < 0.15 ? 1 : 0]);
+    }
     // aguja inferior
     const ng = lathe([[R * 0.12, top - depth], [R * 0.05, top - depth - 30], [0, top - depth - 42]], 16); ng.translate(c.x, 0, c.z); extra.silver.push(ng);
     plats.push([c, R]);
@@ -293,6 +306,22 @@ export function buildTiphares(def, { world, own, srcMat }) {
     }
   };
   addMerged(extra, world);
+  // follaje instanciado: hojas verde oliva y alguna flor rosada o blanca
+  {
+    const leafGeo = new THREE.IcosahedronGeometry(1, 0); own.push(leafGeo);
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0, flatShading: true }); own.push(leafMat);
+    const all = [...hang.map((h) => [...h, 1.0]), ...bush.map((b) => [...b, 0.7])];
+    const im = new THREE.InstancedMesh(leafGeo, leafMat, all.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), col = new THREE.Color();
+    const greens = [0x4f6a26, 0x5f7a2c, 0x3f5a22, 0x6e7f34, 0x56702a], flowers = [0xf2a6b8, 0xf7e6ec, 0xe98aa6, 0xfff2d8];
+    all.forEach(([x, yy, z, r, fl, sy], i) => {
+      q.setFromEuler(e.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28));
+      const rs = fl ? r * 0.45 : r;
+      m4.compose(sc.set(x, yy, z), q, new THREE.Vector3(rs, rs * sy, rs)); im.setMatrixAt(i, m4);
+      im.setColorAt(i, col.setHex(fl ? flowers[i % flowers.length] : greens[i % greens.length]).multiplyScalar(0.85 + rnd() * 0.3));
+    });
+    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere();
+    world.add(im);
+  }
 
   // ── Ciudadela Tiphares, en el gran hueco interior ──
   const cit = buildCitadel(1.55);

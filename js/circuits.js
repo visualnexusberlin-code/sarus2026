@@ -103,6 +103,7 @@ export const CIRCUITS = [
 // Tercera fase: Marte, borde de la caldera del Olympus Mons (circuito generado en mars.js)
 CIRCUITS.push({
   id: 'olympus',
+  music: 'pursuit',
   name: 'OLYMPUS-3',
   sub: 'Marte · Olympus Mons',
   blurb: 'Marte · borde de la caldera del Olympus Mons · saltos y túnel en la lava',
@@ -180,6 +181,7 @@ CIRCUITS.push({
 // (trazado inspirado en el Jarama; tharsis.js)
 CIRCUITS.push({
   id: 'tharsis',
+  music: 'pursuit',
   name: 'THARSIS SIERRA',
   sub: 'Marte · meseta de Tharsis',
   blurb: 'Marte · estadio y ciudad en la meseta de Tharsis · la sierra y los tres volcanes al fondo',
