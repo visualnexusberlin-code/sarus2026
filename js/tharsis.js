@@ -72,6 +72,26 @@ function windowMaterial(color, { rough = 0.55, metal = 0.2, win = 1.6, cell = [3
   return m;
 }
 
+// Cubierta de las tribunas: paneles de 6 m con juntas, tono alterno y franjas de lucernario
+function roofMaterial() {
+  const m = new THREE.MeshStandardMaterial({ color: 0xd9cdbd, roughness: 0.45, metalness: 0.25, side: THREE.DoubleSide });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vMW;\n${GLSL_HASH}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 q = vMW.xz / 6.0, id = floor(q), f = abs(fract(q) - 0.5);
+        float joint = 1.0 - smoothstep(0.0, 0.03, 0.5 - max(f.x, f.y));
+        float sky = step(0.72, hh(vec2(id.x + id.y * 0.37, floor(id.y / 3.0))));
+        diffuseColor.rgb *= (0.86 + 0.18 * hh(id)) * (1.0 - joint * 0.55);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08, 0.075, 0.07), sky * 0.85);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance += vec3(1.0, 0.62, 0.3) * sky * (1.0 - joint) * 0.35;`);
+  };
+  m.customProgramCacheKey = () => 'tharsisRoof';
+  return m;
+}
+
 // Suelo: enlosado de piedra rosada en la ciudad; fuera, regolito marciano (polvo óxido, basalto en coladas y laderas)
 function plazaMaterial(track) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.93, metalness: 0 });
@@ -351,9 +371,9 @@ export function buildTharsis(def, { world, own, srcMat }) {
   // ── Tribunas cubiertas con público ──
   const uni = { uTime: { value: 0 } };
   const SM = {
-    stand: new THREE.MeshStandardMaterial({ color: 0xb8a48e, roughness: 0.7, metalness: 0.05 }),
+    stand: (() => { const m = windowMaterial(0xb8a48e, { rough: 0.7, metal: 0.05, win: 1.1, lit: 0.24, cell: [3.2, 4.2], dim: 0.3 }); m.side = THREE.DoubleSide; return m; })(),
     standDark: new THREE.MeshStandardMaterial({ color: 0x2b2624, roughness: 0.6, metalness: 0.3 }),
-    roof: new THREE.MeshStandardMaterial({ color: 0xd9cdbd, roughness: 0.45, metalness: 0.25, side: THREE.DoubleSide }),
+    roof: roofMaterial(),
     glow: new THREE.MeshStandardMaterial({ color: 0x2a1405, emissive: 0xffa04a, emissiveIntensity: 2.4 }),
     teal: new THREE.MeshStandardMaterial({ color: 0x0c2a2c, emissive: 0x3fd6cf, emissiveIntensity: 1.6 }),
     crowd: crowdMaterial(uni),
@@ -406,6 +426,34 @@ export function buildTharsis(def, { world, own, srcMat }) {
       standParts.roof.push(sweepSeg(s0, s1, 4, [[x0 - 9, rh0], [x0 - 9, rh0 + 0.7], [xb + 4, rh1 + 1.2], [xb + 4, rh1]], true, 20, sd));
       standParts.glow.push(sweepSeg(s0, s1, 4, [[x0 - 8.7, rh0 - 0.25], [x0 - 7.2, rh0 - 0.1]], false, 20, sd));
       standParts.teal.push(sweepSeg(s0, s1, 4, [[x0 - 1.62, h0 + 2.0], [x0 - 1.62, h0 + 2.2]], false, 20, sd));
+      // torres de escalera en los extremos: cierran la tribuna hasta el suelo y sostienen el voladizo
+      const frameAt = (s) => { track.sample(((s % L) + L) % L, F); return { m: new THREE.Matrix4().makeBasis(F.right, F.up, F.tan), p: F.pos.clone(), w: track.wAt(((s % L) + L) % L) }; };
+      for (const [se, dir] of [[s0, 1], [s1, -1]]) {
+        const { m, p, w } = frameAt(se + dir * 3);
+        const off = 16.4 * w;
+        const sh = new THREE.Shape([[off + x0 - 2.6, -40], [off + xb + 2.4, -40], [off + xb + 2.4, rh1 + 1.8], [off + x0 - 2.6, rh0 + 1.4]].map(([x, h]) => new THREE.Vector2(sd * x, h)));
+        const tg = new THREE.ExtrudeGeometry(sh, { depth: 7, bevelEnabled: false }); tg.translate(0, 0, -3.5);
+        tg.applyMatrix4(m); tg.translate(p.x, p.y, p.z); standParts.stand.push(tg);
+        // rendijas de luz verticales en la cara exterior y remate oscuro
+        for (const k of [0.25, 0.5, 0.75]) {
+          const sl = new THREE.BoxGeometry(0.35, Math.max(4, rh0 + 30), 0.3); sl.translate(sd * (off + x0 + (xb - x0) * k), (rh0 - 14) / 2, dir > 0 ? -3.65 : 3.65);
+          sl.applyMatrix4(m); sl.translate(p.x, p.y, p.z); standParts.glow.push(sl);
+        }
+        const cap = new THREE.BoxGeometry(xb - x0 + 6.0, 1.2, 7.6); cap.translate(sd * (off + (x0 + xb) / 2 - 0.1), rh1 + 1.9, 0); cap.applyMatrix4(m); cap.translate(p.x, p.y, p.z); standParts.standDark.push(cap);
+      }
+      // costillas transversales sobre la cubierta
+      for (let s = s0 + 4; s < s1 - 2; s += 12) {
+        const { m, p, w } = frameAt(s), off = 16.4 * w;
+        const a = new THREE.Vector2(sd * (off + x0 - 9), rh0 + 1.1), b = new THREE.Vector2(sd * (off + xb + 4), rh1 + 1.6);
+        const rg = new THREE.BoxGeometry(a.distanceTo(b), 0.9, 0.9); rg.rotateZ(Math.atan2(b.y - a.y, b.x - a.x)); rg.translate((a.x + b.x) / 2, (a.y + b.y) / 2, 0);
+        rg.applyMatrix4(m); rg.translate(p.x, p.y, p.z); standParts.standDark.push(rg);
+      }
+      // pilastras oscuras en la fachada trasera (ritmo vertical)
+      for (let s = s0 + 9; s < s1 - 6; s += 12) {
+        const { m, p, w } = frameAt(s);
+        const pg = new THREE.BoxGeometry(1.0, hb + 3.2 + 40, 1.6); pg.translate(sd * (16.4 * w + xb + 1.7), (hb + 3.2 - 40) / 2, 0);
+        pg.applyMatrix4(m); pg.translate(p.x, p.y, p.z); standParts.standDark.push(pg);
+      }
       // mástiles del voladizo
       for (let s = s0 + 6; s < s1 - 4; s += 28) {
         track.sample(s % L, F);

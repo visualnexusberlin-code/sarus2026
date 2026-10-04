@@ -704,6 +704,7 @@ startBtn.addEventListener('click', begin);
 
 function goSelect() {
   G.state = 'select';
+  audio.setEngines(false);
   G.paused = false;
   $('pause').hidden = true; $('results').hidden = true;
   document.body.classList.remove('cine');
@@ -782,6 +783,7 @@ function travel(id, then, rebuild = true) {
   $('travel').hidden = false;
   G.state = 'travel';
   G.hud.show(false);
+  audio.setEngines(false);                 // el hilo se bloquea al construir: que no quede un zumbido colgado
   setTimeout(() => {
     if (rebuild) buildCircuit(c);
     warmup();
@@ -834,6 +836,7 @@ function goNext() {
 
 function startIntro() {
   audio.music(true);                 // la intro del tema abre cada fase
+  audio.setEngines(true);
   resetRace();
   G.state = 'intro';
   document.body.classList.add('cine');
@@ -1057,6 +1060,7 @@ function playerLap() {
 function finish() {
   const r = G.race;
   G.state = 'finished';
+  audio.setEngines(false);                 // clasificación sin motores: cambio de tono
   r.finishedAt = r.total;
   updateStandings();
   G.playerAI = new AIDriver(G.ship, G.track, { skill: 0.85 });
@@ -1121,6 +1125,7 @@ function restart(withIntro = false) {
   $('pause').hidden = true;
   G.paused = false;
   if (withIntro) { startIntro(); return; }
+  audio.setEngines(true);
   resetRace();
   G.state = 'countdown';
   G.race.countdown = 3.6;
@@ -1262,7 +1267,7 @@ function tick(dt) {
   }
   else if (G.state === 'intro' && input.hit('Enter', 'Space', 'Escape', 'PadA', 'PadStart')) { G.intro.t = G.intro.duration - 0.01; }
   else if (['countdown', 'race', 'finished'].includes(G.state)) {
-    if (input.hit('KeyP', 'Escape', 'PadStart') && G.state !== 'finished') { G.paused = !G.paused; $('pause').hidden = !G.paused; }
+    if (input.hit('KeyP', 'Escape', 'PadStart') && G.state !== 'finished') { G.paused = !G.paused; $('pause').hidden = !G.paused; if (G.state !== 'finished') audio.setEngines(!G.paused); }
     if (input.hit('KeyR', 'PadSelect')) restart(false);
     if (G.paused && input.hit('KeyI')) restart(true);
     if ((G.paused || G.state === 'finished') && input.hit('KeyV')) goSelect();

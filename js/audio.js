@@ -55,8 +55,17 @@ export class Audio {
     return this.muted;
   }
 
+  // Motores fuera (cortinilla de viaje, clasificación) o de vuelta (intro, salida)
+  setEngines(on) {
+    this.engOn = on;
+    if (!this.ctx || on) return;
+    const t = this.ctx.currentTime;
+    this.engGain.gain.cancelScheduledValues(t); this.engGain.gain.setTargetAtTime(0, t, 0.25);
+    this.windGain.gain.cancelScheduledValues(t); this.windGain.gain.setTargetAtTime(0, t, 0.35);
+  }
+
   engine(speed01, throttle, boost, active = true) {
-    if (!this.ctx) return;
+    if (!this.ctx || this.engOn === false) return;
     const t = this.ctx.currentTime;
     const f = 48 + speed01 * 150 + throttle * 12 + boost * 25;
     this.o1.frequency.setTargetAtTime(f, t, 0.08);
