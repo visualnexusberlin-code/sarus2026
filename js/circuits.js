@@ -255,5 +255,44 @@ CIRCUITS.push({
   cards: ['Speed Racing Skies', 'CASSINI-7'],
 });
 
+// Séptima fase: TIPHARES, Venus, plataformas flotantes sobre el mar de nubes alrededor de la ciudadela
+// (trazado inspirado en el autódromo Oscar y Juan Gálvez; tiphares.js)
+CIRCUITS.push({
+  id: 'tiphares',
+  name: 'TIPHARES',
+  sub: 'Venus · ciudadela del loto',
+  blurb: 'Venus · plataformas flotantes sobre el mar de nubes · la ciudadela Tiphares en el corazón del trazado',
+  unlockAfter: 'cassini',
+  generated: 'tiphares',
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 200000,
+  rockets: false,
+  sunFrom: 'tiphares',
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.62, 0.11, 0.78).normalize(),
+    baseDensity: 0.000022, heightDensity: 0.00011, heightFalloff: 0.004, fogMax: 0.82,
+    exposure: 0.74, saturation: 1.05, redKeep: 0.85,
+    bloom: { strength: 0.55, radius: 0.7, threshold: 0.8 },
+    sky: {
+      horizon: [0.96, 0.56, 0.4], zenith: [0.34, 0.22, 0.32], below: [0.78, 0.46, 0.4], zLow: -0.05, zHigh: 0.55,
+      glow: [1.0, 0.7, 0.38], glowK: 0.42, glowExp: 6,
+      haloCol: [1.0, 0.86, 0.6], halo: 0.4, haloExp: 120,
+      sun: [1.0, 0.92, 0.75], corona: 0.6, coronaExp: 1500, disc: 3.0, discExp: 30000,
+    },
+    clouds: { scale: 1.1, cover: 0.55, opacity: 0.75, light: [1.0, 0.76, 0.58], shadow: [0.62, 0.38, 0.42] },
+  },
+  light: { sun: 0xffc896, sunI: 2.8, hemiSky: 0xf0a890, hemiGround: 0x7a4a48, hemiI: 1.0, env: 0.75 },
+  grade: { tint: [1.05, 0.97, 0.94], vignette: 0.46, grain: 0.03, contrast: 0.34 },
+  paint: {
+    edge: [1.0, 0.82, 0.55], chev: [0.95, 0.55, 0.35], lane: [0.95, 0.9, 0.85],
+    kerbA: [0.96, 0.93, 0.88], kerbB: [0.85, 0.62, 0.35], edgeGlow: 0.45, chevGlow: 0.3, kerbGlow: 0.15,
+    buoy: 0xffb070, guide: 0xffe0b8,
+  },
+  structures: { dark: 0xe9e0d4, pale: 0xd9a75e, lamp: 0xffd6a0, ivory: 0xfff4e4 },
+  pad: 0xe9e0d4,
+  cards: ['Speed Racing Skies', 'TIPHARES'],
+});
+
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];
 export { hex };

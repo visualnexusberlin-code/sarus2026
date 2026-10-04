@@ -35,6 +35,7 @@ import { buildMars, marsSunDir } from './mars.js';
 import { buildItaka } from './itaka.js';
 import { buildTharsis, tharsisSunDir } from './tharsis.js';
 import { buildCassini, cassiniSunDir } from './cassini.js';
+import { buildTiphares, tipharesSunDir } from './tiphares.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
@@ -335,6 +336,7 @@ function applyLook(def) {
   if (def.sunFrom === 'mars' && !def._sun) { def.atmosphere.sunDir = marsSunDir(); def._sun = true; }
   if (def.sunFrom === 'tharsis' && !def._sun) { def.atmosphere.sunDir = tharsisSunDir(); def._sun = true; }
   if (def.sunFrom === 'cassini' && !def._sun) { def.atmosphere.sunDir = cassiniSunDir(); def._sun = true; }
+  if (def.sunFrom === 'tiphares' && !def._sun) { def.atmosphere.sunDir = tipharesSunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -627,7 +629,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini })[def.generated](def, { world, own, srcMat });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares })[def.generated](def, { world, own, srcMat });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
