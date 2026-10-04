@@ -126,6 +126,25 @@ export class Track {
     }
     this.yaw = yaw;
 
+    // Peralte opcional: gira derecha/arriba alrededor de la tangente según la curvatura (suavizada ±W4 m)
+    if (opts.bank) {
+      const W4 = Math.round((opts.bankSmooth ?? 40) / this.ds), bk = new Float32Array(M);
+      let acc = 0;
+      for (let k = -W4; k <= W4; k++) acc += this.kappa[(k + M) % M];
+      for (let i = 0; i < M; i++) {
+        bk[i] = opts.bank(i / M, acc / (2 * W4 + 1));
+        acc += this.kappa[(i + W4 + 1) % M] - this.kappa[(i - W4 + M) % M];
+      }
+      this.bank = bk;
+      for (let i = 0; i < M; i++) {
+        const a = bk[i]; if (!a) continue;
+        const c = Math.cos(a), sn = Math.sin(a), o = i * 3;
+        const rx = this.right[o], ry = this.right[o + 1], rz = this.right[o + 2], ux = this.up[o], uy = this.up[o + 1], uz = this.up[o + 2];
+        this.right.set([rx * c + ux * sn, ry * c + uy * sn, rz * c + uz * sn], o);
+        this.up.set([ux * c - rx * sn, uy * c - ry * sn, uz * c - rz * sn], o);
+      }
+    }
+
     // Anchura: hasta +8 % en las curvas (media de curvatura en ±60 m), transición suave
     this.widen = new Float32Array(M);
     {

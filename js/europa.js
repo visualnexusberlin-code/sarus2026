@@ -113,26 +113,95 @@ function domeMaterial() {
 }
 
 // Hielo: placas con grietas, líneas pardo-rojizas (lineae), paredes de sima que pasan de pardo a azul luminoso
-function iceMaterial() {
+// ── Horneado en GPU (una vez al construir): patrones procedurales caros → texturas con mipmaps ──
+const PERIODIC_GLSL = /* glsl */`
+  varying vec2 vUv;
+  float hP(vec2 n, float N){ n = mod(n, N); return fract(sin(dot(n, vec2(127.1, 311.7))) * 43758.5453); }
+  vec2 h2P(vec2 n, float N){ n = mod(n, N); return fract(sin(vec2(dot(n, vec2(127.1, 311.7)), dot(n, vec2(269.5, 183.3)))) * 43758.5453); }
+  float nP(vec2 p, float N){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(hP(i, N), hP(i+vec2(1,0), N), f.x), mix(hP(i+vec2(0,1), N), hP(i+vec2(1,1), N), f.x), f.y); }
+  float fP(vec2 p, float N){ float a = 0.0, w = 0.5; for (int i = 0; i < 5; i++) { a += nP(p, N) * w; p *= 2.0; N *= 2.0; w *= 0.5; } return a; }
+  // Voronoi periódico: x = distancia al borde (unidades de celda), y = tono de la celda
+  vec2 vorP(vec2 x, float N){ vec2 n = floor(x), f = fract(x), mg, mr; float md = 8.0;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 g = vec2(float(i), float(j)); vec2 o = h2P(n + g, N); vec2 r = g + o - f; float d = dot(r, r); if (d < md) { md = d; mr = r; mg = g; } }
+    float id = hP(n + mg + 0.37, N); md = 8.0;
+    for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) { vec2 g = mg + vec2(float(i), float(j)); vec2 o = h2P(n + g, N); vec2 r = g + o - f; if (dot(mr - r, mr - r) > 0.00001) md = min(md, dot(0.5 * (mr + r), normalize(r - mr))); }
+    return vec2(md, id); }
+`;
+
+function gpuBake(renderer, w, h, frag, mips) {
+  const rt = new THREE.WebGLRenderTarget(w, h, { depthBuffer: false, wrapS: THREE.RepeatWrapping, wrapT: mips ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping,
+    generateMipmaps: !!mips, minFilter: mips ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter, magFilter: THREE.LinearFilter });
+  rt.texture.anisotropy = 8;
+  const mat = new THREE.ShaderMaterial({ vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }', fragmentShader: PERIODIC_GLSL + frag, depthTest: false, depthWrite: false });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+  const sc = new THREE.Scene(); sc.add(quad);
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const prev = renderer.getRenderTarget();
+  renderer.setRenderTarget(rt); renderer.render(sc, cam); renderer.setRenderTarget(prev);
+  mat.dispose(); quad.geometry.dispose();
+  return rt;
+}
+
+// Hielo: baldosa periódica de 625 m. R = distancia a la grieta entre placas (m/6), G = vetas claras, B = tono de placa, A = grietas finas
+const ICE_TILE = 625;
+const ICE_BAKE = /* glsl */`
+  void main(){
+    vec2 q = vUv;
+    vec2 wp = (vec2(fP(q * 4.0, 4.0), fP(q * 4.0 + vec2(5.3, 1.7), 4.0)) - 0.5) * 0.5;
+    vec2 pl = vorP(q * 8.0 + wp, 8.0);
+    float ed = pl.x * 78.125;
+    float subOn = step(0.55, nP(q * 3.0 + 2.0, 3.0));
+    if (subOn > 0.5) ed = min(ed, vorP(q * 20.0 + 11.0, 20.0).x * 31.25 + 0.35);
+    ed += (nP(q * 75.0, 75.0) - 0.5) * 1.4;
+    vec2 wq = q * 48.0 + vec2(fP(q * 25.0, 25.0), fP(q * 25.0 + 9.0, 25.0)) * 1.3;
+    float v1 = vorP(wq, 48.0).x;
+    float ve2 = vorP(q * 24.0 + 17.0 + vec2(nP(q * 3.0, 3.0)), 24.0).x;
+    gl_FragColor = vec4(clamp(ed / 6.0, 0.0, 1.0), clamp(v1 * 2.0, 0.0, 1.0), pl.y, clamp(ve2 * 4.0, 0.0, 1.0));
+  }`;
+
+// Júpiter: mapa equirectangular (u = longitud, v = latitud), ruido periódico en longitud
+const JUP_BAKE = /* glsl */`
+  vec3 band(float lat, float t){
+    vec3 zone = vec3(0.93, 0.88, 0.8), belt = vec3(0.66, 0.46, 0.33), polar = vec3(0.55, 0.56, 0.6);
+    float d = lat * 57.3, b = 0.0;
+    b += smoothstep(4.0, 9.0, d) * (1.0 - smoothstep(16.0, 20.0, d));
+    b += (smoothstep(-20.0, -16.0, d) - smoothstep(-8.0, -5.0, d)) * 0.9;
+    b += (smoothstep(24.0, 27.0, d) - smoothstep(31.0, 34.0, d)) * 0.7;
+    b += (smoothstep(-36.0, -33.0, d) - smoothstep(-29.0, -26.0, d)) * 0.6;
+    b += (smoothstep(38.0, 41.0, d) - smoothstep(44.0, 47.0, d)) * 0.45;
+    b += (smoothstep(-48.0, -45.0, d) - smoothstep(-42.0, -39.0, d)) * 0.4;
+    b = clamp(b, 0.0, 1.0);
+    vec3 c = mix(zone, belt, b * (0.75 + 0.5 * t));
+    c = mix(c, vec3(0.86, 0.76, 0.6), (1.0 - smoothstep(0.0, 6.0, abs(d))) * 0.35);
+    return mix(c, polar, smoothstep(50.0, 66.0, abs(d)));
+  }
+  void main(){
+    float u = vUv.x, lat = (vUv.y - 0.5) * 3.14159265, lon = (u - 0.5) * 6.2831853;
+    vec2 w = vec2(fP(vec2(u * 25.0, lat * 26.0), 25.0), fP(vec2(u * 33.0, lat * 34.0) + 5.2, 33.0));
+    float latW = lat + (w.y - 0.5) * 0.05 + (fP(vec2(u * 88.0, lat * 90.0), 88.0) - 0.5) * 0.012;
+    float t = fP(vec2(u * 57.0 + w.x * 2.0, lat * 60.0), 57.0);
+    vec3 col = band(latW, t);
+    col *= 0.88 + 0.16 * (sin(latW * 140.0 + (w.x - 0.5) * 3.0) * 0.5 + 0.5);
+    col = mix(col, col * vec3(1.08, 1.02, 0.95), smoothstep(0.55, 0.8, fP(vec2(u * 138.0 + w.y * 6.0, latW * 160.0), 138.0)) * 0.6);
+    col = mix(col, col * vec3(0.8, 0.68, 0.6), smoothstep(0.6, 0.85, fP(vec2(u * 75.0, latW * 90.0) + 4.0, 75.0)) * 0.5);
+    col *= 0.9 + 0.2 * fP(vec2(u * 251.0 + w.x * 4.0, latW * 400.0), 251.0);
+    col = mix(col, vec3(0.97, 0.95, 0.9), smoothstep(0.72, 0.8, fP(vec2(u * 38.0, lat * 26.0) + 13.0, 38.0)) * 0.6 * step(0.25, abs(lat)));
+    // Gran Mancha Roja (lat −22°)
+    vec2 g = vec2((lon + 0.42) / 0.2, (lat + 0.385) / 0.085);
+    float r = length(g), ang = atan(g.y, g.x) + r * 2.4;
+    float sw = fP(vec2(cos(ang), sin(ang)) * r * 3.0 + 7.0, 64.0);
+    col = mix(col, mix(vec3(0.72, 0.36, 0.22), vec3(0.86, 0.55, 0.38), sw), 1.0 - smoothstep(0.75, 1.05, r));
+    col = mix(col, vec3(0.95, 0.9, 0.82), (smoothstep(0.95, 1.08, r) - smoothstep(1.1, 1.35, r)) * 0.55);
+    gl_FragColor = vec4(col, 1.0);
+  }`;
+
+function iceMaterial(tex) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.0 });
   m.onBeforeCompile = (sh) => {
-    const hdr = `varying vec3 vIW; varying vec3 vIN;
+    sh.uniforms.uIceTex = { value: tex };
+    const hdr = `varying vec3 vIW; varying vec3 vIN; uniform sampler2D uIceTex;
       float ih(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      vec2 ih2(vec2 p){ return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
-      float inn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(ih(i), ih(i+vec2(1,0)), f.x), mix(ih(i+vec2(0,1)), ih(i+vec2(1,1)), f.x), f.y); }
-      float ifb(vec2 p){ float a = 0.0, w = 0.5; for (int i = 0; i < 4; i++) { a += inn(p) * w; p = p * 2.03 + 3.1; w *= 0.5; } return a; }
-      // distancia al borde de celda de Voronoi
-      float vedge(vec2 x){ vec2 n = floor(x), f = fract(x), mg, mr; float md = 8.0;
-        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 g = vec2(float(i), float(j)); vec2 o = ih2(n + g); vec2 r = g + o - f; float d = dot(r, r); if (d < md) { md = d; mr = r; mg = g; } }
-        md = 8.0;
-        for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) { vec2 g = mg + vec2(float(i), float(j)); vec2 o = ih2(n + g); vec2 r = g + o - f; if (dot(mr - r, mr - r) > 0.00001) md = min(md, dot(0.5 * (mr + r), normalize(r - mr))); }
-        return md; }
-      // placas grandes: distancia al borde (unidades de celda) y tono de la placa
-      vec2 vcell(vec2 x){ vec2 n = floor(x), f = fract(x), mg, mr; float md = 8.0;
-        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 g = vec2(float(i), float(j)); vec2 o = ih2(n + g); vec2 r = g + o - f; float d = dot(r, r); if (d < md) { md = d; mr = r; mg = g; } }
-        float id = ih(n + mg + 0.37); md = 8.0;
-        for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) { vec2 g = mg + vec2(float(i), float(j)); vec2 o = ih2(n + g); vec2 r = g + o - f; if (dot(mr - r, mr - r) > 0.00001) md = min(md, dot(0.5 * (mr + r), normalize(r - mr))); }
-        return vec2(md, id); }`;
+      float inn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(ih(i), ih(i+vec2(1,0)), f.x), mix(ih(i+vec2(0,1)), ih(i+vec2(1,1)), f.x), f.y); }`;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vIW; varying vec3 vIN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvIW = (modelMatrix * vec4(transformed, 1.0)).xyz; vIN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${hdr}`)
@@ -143,31 +212,25 @@ function iceMaterial() {
           float camD = length(cameraPosition - p);
           iSteep = 1.0 - smoothstep(0.28, 0.7, n.y);
           iDep = clamp(-p.y / 300.0, 0.0, 1.0);
-          float f1 = ifb(p.xz * 0.004), f2 = ifb(p.xz * 0.045);
-          vec2 vPl = vcell(p.xz / 78.0 + (vec2(ifb(p.xz * 0.006), ifb(p.xz * 0.006 + 5.0)) - 0.5) * 0.5); vPl.x *= 78.0;
+          float f1 = inn(p.xz * 0.004) * 0.65 + inn(p.xz * 0.011) * 0.35, f2 = inn(p.xz * 0.045);
+          vec4 T = texture2D(uIceTex, p.xz / ${ICE_TILE.toFixed(1)});
+          float ed = T.r * 6.0, v1 = T.g * 0.5, ve2 = T.a * 0.25;
           // hielo blanco-azulado, cada placa con su tono
-          vec3 ice = mix(vec3(0.5, 0.6, 0.74), vec3(0.8, 0.86, 0.94), f1 * 0.6 + vPl.y * 0.4);
+          vec3 ice = mix(vec3(0.5, 0.6, 0.74), vec3(0.8, 0.86, 0.94), f1 * 0.6 + T.b * 0.4);
           ice *= 0.93 + 0.1 * f2;
-          // red de vetas claras (hielo recongelado, como cristal)
+          // vetas claras (hielo recongelado) y, de cerca, la red fina
           float fade = 1.0 - smoothstep(60.0, 260.0, camD);
-          vec2 wq = p.xz / 13.0 + vec2(ifb(p.xz * 0.04), ifb(p.xz * 0.04 + 9.0)) * 1.3;
-          float v1 = vedge(wq), v2 = fade > 0.0 ? vedge(p.xz / 2.4 + 31.0) : 1.0;
+          float v2 = fade > 0.0 ? texture2D(uIceTex, mat2(0.8, 0.6, -0.6, 0.8) * p.xz / 116.0).g * 0.5 : 1.0;
           iVein = (1.0 - smoothstep(0.0, 0.07, v1)) * 0.9 * mix(1.0, 0.2, smoothstep(250.0, 1100.0, camD)) + (1.0 - smoothstep(0.0, 0.05, v2)) * 0.3 * fade;
           ice = mix(ice, vec3(0.95, 0.98, 1.0), iVein * 0.8);
           ice = mix(ice, ice * vec3(0.78, 0.86, 0.98), smoothstep(0.1, 0.45, v1) * 0.4);
           // grietas grandes entre placas: núcleo pardo-rojizo con un filo claro
-          float ed = vPl.x + (inn(p.xz * 0.12) - 0.5) * 1.4;
-          float subOn = step(0.55, inn(p.xz * 0.004 + 2.0));
-          vec2 sub = subOn > 0.5 ? vcell(p.xz / 31.0 + 11.0) : vec2(9.0);
-          ed = min(ed, mix(99.0, sub.x * 31.0 + 0.35, subOn));
           iCrack = (1.0 - smoothstep(0.5, 1.3, ed)) * mix(1.0, 0.45, smoothstep(250.0, 1500.0, camD));
           float lip = smoothstep(0.9, 1.6, ed) - smoothstep(2.0, 4.0, ed);
           ice = mix(ice, vec3(0.97, 0.98, 1.0), lip * 0.55);
           ice = mix(ice, mix(vec3(0.5, 0.26, 0.18), vec3(0.72, 0.44, 0.32), inn(p.xz * 0.6)), iCrack);
-          // grietas secundarias finas
-          float ve2 = fade > 0.0 ? vedge(p.xz / 26.0 + 17.0 + vec2(f1)) : 1.0;
           ice = mix(ice, vec3(0.55, 0.42, 0.4), (1.0 - smoothstep(0.0, 0.01, ve2)) * 0.35 * fade);
-          // paredes de las simas: hielo columnar claro arriba, azul cada vez más luminoso abajo, vetas pardas
+          // paredes de las simas
           iStreak = inn(vec2(dot(p.xz, vec2(0.23, 0.19)) * 1.6, p.y * 0.012));
           float colm = inn(vec2(dot(p.xz, vec2(0.37, -0.29)) * 0.9, 0.0));
           vec3 wall = mix(vec3(0.78, 0.85, 0.93), vec3(0.18, 0.5, 0.78), smoothstep(0.02, 0.28, iDep));
@@ -184,16 +247,17 @@ function iceMaterial() {
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
         { float cd = length(cameraPosition - vIW); float k = smoothstep(80.0, 900.0, cd); reflectedLight.directSpecular *= mix(1.0, 0.04, k); reflectedLight.indirectSpecular *= mix(1.0, 0.12, k); }`);
   };
-  m.customProgramCacheKey = () => 'euIce3';
+  m.customProgramCacheKey = () => 'euIce4';
   return m;
 }
 
-// Júpiter (y Io): bandas, remolinos y la Gran Mancha Roja, calculados en el fragmento; luz del Sol real por detrás
-function planetMaterial(center, sunDir, kind) {
+// Júpiter (mapa horneado) e Io (procedural, pequeña): luz del Sol real por detrás
+function planetMaterial(center, sunDir, kind, tex) {
   const toV = JUP_DIR.clone().negate().setY(0).normalize(), east = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toV).normalize();
   return new THREE.ShaderMaterial({
     fog: false,
-    uniforms: { uC: { value: center }, uSun: { value: sunDir }, uV: { value: toV }, uE: { value: east }, uT: { value: 0 }, uKind: { value: kind } },
+    uniforms: { uC: { value: center }, uSun: { value: sunDir }, uV: { value: toV }, uE: { value: east }, uT: { value: 0 }, uMap: { value: tex || null } },
+    defines: kind ? { IO: 1 } : {},
     vertexShader: /* glsl */`
       #include <common>
       #include <logdepthbuf_pars_vertex>
@@ -204,29 +268,10 @@ function planetMaterial(center, sunDir, kind) {
     fragmentShader: /* glsl */`
       #include <common>
       #include <logdepthbuf_pars_fragment>
-      uniform vec3 uC, uSun, uV, uE; uniform float uT, uKind; varying vec3 vW;
+      uniform vec3 uC, uSun, uV, uE; uniform float uT; uniform sampler2D uMap; varying vec3 vW;
       float ph(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float pn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(ph(i), ph(i+vec2(1,0)), f.x), mix(ph(i+vec2(0,1)), ph(i+vec2(1,1)), f.x), f.y); }
-      float pf(vec2 p){ float a = 0.0, w = 0.5; for (int i = 0; i < 5; i++) { a += pn(p) * w; p = p * 2.1 + 1.7; w *= 0.5; } return a; }
-      vec3 band(float lat, float t){
-        // zonas claras y cinturones (norte → sur), de los colores de las fotos de la Juno/Cassini
-        vec3 zone = vec3(0.93, 0.88, 0.8), belt = vec3(0.66, 0.46, 0.33), polar = vec3(0.55, 0.56, 0.6);
-        float d = lat * 57.3;
-        float b = 0.0;
-        b += smoothstep(4.0, 9.0, d) * (1.0 - smoothstep(16.0, 20.0, d));          // NEB
-        b += smoothstep(-9.0, -5.0, -d + 0.0) * 0.0;
-        b += smoothstep(-21.0, -17.0, -d) * 0.0;
-        b += (smoothstep(-20.0, -16.0, d) - smoothstep(-8.0, -5.0, d)) * 0.9;       // SEB
-        b += (smoothstep(24.0, 27.0, d) - smoothstep(31.0, 34.0, d)) * 0.7;        // NTB
-        b += (smoothstep(-36.0, -33.0, d) - smoothstep(-29.0, -26.0, d)) * 0.6;    // STB
-        b += (smoothstep(38.0, 41.0, d) - smoothstep(44.0, 47.0, d)) * 0.45;
-        b += (smoothstep(-48.0, -45.0, d) - smoothstep(-42.0, -39.0, d)) * 0.4;
-        b = clamp(b, 0.0, 1.0);
-        vec3 c = mix(zone, belt, b * (0.75 + 0.5 * t));
-        c = mix(c, vec3(0.86, 0.76, 0.6), (1.0 - smoothstep(0.0, 6.0, abs(d))) * 0.35);  // zona ecuatorial ocre
-        c = mix(c, polar, smoothstep(50.0, 66.0, abs(d)));
-        return c;
-      }
+      float pf(vec2 p){ float a = 0.0, w = 0.5; for (int i = 0; i < 4; i++) { a += pn(p) * w; p = p * 2.1 + 1.7; w *= 0.5; } return a; }
       void main(){
         #include <logdepthbuf_fragment>
         vec3 n = normalize(vW - uC);
@@ -234,45 +279,20 @@ function planetMaterial(center, sunDir, kind) {
         float lam = dot(n, normalize(uSun));
         float day = smoothstep(-0.08, 0.25, lam);
         vec3 col;
-        if (uKind < 0.5) {
-          // inclinación leve del eje
-          vec3 up = normalize(vec3(0.0, 1.0, 0.0) + uE * 0.1);
-          float lat = asin(clamp(dot(n, up), -1.0, 1.0));
-          float lon = atan(dot(n, uE), dot(n, uV)) + uT * 0.004;
-          vec2 q = vec2(lon * 4.0, lat * 26.0);
-          vec2 w = vec2(pf(q + vec2(uT * 0.01, 0.0)), pf(q * 1.3 + 5.2));
-          float latW = lat + (w.y - 0.5) * 0.05 + (pf(vec2(lon * 14.0, lat * 90.0)) - 0.5) * 0.012;
-          float t = pf(vec2(lon * 9.0 + w.x * 2.0, lat * 60.0));
-          col = band(latW, t);
-          // bandas finas y turbulencia de borde (muchas franjas estrechas como en las fotos)
-          float fine = sin(latW * 140.0 + (w.x - 0.5) * 3.0) * 0.5 + 0.5;
-          col *= 0.88 + 0.16 * fine;
-          float edgeTurb = pf(vec2(lon * 22.0 + w.y * 6.0, latW * 160.0));
-          col = mix(col, col * vec3(1.08, 1.02, 0.95), smoothstep(0.55, 0.8, edgeTurb) * 0.6);
-          col = mix(col, col * vec3(0.8, 0.68, 0.6), smoothstep(0.6, 0.85, pf(vec2(lon * 12.0, latW * 90.0) + 4.0)) * 0.5);
-          // vetas finas a lo largo de los paralelos
-          col *= 0.9 + 0.2 * pf(vec2(lon * 40.0 + w.x * 4.0, latW * 400.0));
-          // óvalos blancos y festones
-          float ov = pf(vec2(lon * 6.0, lat * 26.0) + 13.0);
-          col = mix(col, vec3(0.97, 0.95, 0.9), smoothstep(0.72, 0.8, ov) * 0.6 * step(0.25, abs(lat)));
-          // Gran Mancha Roja (lat −22°)
-          vec2 g = vec2((lon + 0.42) / 0.2, (lat + 0.385) / 0.085);
-          float r = length(g);
-          float ang = atan(g.y, g.x) + r * 2.4 - uT * 0.02;
-          float sw = pf(vec2(cos(ang), sin(ang)) * r * 3.0 + 7.0);
-          vec3 grs = mix(vec3(0.72, 0.36, 0.22), vec3(0.86, 0.55, 0.38), sw);
-          col = mix(col, grs, (1.0 - smoothstep(0.75, 1.05, r)));
-          col = mix(col, vec3(0.95, 0.9, 0.82), (smoothstep(0.95, 1.08, r) - smoothstep(1.1, 1.35, r)) * 0.55);
-        } else {
-          // Io: azufre amarillo con manchas pardas y blancas
+        #ifdef IO
           vec2 q = vec2(atan(n.z, n.x) * 3.0, asin(n.y) * 3.0);
           float a = pf(q * 2.0), b = pf(q * 7.0 + 3.0);
           col = mix(vec3(0.86, 0.76, 0.38), vec3(0.95, 0.9, 0.7), a);
           col = mix(col, vec3(0.45, 0.28, 0.16), smoothstep(0.62, 0.7, b));
-        }
+        #else
+          vec3 up = normalize(vec3(0.0, 1.0, 0.0) + uE * 0.1);
+          float lat = asin(clamp(dot(n, up), -1.0, 1.0));
+          float lon = atan(dot(n, uE), dot(n, uV)) + uT * 0.004;
+          col = texture2D(uMap, vec2(fract(lon / 6.2831853 + 0.5), lat / 3.14159265 + 0.5)).rgb;
+        #endif
         float limb = pow(max(0.0, dot(n, V)), 0.35);
         vec3 c = col * (0.015 + 0.62 * day * (0.35 + 0.65 * max(lam, 0.0))) * (0.55 + 0.45 * limb);
-        c += vec3(0.5, 0.6, 0.8) * pow(1.0 - max(0.0, dot(n, V)), 5.0) * 0.14 * day;     // velo azulado del limbo
+        c += vec3(0.5, 0.6, 0.8) * pow(1.0 - max(0.0, dot(n, V)), 5.0) * 0.14 * day;
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -346,7 +366,7 @@ function domeGeos(R, P) {
   P.silver.push(lathe([[R * 1.06, drumH - 0.6], [R * 1.08, drumH], [R * 1.0, drumH + 0.8]], 48));
   P.silver.push(lathe([[R * 1.12, 0], [R * 1.12, 1.4], [R * 1.02, 1.6]], 48));
   const NA = Math.max(16, Math.round(2 * Math.PI * R / 3.4));
-  const sp = new THREE.SphereGeometry(R, 56, 18, 0, Math.PI * 2, 0, Math.PI / 2);
+  const sp = new THREE.SphereGeometry(R, 40, 14, 0, Math.PI * 2, 0, Math.PI / 2);
   { const uv = sp.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * NA, uv.getY(i) * NA * 0.25 * 1.15); }
   sp.scale(1, 0.86, 1); sp.translate(0, drumH, 0); P.dome.push(sp);
   const top = drumH + R * 0.86;
@@ -382,7 +402,7 @@ function vaseGeos(H, R, P) {
   P.warm.push(lathe([[R * 0.6, H + 0.05], [R * 0.6, H + 0.06], [0, H + 0.06]], 24));
 }
 
-export function buildEuropa(def, { world, own, srcMat }) {
+export function buildEuropa(def, { world, own, srcMat, renderer }) {
   const T0 = performance.now();
   _seed = 31;
   const { S, cum, total, corner, chasms, citadel, rings } = layout();
@@ -440,15 +460,33 @@ export function buildEuropa(def, { world, own, srcMat }) {
 
   // ── Cotas: Interlagos baja de la recta por el S de Senna hasta el lago y sube por la Subida dos Boxes ──
   const g = (f, c, w) => { let d = Math.abs(f - c); d = Math.min(d, 1 - d); return Math.exp(-((d * total / w) ** 2)); };
+  // relieve con golpes: caída al S de Senna, dos lomos en la Reta Oposta, zambullida dentro de la sima del Lago,
+  // subida a Ferradura, el Mergulho (picado) y la rampa de la Subida dos Boxes
+  const fo = (c, m) => c + m / total;
   let y = S.map((_, i) => {
     const f = cum[i] / total;
-    return 12 + 12 * g(f, 0, 700) + 5 * g(f, corner.sol, 300) - 5 * g(f, corner.lago, 380) + 7 * g(f, corner.ferradura, 260) + 5 * g(f, corner.pinheirinho, 200) - 3 * g(f, corner.mergulho, 200) + 9 * g(f, corner.arquib, 500);
+    return 14 + 12 * g(f, 0, 520) - 14 * g(f, corner.senna, 150) + 9 * g(f, corner.sol, 220)
+      + 11 * g(f, fo(corner.oposta, 330), 85) + 9 * g(f, fo(corner.oposta, 700), 80)
+      - 48 * g(f, corner.lago, 210) + 15 * g(f, corner.ferradura, 170) + 7 * g(f, corner.pinheirinho, 130)
+      - 16 * g(f, corner.mergulho, 110) + 5 * g(f, corner.juncao, 180) - 22 * g(f, fo(corner.boxes, -60), 120) + 12 * g(f, corner.arquib, 260);
   });
-  for (let i = 0; i < N; i++) y[i] = Math.max(y[i], surf(S[i].x, S[i].z) + 7);
-  for (let pass = 0; pass < 4; pass++) y = y.map((_, i) => { let a = 0; for (let k = -4; k <= 4; k++) a += y[(i + k + N) % N]; return a / 9; });
+  // cota mínima: 7 m sobre el hielo, salvo donde toda la anchura de la pista cae sobre una sima (puede hundirse dentro)
+  const yMin = S.map((p) => {
+    let deep = true;
+    for (let k = 0; k < 9 && deep; k++) { const a = k / 8 * Math.PI * 2, r = k === 8 ? 0 : 30; if (chasmT(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r) < 0.98) deep = false; }
+    return deep ? -70 : surf(p.x, p.z) + 7;
+  });
+  for (let pass = 0; pass < 6; pass++) {
+    y = y.map((v, i) => Math.max(v, yMin[i]));
+    y = y.map((_, i) => { let a = 0; for (let k = -3; k <= 3; k++) a += y[(i + k + N) % N]; return a / 7; });
+  }
+  y = y.map((v, i) => Math.max(v, yMin[i]));
+  for (let pass = 0; pass < 2; pass++) y = y.map((_, i) => { let a = 0; for (let k = -2; k <= 2; k++) a += y[(i + k + N) % N]; return a / 5; });
 
   const pts = []; for (let i = 0; i < N; i += 2) pts.push(new THREE.Vector3(S[i].x, y[i], S[i].z));
-  const track = new Track(null, { points: pts, inSectorOrder: false, sectors: [0, 0.16, 0.33, 0.5, 0.66, 0.82] });
+  // peralte: hasta ~14° en las curvas cerradas, más marcado en el S de Senna, Ferradura y Bico de Pato
+  const bankBoost = (f) => 1 + 0.5 * (g(f, corner.senna, 200) + g(f, corner.ferradura, 200) + g(f, corner.bico, 160));
+  const track = new Track(null, { points: pts, inSectorOrder: false, sectors: [0, 0.16, 0.33, 0.5, 0.66, 0.82], bank: (f, k) => THREE.MathUtils.clamp(k * 42 * bankBoost(f), -0.25, 0.25) });
   const F = track.frame();
   const L = track.length;
   const trackPts = []; for (let s = 0; s < L; s += 10) { track.sample(s, F); trackPts.push([F.pos.x, F.pos.z, F.pos.y]); }
@@ -639,10 +677,20 @@ export function buildEuropa(def, { world, own, srcMat }) {
   }
 
   // ── Mezcla por material ──
+  // por material y por parcela de 600 m: así el recorte por cámara (y el de la sombra) descarta lo que no se ve
   for (const [k, list] of Object.entries(city)) {
     if (!list.length) continue;
-    const mg = mergeGeometries(norm(list), false); list.forEach((gg) => gg.dispose());
-    const mesh = new THREE.Mesh(mg, PM[k]); mesh.castShadow = !['warm', 'cyan', 'star', 'deep'].includes(k); mesh.receiveShadow = true; world.add(mesh); own.push(mg);
+    const chunks = new Map();
+    for (const gq of norm(list)) {
+      gq.computeBoundingSphere(); const c = gq.boundingSphere.center;
+      const far = Math.hypot(c.x - centroid.x, c.z - centroid.z) > 2200;
+      const key = gq.boundingSphere.radius > 900 ? 'big' : far ? 'far' + Math.floor((Math.atan2(c.z - centroid.z, c.x - centroid.x) + Math.PI) / (Math.PI / 3)) : `${Math.floor(c.x / 800)},${Math.floor(c.z / 800)}`;
+      if (!chunks.has(key)) chunks.set(key, []); chunks.get(key).push(gq);
+    }
+    for (const [key, l] of chunks) {
+      const mg = mergeGeometries(l, false); l.forEach((gg) => gg.dispose()); mg.computeBoundingSphere();
+      const mesh = new THREE.Mesh(mg, PM[k]); mesh.castShadow = !key.startsWith('far') && !['warm', 'cyan', 'star', 'deep'].includes(k); mesh.receiveShadow = true; world.add(mesh); own.push(mg);
+    }
   }
   // haces de luz que suben de las simas
   {
@@ -680,11 +728,12 @@ export function buildEuropa(def, { world, own, srcMat }) {
     }
     const im = new THREE.InstancedMesh(geo, mat, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
     list.forEach(([x, yy, z, r], i) => { q.setFromEuler(e.set((rnd() - 0.5) * 0.6, rnd() * 6.28, (rnd() - 0.5) * 0.6)); m4.compose(new THREE.Vector3(x, yy, z), q, new THREE.Vector3(r, r * (0.6 + rnd() * 0.8), r)); im.setMatrixAt(i, m4); });
-    im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); world.add(im);
+    im.instanceMatrix.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); world.add(im);
   }
 
   // ── Suelo: malla fina alrededor de la pista + llanura que llega al horizonte ──
-  const iceMat = iceMaterial(); own.push(iceMat);
+  const iceRT = gpuBake(renderer, 2048, 2048, ICE_BAKE, true); own.push(iceRT);
+  const iceMat = iceMaterial(iceRT.texture); iceMat.userData.tag = 'ice'; own.push(iceMat);
   let ix0 = Infinity, ix1 = -Infinity, iz0 = Infinity, iz1 = -Infinity; for (const [x, z] of tp) { ix0 = Math.min(ix0, x); ix1 = Math.max(ix1, x); iz0 = Math.min(iz0, z); iz1 = Math.max(iz1, z); }
   ix0 -= 520; ix1 += 520; iz0 -= 520; iz1 += 520;
   {
@@ -692,8 +741,18 @@ export function buildEuropa(def, { world, own, srcMat }) {
     const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = new Uint32Array(nx * nz * 6);
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = ix0 + i * RES, z = iz0 + j * RES, k = j * (nx + 1) + i, o = k * 3; pos[o] = x; pos[o + 1] = H(x, z); pos[o + 2] = z; }
     let q = 0; for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1; idx[q++] = a; idx[q++] = c; idx[q++] = b; idx[q++] = b; idx[q++] = c; idx[q++] = d; }
-    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); gg.setIndex(new THREE.BufferAttribute(idx, 1)); gg.computeVertexNormals();
-    const mesh = new THREE.Mesh(gg, iceMat); mesh.receiveShadow = true; world.add(mesh); own.push(gg);
+    const full = new THREE.BufferGeometry(); full.setAttribute('position', new THREE.BufferAttribute(pos, 3)); full.setIndex(new THREE.BufferAttribute(idx, 1)); full.computeVertexNormals();
+    const nrm = full.attributes.normal.array; full.dispose();
+    // en losetas de ~64 celdas (normales compartidas, sin costuras) para que el recorte por cámara funcione
+    const TS = 128;
+    for (let j0 = 0; j0 < nz; j0 += TS) for (let i0 = 0; i0 < nx; i0 += TS) {
+      const i1 = Math.min(nx, i0 + TS), j1 = Math.min(nz, j0 + TS), w = i1 - i0 + 1, hgt = j1 - j0 + 1;
+      const tp2 = new Float32Array(w * hgt * 3), tn = new Float32Array(w * hgt * 3), ti = [];
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const src = (j * (nx + 1) + i) * 3, dst = ((j - j0) * w + (i - i0)) * 3; for (let c = 0; c < 3; c++) { tp2[dst + c] = pos[src + c]; tn[dst + c] = nrm[src + c]; } }
+      for (let j = 0; j < hgt - 1; j++) for (let i = 0; i < w - 1; i++) { const a = j * w + i, b = a + 1, c = a + w, d = c + 1; ti.push(a, c, b, b, c, d); }
+      const gt = new THREE.BufferGeometry(); gt.setAttribute('position', new THREE.BufferAttribute(tp2, 3)); gt.setAttribute('normal', new THREE.BufferAttribute(tn, 3)); gt.setIndex(ti); gt.computeBoundingSphere();
+      const mesh = new THREE.Mesh(gt, iceMat); mesh.receiveShadow = true; world.add(mesh); own.push(gt);
+    }
   }
   {
     const axis = (a0, a1) => { const v = []; for (let x = a0, st = 40; x > -200000; st *= 1.13) { v.unshift(x); x -= st; } v.unshift(-200000); for (let x = a0 + 120; x < a1; x += 120) v.push(x); for (let x = a1, st = 40; x < 200000; st *= 1.13) { v.push(x); x += st; } v.push(200000); return v; };
@@ -715,7 +774,8 @@ export function buildEuropa(def, { world, own, srcMat }) {
   // ── Júpiter, Io y estrellas ──
   const realSun = JUP_DIR.clone().negate().add(new THREE.Vector3(0, 0.18, 0)).add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(-0.42)).normalize();
   const jc = centroid.clone().addScaledVector(JUP_DIR, JUP_D).setY(JUP_D * JUP_EL);
-  const jm = planetMaterial(jc, realSun, 0); own.push(jm);
+  const jupRT = gpuBake(renderer, 2048, 1024, JUP_BAKE, false); own.push(jupRT);
+  const jm = planetMaterial(jc, realSun, 0, jupRT.texture); jm.userData.tag = 'jup'; own.push(jm);
   const jup = new THREE.Mesh(new THREE.SphereGeometry(JUP_R, 128, 96), jm); jup.position.copy(jc); jup.scale.y = 0.935; jup.frustumCulled = false; world.add(jup); own.push(jup.geometry);
   const ioC = centroid.clone().add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(-90000)).addScaledVector(JUP_DIR, 140000).setY(60000);
   const im2 = planetMaterial(ioC, realSun, 1); own.push(im2);

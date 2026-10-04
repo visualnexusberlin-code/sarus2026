@@ -631,7 +631,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa })[def.generated](def, { world, own, srcMat });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
