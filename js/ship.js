@@ -10,7 +10,7 @@ const _v = new THREE.Vector3();
 const ION_RE = /_Ion|Reactor red/i;
 const QT = 0.5;
 // Desgaste de carrera en el shader (espacio del modelo): mugre, regueros hacia atrás, desconchones, arañazos y hollín trasero.
-const WEAR = { VEGA: 0.4, LUDOX: 0.85, 'PRIME-EX': 0.8, WOLFEN: 0.6, ADAX: 0.8, MANTA: 0.45, NEXUS: 0.3, ILION: 0.35, X3LEE: 0.35, 'HUE-MING': 0.3 };
+const WEAR = { VEGA: 0.4, LUDOX: 0.85, 'PRIME-EX': 0.8, WOLFEN: 0.6, ADAX: 0.8, X3LEE: 0.45, NEXUS: 0.3, ILION: 0.35, MANTA: 0.35, 'HUE-MING': 0.3 };
 // Pulido: normales suavizadas por ángulo (quita el aspecto abollado de mallas generadas)
 const POLISH = {};
 const NO_WEAR = /cockpit|Cockpit|Ion|Hover|glass|Glass|canopy|Canopy|visor|Visor|HUD|PILOT|Name|LOGO|lamp|light|Light|Red|Cyan|Chrome/;

@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
+import { cofferPatch, cofferKey } from './facades.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 // Trazado calcado del plano (px del recorte ×2), sentido de la lista; recta de meta abajo, hacia +x
@@ -47,48 +48,18 @@ const GLSL_HASH = 'float hh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))
 // Fachada con ventanas: rejilla en coordenadas de mundo, encendidas al azar y alguna planta entera
 function windowMaterial(color, { rough = 0.55, metal = 0.2, win = 1.6, cell = [3.4, 3.8], lit = 0.6, warm = [1.0, 0.6, 0.26], cool = [0.92, 0.86, 0.72], dim = 0.4 } = {}) {
   const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
-  m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW; varying vec3 vMN;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz; vMN = normalize(mat3(modelMatrix) * objectNormal);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vMW; varying vec3 vMN;\n${GLSL_HASH}`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-      {
-        vec3 n = normalize(vMN);
-        if (abs(n.y) < 0.4) {
-          float a = abs(n.x) > abs(n.z) ? vMW.z : vMW.x;
-          vec2 c = vec2(a / ${cell[0].toFixed(2)}, vMW.y / ${cell[1].toFixed(2)});
-          vec2 f = fract(c), id = floor(c);
-          float bld = hh(floor(vMW.xz / 60.0));
-          float on = step(${(1 - lit).toFixed(2)}, hh(id + bld * 31.0)) + step(0.94, hh(vec2(id.y, bld * 17.0)));
-          float m = step(0.14, f.x) * step(f.x, 0.86) * step(0.22, f.y) * step(f.y, 0.78);
-          vec3 wc = mix(vec3(${warm.join(',')}), vec3(${cool.join(',')}), hh(id * 1.73 + 4.0));
-          float k = min(on, 1.0) * m * (0.55 + 0.45 * hh(id * 2.31));
-          totalEmissiveRadiance += wc * k * ${win.toFixed(2)};
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.03, 0.035), m * ${dim.toFixed(2)});
-        }
-      }`);
-  };
-  m.customProgramCacheKey = () => `win${color}|${win}|${cell}|${lit}`;
+  const o = { cell: cell[0] * 2.2, levels: 3, zone: 44, depth: 1.0, recess: dim, windows: { lit, warm, cool, k: win } };
+  m.onBeforeCompile = (sh) => cofferPatch(sh, o);
+  m.customProgramCacheKey = () => `win${color}|` + cofferKey(o);
   return m;
 }
 
-// Cubierta de las tribunas: paneles de 6 m con juntas, tono alterno y franjas de lucernario
+// Cubierta de las tribunas: casetones en relieve que se subdividen por zonas, algunos como lucernarios
 function roofMaterial() {
   const m = new THREE.MeshStandardMaterial({ color: 0xd9cdbd, roughness: 0.45, metalness: 0.25, side: THREE.DoubleSide });
-  m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vMW;\n${GLSL_HASH}`)
-      .replace('#include <color_fragment>', `#include <color_fragment>
-        vec2 q = vMW.xz / 6.0, id = floor(q), f = abs(fract(q) - 0.5);
-        float joint = 1.0 - smoothstep(0.0, 0.03, 0.5 - max(f.x, f.y));
-        float sky = step(0.72, hh(vec2(id.x + id.y * 0.37, floor(id.y / 3.0))));
-        diffuseColor.rgb *= (0.86 + 0.18 * hh(id)) * (1.0 - joint * 0.55);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08, 0.075, 0.07), sky * 0.85);`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        totalEmissiveRadiance += vec3(1.0, 0.62, 0.3) * sky * (1.0 - joint) * 0.35;`);
-  };
-  m.customProgramCacheKey = () => 'tharsisRoof';
+  const o = { cell: 8, levels: 3, zone: 36, depth: 1.1, recess: 0.3, roofs: true, windows: { lit: 0.3, warm: [1.0, 0.62, 0.3], cool: [1.0, 0.8, 0.55], k: 0.9 } };
+  m.onBeforeCompile = (sh) => cofferPatch(sh, o);
+  m.customProgramCacheKey = () => 'roof' + cofferKey(o);
   return m;
 }
 
@@ -374,7 +345,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
     stand: (() => { const m = windowMaterial(0xb8a48e, { rough: 0.7, metal: 0.05, win: 1.1, lit: 0.24, cell: [3.2, 4.2], dim: 0.3 }); m.side = THREE.DoubleSide; return m; })(),
     standDark: new THREE.MeshStandardMaterial({ color: 0x2b2624, roughness: 0.6, metalness: 0.3 }),
     roof: roofMaterial(),
-    glow: new THREE.MeshStandardMaterial({ color: 0x2a1405, emissive: 0xffa04a, emissiveIntensity: 2.4 }),
+    glow: new THREE.MeshStandardMaterial({ color: 0x2a1405, emissive: 0xffa04a, emissiveIntensity: 2.4, side: THREE.DoubleSide }),
     teal: new THREE.MeshStandardMaterial({ color: 0x0c2a2c, emissive: 0x3fd6cf, emissiveIntensity: 1.6 }),
     crowd: crowdMaterial(uni),
     seats: (() => { const m = seatsMaterial(uni); m.side = THREE.DoubleSide; return m; })(),
@@ -561,10 +532,23 @@ export function buildTharsis(def, { world, own, srcMat }) {
     dark: windowMaterial(0x1d1b20, { rough: 0.5, metal: 0.35, win: 1.3, lit: 0.42 }),
     stone: windowMaterial(0x8a7262, { rough: 0.8, metal: 0.02, win: 0.9, lit: 0.3, cell: [4.2, 4.6], dim: 0.6 }),
     teal: windowMaterial(0x1f4448, { rough: 0.45, metal: 0.3, win: 1.5, lit: 0.55, warm: [1.0, 0.82, 0.5], cool: [1.0, 0.75, 0.4] }),
-    roof: new THREE.MeshStandardMaterial({ color: 0x141215, roughness: 0.4, metalness: 0.6 }),
+    roof: new THREE.MeshStandardMaterial({ color: 0x141215, roughness: 0.4, metalness: 0.6, side: THREE.DoubleSide }),
     glow: SM.glow,
     cyan: new THREE.MeshStandardMaterial({ color: 0x0a1d20, emissive: 0x9fe8ff, emissiveIntensity: 1.9 }),
     spire: new THREE.MeshStandardMaterial({ color: 0x2a2626, roughness: 0.3, metalness: 0.8 }),
+    drum: (() => {   // tambores de adobe: estrías horizontales y aristas gastadas por el polvo
+      const m = new THREE.MeshStandardMaterial({ color: 0x9c7a60, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide });
+      m.onBeforeCompile = (sh) => {
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vDW;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvDW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vDW;\n${GLSL_HASH}`).replace('#include <color_fragment>', `#include <color_fragment>
+          float gy = fract(vDW.y / 3.2); float groove = smoothstep(0.0, 0.08, gy) * smoothstep(1.0, 0.92, gy);
+          float stain = hh(floor(vDW.xz / 9.0) + floor(vDW.y / 14.0));
+          diffuseColor.rgb *= (0.72 + 0.28 * groove) * (0.86 + 0.24 * stain) * (0.9 + 0.1 * smoothstep(-20.0, 60.0, vDW.y));`);
+      };
+      m.customProgramCacheKey = () => 'drum';
+      return m;
+    })(),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xa9b2b8, roughness: 0.14, metalness: 1.0 }),
   };
   Object.values(CM).forEach((m) => own.push(m));
   const cells = new Map();                       // trozos de 1,6 km: la cámara recorta lo que no ve
@@ -600,6 +584,31 @@ export function buildTharsis(def, { world, own, srcMat }) {
     B(w * 0.7, 10 * s, d * 0.7, x, 10 * s + h, z, rot, key, 'roof');
     if (rnd() < 0.6) { const hN = (40 + rnd() * 120) * s; const ng = new THREE.ConeGeometry(1.2 * s, hN, 6); ng.translate(x, 20 * s + h + hN / 2, z); put(key, 'spire', ng); }
   };
+  // tambor escalonado con aleros abocinados, cúpula y torreta (arquitectura de adobe futurista)
+  const lathe = (pts, segs = 40) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), segs);
+  const drum = (x, z, s, key) => {
+    const R = (28 + rnd() * 20) * s, H = (34 + rnd() * 26) * s;
+    const add = (g, mat) => { g.translate(x, 0, z); put(key, mat, g); };
+    add(lathe([[0, 0], [R * 1.04, 0], [R, H * 0.08], [R, H]]), 'drum');
+    add(lathe([[R * 0.99, H - 0.4 * s], [R * 1.3, H + 2.5 * s], [R * 1.3, H + 3.4 * s], [R * 0.86, H + 4.2 * s]]), 'roof');   // alero
+    add(lathe([[R * 1.004, H - 3.2 * s], [R * 1.004, H - 1.8 * s]]), 'glow');                                                // banda de luz bajo el alero
+    const R2 = R * (0.72 + rnd() * 0.12), H2 = H + 4 * s + (12 + rnd() * 10) * s;
+    add(lathe([[0, H + 4 * s], [R2, H + 4 * s], [R2, H2]]), 'drum');
+    add(lathe([[R2 * 1.004, H2 - 3.5 * s], [R2 * 1.004, H2 - 2.4 * s]]), 'glow');
+    add(lathe([[R2 * 0.98, H2 - 0.3 * s], [R2 * 1.22, H2 + 1.8 * s], [R2 * 1.2, H2 + 2.6 * s], [R2 * 0.8, H2 + 3.2 * s]]), 'roof');
+    const dome = []; for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI / 2; dome.push([Math.cos(a) * R2 * 0.8, H2 + 3.2 * s + Math.sin(a) * R2 * 0.42]); }
+    add(lathe(dome), 'drum');
+    const top = H2 + 3.2 * s + R2 * 0.42;
+    add(lathe([[0, top], [R2 * 0.14, top], [R2 * 0.14, top + 6 * s], [R2 * 0.3, top + 7.5 * s], [R2 * 0.16, top + 9 * s], [0, top + 10 * s]], 20), 'roof');
+    if (rnd() < 0.6) {   // torre esbelta adosada, con platillo arriba
+      const a = rnd() * Math.PI * 2, tx = x + Math.cos(a) * R * 1.05, tz = z + Math.sin(a) * R * 1.05, r3 = R * 0.3, H3 = H2 * (1.25 + rnd() * 0.3);
+      const g1 = lathe([[0, 0], [r3, 0], [r3 * 0.92, H3]], 24); g1.translate(tx, 0, tz); put(key, 'drum', g1);
+      const g2 = lathe([[r3 * 0.9, H3 - 1], [r3 * 2.2, H3 + 3 * s], [r3 * 2.2, H3 + 4.4 * s], [r3 * 1.0, H3 + 6 * s], [r3 * 1.0, H3 + 9 * s]], 32); g2.translate(tx, 0, tz); put(key, 'roof', g2);
+      const g3 = lathe([[r3 * 2.21, H3 + 3.2 * s], [r3 * 2.21, H3 + 4.2 * s]], 32); g3.translate(tx, 0, tz); put(key, 'glow', g3);
+      const d2 = []; for (let i = 0; i <= 8; i++) { const b = i / 8 * Math.PI / 2; d2.push([Math.cos(b) * r3, H3 + 9 * s + Math.sin(b) * r3 * 0.8]); }
+      const g4 = lathe(d2, 24); g4.translate(tx, 0, tz); put(key, 'drum', g4);
+    }
+  };
   const disc = (x, z, s, key) => {
     const h = (50 + rnd() * 70) * s, R = (40 + rnd() * 40) * s;
     const col = new THREE.CylinderGeometry(9 * s, 12 * s, h, 16); col.translate(x, h / 2, z); put(key, 'stone', col);
@@ -632,12 +641,12 @@ export function buildTharsis(def, { world, own, srcMat }) {
       const t = rnd(); let acc = 0, kind = kinds[0][0];
       for (const [kk, w] of kinds) { acc += w; if (t < acc) { kind = kk; break; } }
       curY = ground(x, z) - 2;
-      if (kind === 'zig') ziggurat(x, z, s, rot, key); else if (kind === 'tower') tower(x, z, s, rot, key); else disc(x, z, s, key);
+      if (kind === 'zig') ziggurat(x, z, s, rot, key); else if (kind === 'tower') tower(x, z, s, rot, key); else if (kind === 'drum') drum(x, z, s, key); else disc(x, z, s, key);
       k++; nB++;
     }
   };
-  place(140, 120, rMax + 500, 150, 0.8, [['zig', 0.35], ['tower', 0.45], ['disc', 0.2]]);         // dentro y junto al circuito
-  place(240, rMax + 300, rMax + 2600, 210, 1.15, [['zig', 0.4], ['tower', 0.45], ['disc', 0.15]]);
+  place(140, 120, rMax + 500, 150, 0.8, [['zig', 0.28], ['tower', 0.3], ['drum', 0.27], ['disc', 0.15]]);         // dentro y junto al circuito
+  place(240, rMax + 300, rMax + 2600, 210, 1.15, [['zig', 0.32], ['tower', 0.35], ['drum', 0.22], ['disc', 0.11]]);
   place(160, rMax + 2600, rMax + 7000, 0, 2.2, [['zig', 0.45], ['tower', 0.5], ['disc', 0.05]]);    // perfil lejano
   // tres hitos con la X luminosa
   for (const [ang, rr] of [[0.15, 900], [2.4, 1500], [4.3, 1150]]) {
@@ -646,6 +655,40 @@ export function buildTharsis(def, { world, own, srcMat }) {
     lattice(x, z, 1.1, `${Math.floor(x / 1600)},${Math.floor(z / 1600)}`); nB++;
   }
   let nMesh = 0;
+  // pórticos de pilones cromados con anillos luminosos a ambos lados de la pista
+  {
+    const PP = { chrome: [], teal: [] };
+    const prof = [[0, 0], [5.5, 0], [5.5, 1.4], [2.4, 2.6], [1.5, 8], [1.5, 11.5]];
+    for (let i = 0; i <= 16; i++) { const a = -Math.PI / 2 + i / 16 * Math.PI; prof.push([Math.max(1.3, Math.cos(a) * 6.4), 20 + Math.sin(a) * 8.5]); }
+    prof.push([1.3, 30], [2.6, 31], [2.6, 32.2], [0.9, 33.4], [0.5, 44], [0, 44.5]);
+    const body = lathe(prof, 36);
+    const fins = [], rings = [];
+    for (const [k, y] of [[0, 14.5], [1, 16.6], [0, 18.7], [1, 20.8], [0, 22.9], [1, 25]]) {
+      const r = Math.cos(Math.asin(Math.min(0.98, Math.abs(y - 20) / 8.5))) * 6.4 + 1.6;
+      const fg = new THREE.CylinderGeometry(r, r, 0.32, 40); fg.translate(0, y, 0); fins.push(fg);
+      if (k) { const tg = new THREE.TorusGeometry(r + 0.05, 0.1, 6, 48); tg.rotateX(Math.PI / 2); tg.translate(0, y, 0); rings.push(tg); }
+    }
+    const capG = new THREE.CylinderGeometry(2.4, 2.4, 0.25, 32); capG.translate(0, 32.35, 0); rings.push(capG);
+    const pylonGeo = mergeGeometries(norm([body, ...fins]), false), ringGeo = mergeGeometries(norm(rings), false);
+    let nP = 0;
+    for (const f of [corner.loopLow - 0.004, 0.375, 0.452, 0.6, 0.695, 0.76]) {
+      const s0 = fAt(f); track.sample(s0, F);
+      for (const sd of [-1, 1]) {
+        const p = F.pos.clone().addScaledVector(F.right, sd * (16.4 * track.wAt(s0) + 14));
+        if (clearOther(p.x, p.z, s0) < 40) continue;
+        const gy = ground(p.x, p.z) - 0.5;
+        const a = pylonGeo.clone(); a.translate(p.x, gy, p.z); PP.chrome.push(a);
+        const b = ringGeo.clone(); b.translate(p.x, gy, p.z); PP.teal.push(b);
+        nP++;
+      }
+    }
+    if (PP.chrome.length) {
+      const mc = new THREE.Mesh(mergeGeometries(PP.chrome, false), CM.chrome); mc.castShadow = true; mc.receiveShadow = true; world.add(mc);
+      const mt = new THREE.Mesh(mergeGeometries(PP.teal, false), SM.teal); world.add(mt);
+    }
+    pylonGeo.dispose(); ringGeo.dispose();
+    nB += nP;
+  }
   for (const { mat, list } of cells.values()) {
     const mg = mergeGeometries(norm(list), false); list.forEach((gg) => gg.dispose());
     const mesh = new THREE.Mesh(mg, CM[mat]); mesh.castShadow = false; mesh.receiveShadow = true; world.add(mesh); nMesh++;

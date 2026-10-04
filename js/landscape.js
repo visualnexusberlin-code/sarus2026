@@ -2,6 +2,7 @@
 // Terreno (hierba, roca ocre, campos de lavanda / girasol / amapola, playas), mar turquesa,
 // fachadas mediterráneas, piezas pintadas y arbolado instanciado (cipreses, pinos piñoneros, arbustos en flor).
 import * as THREE from 'three';
+import { cofferPatch, cofferKey } from './facades.js';
 import { lavaUniforms } from './atmosphere.js';
 
 const NOISE = /* glsl */`
@@ -30,17 +31,28 @@ export function terrainMaterial() {
         float strata = tn(vec2(P.y * 0.085, (P.x + P.z) * 0.006));
         vec3 rock = mix(vec3(0.56, 0.38, 0.24), vec3(0.83, 0.67, 0.46), smoothstep(0.25, 0.75, strata)) * (0.72 + 0.36 * n3);
         vec3 col = mix(rock, grass, grassM);
-        // campos de cultivo en llano: lavanda, girasol, amapola (en hileras)
-        float field = smoothstep(0.6, 0.66, tn(P.xz * 0.0032 + 7.0)) * smoothstep(0.7, 0.85, up);
-        float kind = tn(P.xz * 0.0019 + 3.0);
-        vec3 fc = kind < 0.42 ? vec3(0.48, 0.34, 0.78) : (kind < 0.62 ? vec3(0.98, 0.76, 0.1) : vec3(0.86, 0.12, 0.08));
-        float rows = 0.55 + 0.45 * step(0.45, fract((P.x * 0.6 + P.z * 0.8) * 0.16));
-        col = mix(col, mix(vec3(0.3, 0.42, 0.12), fc, rows), field);
-        // flores silvestres sueltas
-        vec2 fcell = floor(P.xz * 0.45);
-        float fl = step(0.955, th(fcell)) * grassM * (1.0 - field);
-        vec3 flc = th(fcell + 3.1) > 0.5 ? vec3(0.95, 0.28, 0.6) : vec3(1.0, 0.9, 0.3);
-        col = mix(col, flc, fl * 0.9);
+        // parcelas agrícolas y campos solares: retícula girada, subdividida, tonos apagados, lindes y surcos
+        {
+          vec2 R = mat2(0.866, -0.5, 0.5, 0.866) * P.xz;
+          vec2 pc = R / 110.0, pid = floor(pc), q = fract(pc);
+          if (th(pid * 1.31) > 0.5) { pid.x += step(0.5, q.x) * 0.5; q.x = fract(q.x * 2.0); }
+          if (th(pid * 2.17 + 4.0) > 0.6) { pid.y += step(0.5, q.y) * 0.25; q.y = fract(q.y * 2.0); }
+          float zone = smoothstep(0.42, 0.52, tn(P.xz * 0.0022 + 7.0)) * smoothstep(0.84, 0.93, up);
+          float k = th(pid + 5.1);
+          vec3 pc1 = k < 0.24 ? vec3(0.74, 0.63, 0.38) : k < 0.44 ? vec3(0.4, 0.45, 0.2) : k < 0.6 ? vec3(0.56, 0.6, 0.42)
+            : k < 0.74 ? vec3(0.66, 0.5, 0.3) : k < 0.82 ? vec3(0.5, 0.47, 0.58) : vec3(0.1, 0.13, 0.18);
+          float solar = step(0.82, k);
+          float dir = step(0.5, th(pid + 9.3));
+          float rowsC = mix(q.x, q.y, dir) * 28.0;
+          float rowsM = 0.82 + 0.18 * step(0.5, fract(rowsC));
+          vec2 sg = abs(fract(q * vec2(9.0, 5.0)) - 0.5);
+          float solarGrid = 1.0 - smoothstep(0.0, 0.06, 0.5 - max(sg.x, sg.y));
+          vec3 fcol = solar > 0.5 ? mix(vec3(0.1, 0.13, 0.18), vec3(0.55, 0.6, 0.66), solarGrid * 0.6) : pc1 * rowsM * (0.9 + 0.2 * n3);
+          float edge = min(min(q.x, 1.0 - q.x), min(q.y, 1.0 - q.y));
+          float hedge = 1.0 - smoothstep(0.012, 0.03, edge);
+          fcol = mix(fcol, vec3(0.2, 0.28, 0.1), hedge * (1.0 - solar) + hedge * solar * 0.3);
+          col = mix(col, fcol, zone);
+        }
         // playas y roca clara junto al mar
         float sand = 1.0 - smoothstep(-50.0, -38.0, P.y + (n2 - 0.5) * 8.0);
         col = mix(col, vec3(0.9, 0.8, 0.6), sand);
@@ -78,20 +90,25 @@ export function seaMaterial() {
 // ── Fachadas: color por manzana (cal, terracota, ocre, azul, rosa), ventanas de día ──
 export function facadeMaterial(base) {
   const m = base.clone();
+  m.userData.painted = true;                 // color por edificio (aSeed), no por celda del mundo
+  const co = { cell: 5.5, levels: 3, zone: 40, depth: 1.0, recess: 0.55 };
   m.onBeforeCompile = (sh) => {
-    worldVarying(sh, 'vFW');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSeed; varying float vSeed;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSeed = aSeed;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vSeed;')
+      .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
       {
-        float win = clamp(dot(totalEmissiveRadiance, vec3(0.333)) / 2.4, 0.0, 1.0);
-        float h = th(floor(vFW.xz / 34.0) + floor(vFW.y / 60.0) * 7.0);
-        vec3 pal = h < 0.22 ? vec3(0.95, 0.93, 0.88) : h < 0.4 ? vec3(0.84, 0.44, 0.27) : h < 0.57 ? vec3(0.96, 0.78, 0.44)
-          : h < 0.72 ? vec3(0.5, 0.7, 0.84) : h < 0.86 ? vec3(0.93, 0.6, 0.6) : vec3(0.98, 0.97, 0.94);
-        diffuseColor.rgb = mix(pal * (0.85 + 0.25 * dot(diffuseColor.rgb, vec3(0.333))), vec3(0.08, 0.14, 0.19), win * 0.8);
-        totalEmissiveRadiance *= 0.03;
-      }`);
+        float h = vSeed;
+        vec3 pal = h < 0.3 ? vec3(0.94, 0.92, 0.87) : h < 0.45 ? vec3(0.8, 0.56, 0.44) : h < 0.6 ? vec3(0.9, 0.8, 0.6)
+          : h < 0.74 ? vec3(0.62, 0.74, 0.8) : h < 0.86 ? vec3(0.86, 0.7, 0.66) : vec3(0.97, 0.96, 0.93);
+        diffuseColor.rgb = pal;
+      }`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance *= 0.0;');
+    cofferPatch(sh, co);
   };
+  m.customProgramCacheKey = () => 'facadeArc' + cofferKey(co);
   m.emissiveIntensity = 1;
-  m.metalness = 0.05; m.roughness = 0.8;
+  m.metalness = 0.05; m.roughness = 0.7;
   return m;
 }
 
@@ -100,18 +117,23 @@ export function paintedMaterial(base, palette, cell = 240) {
   const m = base.clone();
   m.color.setRGB(1, 1, 1);
   m.metalness = 0.08; m.roughness = 0.72;
+  m.userData.painted = true;                 // la fusión añade aSeed (uno por pieza): cada pieza un color entero
   const cols = palette.map((h) => new THREE.Color(h));
+  const co = { cell: 7, levels: 3, zone: 56, depth: 0.95, recess: 0.16 };
   m.onBeforeCompile = (sh) => {
-    worldVarying(sh, 'vPW');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSeed; varying float vSeed;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSeed = aSeed;');
     const list = cols.map((c) => `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vSeed;')
+      .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
       {
-        float h = th(floor(vPW.xz / ${cell.toFixed(1)}) + 0.37);
-        int k = int(floor(h * ${list.length}.0));
+        int k = int(floor(vSeed * ${list.length}.0));
         vec3 c = ${list.map((v, i) => i < list.length - 1 ? `k == ${i} ? ${v} : ` : v).join('')};
         diffuseColor.rgb *= c;
       }`);
+    cofferPatch(sh, co);
   };
+  m.customProgramCacheKey = () => 'painted' + palette.join(',') + cofferKey(co);
   return m;
 }
 

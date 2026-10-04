@@ -69,12 +69,12 @@ export const CIRCUITS = [
     cards: ['Speed Racing Skies', 'ARCADIA-2'],
     // Recoloreado de piezas del GLB: [regex del objeto, regex del material, color | {paint:[…], cell}]
     recolor: [
-      [/^LAND \| utility/, /Charcoal/, { paint: [0xf4efe4, 0xd46a3c, 0x2f9fb2, 0xf0c040, 0xe86a8a], cell: 36 }],
+      [/^LAND \| utility/, /Charcoal/, { paint: [0xf2ede2, 0xdccdb5, 0xc98d70, 0x9dbcc0, 0xe8d6a8], cell: 36 }],
       [/^Pylon/, /Charcoal/, 0xc85a36],
       [/^Pylon/, /Ash concrete/, 0xece4d3],
       [/^Cantilever rib/, /Ash concrete/, 0x2b93a8],
       [/^Deck expansion joint/, /Charcoal/, 0xeae4d6],
-      [/^MONOLITH/, /Charcoal/, { paint: [0xeee7d8, 0xd08a4a, 0x3a8fb0, 0xc85a36, 0xe8c14a], cell: 240 }],
+      [/^MONOLITH/, /Charcoal/, { paint: [0xeee7d8, 0xd9b48c, 0x8fb0c2, 0xc98868, 0xe4d09a], cell: 240 }],
       [/^MONOLITH/, /Ash concrete/, 0xdcc49e],
       [/^MONOLITH/, /Pale mineral/, 0xf2eee4],
       [/^CITY/, /Charcoal/, 0xe2d6c0],

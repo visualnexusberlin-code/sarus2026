@@ -303,7 +303,7 @@ function onLoaded(gltf, fleetGltf) {
 
   G.hud = new HUD(track);
   for (const sh of G.ships) G.fx.engine.add(sh);
-  const logos = G.ships.map((sh) => findNode(fleetGltf, 'LOGO_' + sh.def.node.split('_')[0]));
+  const logos = G.ships.map((sh) => findNode(fleetGltf, 'LOGO_' + (sh.def.logo || sh.def.node.split('_')[0])));
   G.showroom = new Showroom(G.envs.saturn || scene.environment, G.ships, logos);
 
   setPlayer(G.choice);
@@ -361,6 +361,24 @@ function applyLook(def) {
   setPaint(def.paint);
   CONFIG.hoverMax = def.hoverMax || 5;
   document.body.dataset.circuit = def.id;
+}
+
+// Semilla por pieza dentro de una malla: componentes conexas (triángulos + vértices en la misma posición);
+// cada una recibe un valor 0–1 según su centro. Así un bloque de ciudad fusionado tiene un color por edificio.
+function pieceSeeds(g) {
+  const pos = g.attributes.position, n = pos.count, par = new Int32Array(n);
+  for (let i = 0; i < n; i++) par[i] = i;
+  const find = (i) => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+  const uni = (a, b) => { a = find(a); b = find(b); if (a !== b) par[a] = b; };
+  const key = new Map();
+  for (let i = 0; i < n; i++) { const k = `${Math.round(pos.getX(i) * 20)},${Math.round(pos.getY(i) * 20)},${Math.round(pos.getZ(i) * 20)}`; const o = key.get(k); if (o === undefined) key.set(k, i); else uni(i, o); }
+  const idx = g.index ? g.index.array : null;
+  if (idx) for (let t = 0; t < idx.length; t += 3) { uni(idx[t], idx[t + 1]); uni(idx[t], idx[t + 2]); }
+  const acc = new Map();
+  for (let i = 0; i < n; i++) { const r = find(i); let a = acc.get(r); if (!a) acc.set(r, a = [0, 0, 0, 0]); a[0] += pos.getX(i); a[1] += pos.getY(i); a[2] += pos.getZ(i); a[3]++; }
+  const seed = new Map(); for (const [r, a] of acc) { const x = a[0] / a[3], y = a[1] / a[3], z = a[2] / a[3]; seed.set(r, Math.abs(Math.sin(x * 12.9898 + z * 78.233 + y * 37.719) * 43758.5453) % 1); }
+  const out = new Float32Array(n); for (let i = 0; i < n; i++) out[i] = seed.get(find(i));
+  return new THREE.BufferAttribute(out, 1);
 }
 
 function buildCircuit(def) {
@@ -550,6 +568,8 @@ function buildCircuit(def) {
     const g = o.geometry.clone();
     g.applyMatrix4(o.matrixWorld);
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    const tm = arcadia ? themed(o, n) : null;
+    if (tm?.userData.painted) g.setAttribute('aSeed', pieceSeeds(g));   // un color por pieza (no por celda del mundo)
     if (!g.index) { const idx = []; for (let i = 0; i < g.attributes.position.count; i++) idx.push(i); g.setIndex(idx); }
     let kind = null;
     let mat = land.includes(o) ? ground : themed(o, n);
