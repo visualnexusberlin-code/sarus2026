@@ -8,7 +8,7 @@ import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 // Trazado calcado del plano (px del recorte ×2), sentido de la lista; recta de meta abajo, hacia +x
-const RAW = [[150, 410], [300, 410], [500, 410], [700, 410], [900, 410], [990, 405], [1035, 385], [1058, 345], [1065, 290], [1060, 250], [1045, 232], [1018, 236], [995, 262], [960, 300], [900, 335], [840, 355], [805, 350], [790, 320], [800, 285], [840, 235], [890, 185], [950, 140], [1020, 100], [1090, 62], [1135, 48], [1165, 62], [1160, 90], [1120, 125], [1060, 160], [980, 190], [900, 215], [820, 245], [740, 270], [660, 285], [580, 290], [520, 280], [480, 262], [458, 275], [468, 310], [500, 345], [480, 362], [420, 350], [360, 322], [320, 300], [270, 302], [200, 325], [140, 355], [105, 382], [105, 402]];
+const RAW = [[150,410], [300,410], [500,410], [700,410], [900,410], [990,405], [1035,385], [1058,345], [1065,290], [1060,250], [1045,232], [1018,236], [995,262], [960,300], [900,335], [840,355], [805,350], [790,320], [800,285], [835,262], [880,238], [960,200], [1060,150], [1125,112], [1165,85], [1172,62], [1150,42], [1105,40], [1050,58], [980,90], [900,138], [820,188], [740,236], [660,272], [580,290], [520,280], [480,262], [458,275], [468,310], [500,345], [480,362], [420,350], [360,322], [320,300], [270,302], [200,325], [140,355], [105,382], [105,402]];
 const IDX = { straightEnd: 5, bugatti: 10, loopLow: 16, top: 25, vip: 37, karts: 43, ultima: 47 };
 const K = 1.45;                  // m por px → ≈ 4,6 km
 
@@ -134,9 +134,47 @@ function crowdMaterial(uniforms) {
           if (body + head + arms < 0.5) discard;
         }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-        if (length((vPU - vec2(0.5, 0.82)) * vec2(1.0, 1.25)) < 0.14) diffuseColor.rgb = mix(vec3(0.42, 0.28, 0.2), vec3(0.18, 0.12, 0.09), vSeed);`);
+        if (length((vPU - vec2(0.5, 0.82)) * vec2(1.0, 1.25)) < 0.14) diffuseColor.rgb = mix(vec3(0.42, 0.28, 0.2), vec3(0.18, 0.12, 0.09), vSeed);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float fl = step(0.9975, fract(sin(vSeed * 91.7 + floor(uTime * 6.0) * 13.13) * 43758.5453));
+        totalEmissiveRadiance += vec3(4.0, 3.9, 3.6) * fl * step(length(vPU - vec2(0.5, 0.6)), 0.25);`);
   };
   m.customProgramCacheKey = () => 'tharsisCrowd';
+  return m;
+}
+
+// Gradas: el público pintado en los escalones (manchas de ropa, cabezas, sombra entre filas), para que
+// entre los espectadores animados nunca se vea hormigón y de lejos se lea como una masa compacta
+function seatsMaterial(uniforms) {
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0 });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = uniforms.uTime;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW; varying vec3 vMN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz; vMN = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nuniform float uTime; varying vec3 vMW; varying vec3 vMN;\n${GLSL_HASH}
+      vec3 cloth(float h){
+        vec3 c = vec3(0.79, 0.64, 0.15);
+        c = mix(c, vec3(0.72, 0.2, 0.16), step(0.12, h)); c = mix(c, vec3(0.9, 0.87, 0.8), step(0.24, h));
+        c = mix(c, vec3(0.11, 0.1, 0.1), step(0.36, h)); c = mix(c, vec3(0.18, 0.43, 0.47), step(0.48, h));
+        c = mix(c, vec3(0.48, 0.29, 0.17), step(0.58, h)); c = mix(c, vec3(0.82, 0.42, 0.18), step(0.68, h));
+        c = mix(c, vec3(0.42, 0.44, 0.54), step(0.78, h)); c = mix(c, vec3(0.55, 0.19, 0.29), step(0.88, h));
+        return c;
+      }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        vec3 n = normalize(vMN);
+        vec2 q = n.y > 0.5 ? vMW.xz / 0.52 : vec2((abs(n.x) > abs(n.z) ? vMW.z : vMW.x) / 0.52, vMW.y / 0.42);
+        vec2 id = floor(q), f = fract(q) - 0.5;
+        float h = hh(id);
+        vec3 c = cloth(h) * (0.7 + 0.45 * hh(id + 7.0));
+        float head = 1.0 - smoothstep(0.16, 0.24, length(f - vec2(0.0, 0.18)));
+        c = mix(c, mix(vec3(0.38, 0.25, 0.18), vec3(0.15, 0.1, 0.08), hh(id + 3.0)), head * step(0.5, n.y));
+        c *= 0.55 + 0.45 * smoothstep(0.5, 0.15, length(f));               // huecos en sombra
+        c *= 0.85 + 0.15 * sin(uTime * (1.5 + h * 3.0) + h * 40.0);        // movimiento
+        diffuseColor.rgb = c * (n.y > 0.5 ? 1.0 : 0.6);
+      }`);
+  };
+  m.customProgramCacheKey = () => 'tharsisSeats';
   return m;
 }
 
@@ -158,7 +196,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
   const dDir = dB.clone().sub(dA).setY(0).normalize();
   let dOut = new THREE.Vector3(-dDir.z, 0, dDir.x); if (dOut.dot(dA.clone().lerp(dB, 0.5).sub(centroid)) < 0) dOut.negate();
   const ridgeO = dA.clone().lerp(dB, 0.5).addScaledVector(dOut, 520);
-  const knoll = P[IDX.vip].clone().addScaledVector(P[IDX.vip].clone().sub(centroid).setY(0).normalize(), 260);
+  const knoll = P[IDX.vip].clone().addScaledVector(P[IDX.vip].clone().sub(centroid).setY(0).normalize(), -220);
   // volcanes: línea NE–SO al norte (−z), a 75–95 km; [x, z, altura, radio]
   const VOL = [[-52000, -70000, 11500, 46000], [0, -83000, 13000, 50000], [54000, -96000, 10500, 44000]].map(([x, z, H, R]) => [centroid.x + x, centroid.z + z, H, R]);
   function volcano(x, z) {
@@ -177,11 +215,11 @@ export function buildTharsis(def, { world, own, srcMat }) {
   function base(x, z) {
     const r = Math.hypot(x - centroid.x, z - centroid.z);
     let h = 70 * (fbm(x * 0.00045, z * 0.00045, 4) - 0.5) + 22 * (fbm(x * 0.0028, z * 0.0028, 3) - 0.5) + 4 * (fbm(x * 0.02, z * 0.02, 2) - 0.5);
-    h *= lerp(0.35, 1, sstep(rCity - 300, rCity + 1400, r));                                             // la ciudad, más llana
+    h *= lerp(0.08, 1, sstep(rCity - 200, rCity + 1600, r));                                             // la ciudad, casi llana
     // sierra
     const vx = x - ridgeO.x, vz = z - ridgeO.z, along = vx * dDir.x + vz * dDir.z, across = vx * dOut.x + vz * dOut.z;
     h += 150 * Math.exp(-((across / 300) ** 2)) * (1 - sstep(900, 1900, Math.abs(along))) * (0.75 + 0.5 * fbm(along * 0.004, 3.3, 3));
-    h += 60 * Math.exp(-(((x - knoll.x) ** 2 + (z - knoll.z) ** 2) / (240 * 240)));
+    h += 30 * Math.exp(-(((x - knoll.x) ** 2 + (z - knoll.z) ** 2) / (160 * 160)));
     // grietas (fossae) lejanas, paralelas
     const fx = (x * 0.8 + z * 0.6) * 0.0011; h -= 45 * Math.pow(Math.max(0, Math.sin(fx * 6.28) - 0.92) / 0.08, 2) * sstep(rCity + 1500, rCity + 4000, r);
     h += volcano(x, z);
@@ -209,8 +247,8 @@ export function buildTharsis(def, { world, own, srcMat }) {
   const ground = (x, z) => {
     let h = base(x, z);
     track.locate(_p.set(x, h, z), loc);
-    if (loc.far || loc.dist > 200) return h;
-    const floor = loc.deckY - 9, w = 1 - sstep(30, 150, loc.dist);
+    if (loc.far || loc.dist > 320) return h;
+    const floor = loc.deckY - 9, w = 1 - sstep(70, 300, loc.dist);
     if (h > floor) h = lerp(h, floor, w);
     return h;
   };
@@ -319,6 +357,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
     glow: new THREE.MeshStandardMaterial({ color: 0x2a1405, emissive: 0xffa04a, emissiveIntensity: 2.4 }),
     teal: new THREE.MeshStandardMaterial({ color: 0x0c2a2c, emissive: 0x3fd6cf, emissiveIntensity: 1.6 }),
     crowd: crowdMaterial(uni),
+    seats: (() => { const m = seatsMaterial(uni); m.side = THREE.DoubleSide; return m; })(),
   };
   Object.values(SM).forEach((m) => own.push(m));
   const fAt = (f) => ((f % 1) + 1) % 1 * L;
@@ -333,20 +372,34 @@ export function buildTharsis(def, { world, own, srcMat }) {
     [corner.vip - 0.03, corner.vip + 0.02, 'out', 16],
     [corner.karts - 0.02, corner.karts + 0.03, 'out', 12],
   ];
-  const standParts = { stand: [], standDark: [], roof: [], glow: [], teal: [] };
+  const standParts = { stand: [], seats: [], standDark: [], roof: [], glow: [], teal: [] };
+  // distancia a otros tramos de la pista (excluye el propio, ±160 m de recorrido)
+  const trackS = []; for (let s = 0; s < L; s += 12) { track.sample(s, F); trackS.push([F.pos.x, F.pos.z, s]); }
+  const clearOther = (x, z, s) => { let d = Infinity; for (const [px, pz, ps] of trackS) { if (Math.abs(track.delta(s, ps)) < 160) continue; d = Math.min(d, (px - x) ** 2 + (pz - z) ** 2); } return Math.sqrt(d); };
   const crowd = [];   // [pos, toward, color]
-  const RD = 1.55, RR = 0.82;
-  for (const [fa, fb, sideDef, rows] of standDefs) {
+  const RD = 1.55, RR = 0.82, standLog = [];
+  for (const [fa, fb, sideDef, rowsDef] of standDefs) {
     const s0 = fAt(fa), s1raw = fAt(fb), s1 = s1raw < s0 ? s1raw + L : s1raw;
     const sides = sideDef === 'both' ? [1, -1] : [sideDef === 'out' ? outside((s0 + s1) / 2) : -outside((s0 + s1) / 2)];
     for (const sd of sides) {
       const x0 = 6.5, h0 = -0.4;
+      // la tribuna no puede invadir otro tramo: menos filas o fuera
+      let rowsOk = rowsDef;
+      for (let s = s0; s <= s1; s += 20) {
+        const sw = s % L; track.sample(sw, F);
+        while (rowsOk > 4) { const p = F.pos.clone().addScaledVector(F.right, sd * (16.4 * track.wAt(sw) + x0 + rowsOk * RD + 6)); if (clearOther(p.x, p.z, sw) > 34) break; rowsOk--; }
+      }
+      standLog.push(`${fa.toFixed(2)}:${sd}:${rowsOk}`);
+      if (rowsOk <= 4) continue;
+      const rows = rowsOk;
       // perfil escalonado: (x desde el muro, h)
-      const prof = [[x0 - 1.5, -40], [x0 - 1.5, h0 + 1.2], [x0, h0 + 1.2]];
-      for (let r = 0; r < rows; r++) { prof.push([x0 + r * RD, h0 + r * RR + 1.2]); prof.push([x0 + (r + 1) * RD, h0 + r * RR + 1.2]); }
+      const seat = [[x0, h0 + 1.2]];
+      for (let r = 0; r < rows; r++) { seat.push([x0 + r * RD, h0 + r * RR + 1.2]); seat.push([x0 + (r + 1) * RD, h0 + r * RR + 1.2]); }
       const xb = x0 + rows * RD, hb = h0 + rows * RR + 1.2;
-      prof.push([xb, hb + 3.2], [xb + 1.2, hb + 3.2], [xb + 1.2, -40]);
-      standParts.stand.push(sweepSeg(s0, s1, 4, prof, false, 20, sd));
+      seat.push([xb, hb]);
+      standParts.seats.push(sweepSeg(s0, s1, 4, seat, false, 20, sd));
+      standParts.stand.push(sweepSeg(s0, s1, 4, [[x0 - 1.5, -40], [x0 - 1.5, h0 + 1.2], [x0, h0 + 1.2]], false, 20, sd));
+      standParts.stand.push(sweepSeg(s0, s1, 4, [[xb, hb - 0.05], [xb, hb + 3.2], [xb + 1.2, hb + 3.2], [xb + 1.2, -40]], false, 20, sd));
       // pantalla y barandilla oscuras, tira de luz bajo el borde del voladizo
       standParts.standDark.push(sweepSeg(s0, s1, 4, [[x0 - 1.6, h0 + 1.2], [x0 - 1.6, h0 + 2.3], [x0 - 1.3, h0 + 2.3]], false, 20, sd));
       const rh0 = hb + 9, rh1 = hb + 13;
@@ -361,13 +414,13 @@ export function buildTharsis(def, { world, own, srcMat }) {
         const mg = new THREE.BoxGeometry(1.1, topY - gy, 1.1); mg.translate(base.x, (topY + gy) / 2, base.z); standParts.standDark.push(mg);
       }
       // público
-      for (let s = s0 + 1; s < s1 - 1; s += 0.82) {
+      for (let s = s0 + 1; s < s1 - 1; s += 0.6) {
         const sw = s % L; track.sample(sw, F);
         const wv = track.wAt(sw);
         const toward = F.right.clone().multiplyScalar(-sd);
         for (let r = 0; r < rows; r++) {
-          if (rnd() < 0.12) continue;
-          const x = sd * (16.4 * wv + x0 + r * RD + RD * 0.45 + (rnd() - 0.5) * 0.3);
+          if (rnd() < 0.05) continue;
+          const x = sd * (16.4 * wv + x0 + r * RD + RD * (0.25 + rnd() * 0.45));
           const h = h0 + r * RR + 1.2 + 0.62;
           const p = F.pos.clone().addScaledVector(F.right, x).addScaledVector(F.up, h).addScaledVector(F.tan, (rnd() - 0.5) * 0.3);
           crowd.push([p, toward, CROWD_COLS[Math.floor(rnd() * CROWD_COLS.length)]]);
@@ -378,9 +431,9 @@ export function buildTharsis(def, { world, own, srcMat }) {
   for (const [k, list] of Object.entries(standParts)) {
     if (!list.length) continue;
     const mg = mergeGeometries(norm(list), false); list.forEach((gg) => gg.dispose());
-    const mesh = new THREE.Mesh(mg, SM[k]); mesh.castShadow = k === 'roof' || k === 'stand'; mesh.receiveShadow = true; world.add(mesh);
+    const mesh = new THREE.Mesh(mg, SM[k]); mesh.castShadow = k === 'roof' || k === 'stand' || k === 'seats'; mesh.receiveShadow = true; world.add(mesh);
   }
-  const personGeo = new THREE.PlaneGeometry(0.62, 1.2); personGeo.translate(0, 0.1, 0); own.push(personGeo);
+  const personGeo = new THREE.PlaneGeometry(0.72, 1.25); personGeo.translate(0, 0.1, 0); own.push(personGeo);
   const placeCrowd = (list, parent) => {
     const im = new THREE.InstancedMesh(personGeo, SM.crowd, list.length);
     const m4 = new THREE.Matrix4(), up = new THREE.Vector3(0, 1, 0), xx = new THREE.Vector3(), col = new THREE.Color();
@@ -406,8 +459,11 @@ export function buildTharsis(def, { world, own, srcMat }) {
   const platAt = [[0.3, 1], [corner.loopLow + 0.012, -1], [0.43, 1], [corner.top + 0.045, 1], [0.6, -1], [0.72, 1], [corner.karts + 0.05, -1], [0.93, -1]];
   for (const [f, sgn] of platAt) {
     const s = fAt(f); track.sample(s, F);
-    const sd = sgn * outside(s), R = 13 + rnd() * 7;
-    const c = F.pos.clone().addScaledVector(F.right, sd * (16.4 * track.wAt(s) + R + 12 + rnd() * 14)).setY(F.pos.y + 6 + rnd() * 14);
+    let sd = sgn * outside(s); const R = 13 + rnd() * 7, off = R + 12 + rnd() * 14, lift = 6 + rnd() * 14;
+    const cAt = (sg) => F.pos.clone().addScaledVector(F.right, sg * (16.4 * track.wAt(s) + off));
+    let c = cAt(sd);
+    if (clearOther(c.x, c.z, s) < R + 26) { sd = -sd; c = cAt(sd); if (clearOther(c.x, c.z, s) < R + 26) continue; }
+    c.setY(F.pos.y + lift);
     const grp = new THREE.Group(); grp.position.copy(c);
     const prof = [[0, -4.6], [R * 0.35, -4.2], [R * 0.85, -1.6], [R, -0.2], [R * 1.04, 0.3], [R, 0.6], [R * 0.97, 0.4], [0, 0.4]].map(([a, b]) => new THREE.Vector2(a, b));
     const hull = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), platMat); hull.castShadow = true; hull.receiveShadow = true; grp.add(hull);
@@ -416,7 +472,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
     const lamp = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.16, R * 0.16, 0.2, 24), SM.teal); lamp.position.y = -5.85; grp.add(lamp);
     const toTrack = F.pos.clone().sub(c).setY(0).normalize();
     const pc = [];
-    for (let k = 0; k < R * R * 1.6; k++) {
+    for (let k = 0; k < R * R * 2.6; k++) {
       const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * R * 0.92;
       const lp = new THREE.Vector3(Math.cos(a) * rr, 1.0, Math.sin(a) * rr);
       if (toTrack.dot(lp.clone().normalize()) < -0.3 && rr > R * 0.4 && rnd() < 0.6) continue;   // más gente asomada hacia la pista
@@ -573,6 +629,6 @@ export function buildTharsis(def, { world, own, srcMat }) {
   ];
 
   let ymin = Infinity, ymax = -Infinity; for (const v of y) { ymin = Math.min(ymin, v); ymax = Math.max(ymax, v); }
-  console.info(`[SRS] THARSIS SIERRA: ${L.toFixed(0)} m · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · público ${crowd.length} · edificios ${nB} en ${nMesh} mallas · ${(performance.now() - T0).toFixed(0)} ms`);
+  console.info(`[SRS] THARSIS SIERRA: ${L.toFixed(0)} m · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · gradas ${standLog.join(' ')} · público ${crowd.length} · edificios ${nB} en ${nMesh} mallas · ${(performance.now() - T0).toFixed(0)} ms`);
   return { track, ground, tunnel: false, introKeys, fx };
 }

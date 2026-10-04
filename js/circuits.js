@@ -192,7 +192,7 @@ CIRCUITS.push({
   sunFrom: 'tharsis',
   atmosphere: {
     sunDir: new THREE.Vector3(0.95, 0.1, 0.2).normalize(),
-    baseDensity: 0.00003, heightDensity: 0.0002, heightFalloff: 0.0016, fogMax: 0.8,
+    baseDensity: 0.00005, heightDensity: 0.00055, heightFalloff: 0.0042, fogMax: 0.84,
     exposure: 0.84, saturation: 0.78, redKeep: 0.7,
     bloom: { strength: 0.5, radius: 0.62, threshold: 0.82 },
     sky: {
