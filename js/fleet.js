@@ -38,6 +38,9 @@ export const FLEET = [
   { num: '12', node: 'HUEMING_12', hull: 5, flame: [0.25, 1.0, 0.62], name: 'HUE-MING', tag: 'Acorazada. Su turbina central empuja con un par brutal y recarga el boost antes; pesa y cuesta girarla.',
     V: 3, A: 5, M: 4,
     style: { response: 6, grip: 6.4, gripAB: 9, ab: 1.15, mass: 1.4, lean: 0.22, bob: 0.03, bobHz: 1.4, drift: 0.16, pitch: 0.5, boostRegen: 1.4 } },
+  { num: '13', node: 'VEGA_13', hull: 4, flame: [0.45, 0.7, 1.0], name: 'VEGA', tag: 'Tres motores y salida fulgurante. Muy estable en apoyo, pero tarda en cambiar de dirección.',
+    V: 4, A: 5, M: 3,
+    style: { response: 8.2, grip: 6.6, gripAB: 8.6, ab: 1.0, mass: 1.08, lean: 0.34, bob: 0.05, bobHz: 2.0, drift: 0.22, pitch: 0.9, kick: 1.15 } },
 ];
 
 // hull: impactos de cohete que aguanta (las más rápidas, menos: 3 · 4 · 5)
