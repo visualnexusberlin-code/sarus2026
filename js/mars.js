@@ -375,7 +375,7 @@ function marsTerrainMaterial() {
 }
 
 // ── Polvo en suspensión arrastrado por el viento (velos grandes cerca de la cámara) + remolinos lejanos ──
-class MarsDust {
+export class MarsDust {
   constructor(parent, track, ground, windDir) {
     this.wind = new THREE.Vector3(windDir.z, 0, -windDir.x).multiplyScalar(26).add(new THREE.Vector3(0, 1.5, 0));
     const tex = (() => {

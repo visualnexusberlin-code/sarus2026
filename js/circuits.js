@@ -176,5 +176,46 @@ CIRCUITS.push({
   cards: ['Speed Racing Skies', 'NUEVA-ITAKA'],
 });
 
+// Quinta fase: THARSIS SIERRA, Marte, meseta de Tharsis con los tres volcanes al fondo; estadio y ciudad
+// (trazado inspirado en el Jarama; tharsis.js)
+CIRCUITS.push({
+  id: 'tharsis',
+  name: 'THARSIS SIERRA',
+  sub: 'Marte · meseta de Tharsis',
+  blurb: 'Marte · estadio y ciudad en la meseta de Tharsis · la sierra y los tres volcanes al fondo',
+  unlockAfter: 'itaka',
+  generated: 'tharsis',
+  inSectorOrder: false,
+  hoverMax: 7,
+  far: 340000,
+  rockets: false,
+  sunFrom: 'tharsis',
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.95, 0.1, 0.2).normalize(),
+    baseDensity: 0.00003, heightDensity: 0.0002, heightFalloff: 0.0016, fogMax: 0.8,
+    exposure: 0.84, saturation: 0.78, redKeep: 0.7,
+    bloom: { strength: 0.5, radius: 0.62, threshold: 0.82 },
+    sky: {
+      horizon: [0.86, 0.6, 0.42], zenith: [0.32, 0.22, 0.21], below: [0.52, 0.33, 0.22], zLow: -0.02, zHigh: 0.55,
+      glowMix: { color: [0.36, 0.52, 0.78], exp: 9, k: 0.7 },
+      glow: [0.5, 0.62, 0.85], glowK: 0.18, glowExp: 24,
+      haloCol: [0.6, 0.75, 1.0], halo: 0.22, haloExp: 400,
+      sun: [1.0, 0.92, 0.8], corona: 0.45, coronaExp: 2600, disc: 2.4, discExp: 50000,
+    },
+    clouds: { scale: 1.2, cover: 0.58, opacity: 0.32, light: [0.98, 0.82, 0.68], shadow: [0.6, 0.44, 0.38] },
+  },
+  light: { sun: 0xffd2a8, sunI: 2.5, hemiSky: 0xc69478, hemiGround: 0x4a2414, hemiI: 0.95, env: 0.6 },
+  grade: { tint: [1.04, 0.98, 0.93], vignette: 0.44, grain: 0.04, contrast: 0.26 },
+  paint: {
+    edge: [1.0, 0.62, 0.25], chev: [0.95, 0.3, 0.1], lane: [0.9, 0.85, 0.78],
+    kerbA: [0.92, 0.9, 0.86], kerbB: [0.12, 0.62, 0.66], edgeGlow: 0.5, chevGlow: 0.3, kerbGlow: 0.18,
+    buoy: 0xff7a2a, guide: 0x48e0d4,
+  },
+  structures: { dark: 0x1d1b1f, pale: 0xb59a80, lamp: 0xffa040, ivory: 0xfff0d8 },
+  pad: 0x1d1b1f,
+  cards: ['Speed Racing Skies', 'THARSIS SIERRA'],
+  wind: [20, 1.0, -8],
+});
+
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];
 export { hex };
