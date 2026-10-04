@@ -44,6 +44,9 @@ export const FLEET = [
   { num: '14', node: 'RAMA_14', hull: 4, flame: [0.55, 0.92, 1.0], name: 'RAMA', tag: 'Escultura de nácar. La más fina en el aire: punta altísima y trazada limpia, pero castiga cada golpe.',
     V: 5, A: 3, M: 4,
     style: { response: 9, grip: 6.8, gripAB: 8.8, ab: 1.0, mass: 0.95, lean: 0.36, bob: 0.04, bobHz: 2.2, drift: 0.2, pitch: 0.8, wallLoss: 1.15 } },
+  { num: '15', node: 'UBIK_15', hull: 5, flame: [1.0, 0.14, 0.1], name: 'UBIK', tag: 'Obsidiana silenciosa. Cuatro motores, equilibrio total y un blindaje que aguanta como ninguno.',
+    V: 4, A: 4, M: 4,
+    style: { response: 7.6, grip: 6.4, gripAB: 8.4, ab: 1.0, mass: 1.18, lean: 0.3, bob: 0.04, bobHz: 1.8, drift: 0.2, pitch: 0.7 } },
 ];
 
 // hull: impactos de cohete que aguanta (las más rápidas, menos: 3 · 4 · 5)
