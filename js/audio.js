@@ -110,6 +110,23 @@ export class Audio {
     });
   }
 
+  // anillo: barrido cristalino ascendente + soplo de aire filtrado
+  ring() {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime;
+    [523, 784, 1046, 1568, 2093].forEach((f, i) => {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t + i * 0.04); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + i * 0.04 + 0.5);
+      const g = c.createGain(); const t0 = t + i * 0.04;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.8);
+      o.connect(g).connect(this.master); o.start(t0); o.stop(t0 + 0.85);
+    });
+    const s = c.createBufferSource(); s.buffer = this.noiseBuf;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(600, t); f.frequency.exponentialRampToValueAtTime(5000, t + 0.45);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    s.connect(f).connect(g).connect(this.master); s.start(t); s.stop(t + 0.65);
+  }
+
   launch() {
     if (!this.ctx) return;
     const c = this.ctx, t = c.currentTime;

@@ -36,6 +36,7 @@ import { buildItaka } from './itaka.js';
 import { buildTharsis, tharsisSunDir } from './tharsis.js';
 import { buildCassini, cassiniSunDir } from './cassini.js';
 import { buildTiphares, tipharesSunDir } from './tiphares.js';
+import { buildEuropa, europaSunDir } from './europa.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
@@ -337,6 +338,7 @@ function applyLook(def) {
   if (def.sunFrom === 'tharsis' && !def._sun) { def.atmosphere.sunDir = tharsisSunDir(); def._sun = true; }
   if (def.sunFrom === 'cassini' && !def._sun) { def.atmosphere.sunDir = cassiniSunDir(); def._sun = true; }
   if (def.sunFrom === 'tiphares' && !def._sun) { def.atmosphere.sunDir = tipharesSunDir(); def._sun = true; }
+  if (def.sunFrom === 'europa' && !def._sun) { def.atmosphere.sunDir = europaSunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -629,12 +631,12 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares })[def.generated](def, { world, own, srcMat });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa })[def.generated](def, { world, own, srcMat });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
   const own_tube = def.generated === 'itaka';          // NUEVA-ITAKA trae su propio tubo continuo: sin túnel ni puentes añadidos
-  G.structures = buildStructures(world, track, def.structures, { tunnel: own_tube ? false : (r.tunnel || false), bridges: own_tube ? 0 : 2, ground: r.ground, rock: true });
+  G.structures = buildStructures(world, track, def.structures, { tunnel: own_tube ? false : (r.tunnel || false), bridges: own_tube ? 0 : (r.bridges ?? 2), ground: r.ground, rock: true });
   if (own_tube) G.structures.tunnel = r.tunnel;
   G.structures.group.traverse((o) => { if (o.isMesh) own.push(o.geometry, o.material); });
   G.circuitFx = r.fx; G.introKeys = r.introKeys;
@@ -695,6 +697,7 @@ function resetRace() {
     }
   }
   G.pickups?.reset();
+  G.circuitFx?.reset?.();
   G.fx.engine?.reset();
   G.missiles?.reset();
   G.chase.snap(player);
@@ -985,6 +988,12 @@ function updateRace(dt) {
         hud.banner(it.type === 'G' ? 'Boost' : 'Cohete listo', it.type === 'R' ? (IS_TOUCH ? 'Pulsa COHETE' : 'F · disparar') : '', false, 1.2);
       }
     });
+    // anillos de carrera (EUROPA): reparan el blindaje, recargan dos cohetes y dan un empujón
+    G.circuitFx?.passRings?.(G.ships, (sh) => {
+      sh.hull = sh.maxHull; sh.setDamage(); sh.ammo = 2;
+      sh.boostPad(); sh.boost = 1; sh.boostKick = Math.max(sh.boostKick, 1.5 * (sh.C.kick || 1));
+      if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner('Anillo', 'Blindaje restaurado · cohetes × 2 · boost', false, 1.6); }
+    });
     for (const sh of G.ships) {
       const wants = sh === ship ? (inp.fire && !G.playerAI) : G.ai.get(sh)?.inp.fire;
       if (wants && sh.ammo > 0 && G.state === 'race' && G.missiles.fire(sh, G.ships) && (sh === ship || sh.root.position.distanceTo(ship.root.position) < 300)) audio.launch();
@@ -1156,6 +1165,18 @@ function restart(withIntro = false) {
 
 // ── Daño visible: humo, chispas y fuego según los impactos; restos humeando; roces del casco con el tablero ──
 const _dp = new THREE.Vector3(), _dv = new THREE.Vector3(), _dl = new THREE.Vector3();
+// Película de luz azul sobre la pantalla al cruzar un anillo
+function ringFilm() {
+  let el = document.getElementById('ringFilm');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'ringFilm';
+    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;mix-blend-mode:screen;background:radial-gradient(ellipse at 50% 55%, rgba(80,190,255,0) 30%, rgba(70,180,255,0.32) 72%, rgba(150,225,255,0.7) 100%), linear-gradient(180deg, rgba(120,220,255,0) 0%, rgba(120,220,255,0.35) 48%, rgba(190,240,255,0.55) 50%, rgba(120,220,255,0.35) 52%, rgba(120,220,255,0) 100%);background-size:100% 100%, 100% 260%;';
+    document.body.appendChild(el);
+  }
+  el.getAnimations().forEach((a) => a.cancel());
+  el.animate([{ opacity: 1, backgroundPosition: '0 0, 0 100%' }, { opacity: 0.55, offset: 0.35 }, { opacity: 0, backgroundPosition: '0 0, 0 0%' }], { duration: 1100, easing: 'ease-out' });
+}
+
 function emitDamage(dt) {
   if (G.state === 'title' || G.state === 'select') return;
   const D = G.fx.damage;

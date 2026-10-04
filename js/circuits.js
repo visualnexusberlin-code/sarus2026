@@ -296,5 +296,43 @@ CIRCUITS.push({
   cards: ['Speed Racing Skies', 'TIPHARES'],
 });
 
+// Octava fase: EUROPA, noche sobre el hielo con Júpiter llenando el cielo; simas con la ciudad azul y anillos
+// que reparan, recargan cohetes y dan boost (trazado inspirado en Interlagos; europa.js)
+CIRCUITS.push({
+  id: 'europa',
+  name: 'EUROPA',
+  sub: 'Júpiter · luna de hielo',
+  blurb: 'Europa · noche sobre el hielo bajo Júpiter · simas azules y anillos que reparan, recargan y empujan',
+  unlockAfter: 'tiphares',
+  generated: 'europa',
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 400000,
+  rockets: false,
+  sunFrom: 'europa',
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.8, 0.32, -0.6).normalize(),
+    baseDensity: 0.000014, heightDensity: 0.00008, heightFalloff: 0.004, fogMax: 0.7,
+    exposure: 1.0, saturation: 0.95, redKeep: 0.8,
+    bloom: { strength: 0.55, radius: 0.55, threshold: 0.86 },
+    sky: {
+      horizon: [0.035, 0.045, 0.07], zenith: [0.002, 0.003, 0.007], below: [0.03, 0.04, 0.06], zLow: -0.05, zHigh: 0.3,
+      glow: [0.55, 0.45, 0.34], glowK: 0.05, glowExp: 6, haloCol: [0.6, 0.5, 0.4], halo: 0.0, haloExp: 400,
+      sun: [1.0, 0.95, 0.88], corona: 0.0, coronaExp: 5000, disc: 0.0, discExp: 60000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xffe6cc, sunI: 1.15, hemiSky: 0x4a6288, hemiGround: 0x233046, hemiI: 0.75, env: 0.5 },
+  grade: { tint: [0.98, 1.0, 1.04], vignette: 0.48, grain: 0.035, contrast: 0.3 },
+  paint: {
+    edge: [0.45, 0.85, 1.0], chev: [0.3, 0.75, 1.0], lane: [0.85, 0.9, 0.95],
+    kerbA: [0.92, 0.95, 0.98], kerbB: [0.25, 0.65, 0.95], edgeGlow: 0.6, chevGlow: 0.4, kerbGlow: 0.2,
+    buoy: 0x5fd8ff, guide: 0xbfeaff,
+  },
+  structures: { dark: 0x2c313a, pale: 0xd6dce4, lamp: 0x9fe4ff, ivory: 0xeef6ff },
+  pad: 0x2c313a,
+  cards: ['Speed Racing Skies', 'EUROPA'],
+});
+
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];
 export { hex };
