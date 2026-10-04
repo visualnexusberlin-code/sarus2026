@@ -41,6 +41,9 @@ export const FLEET = [
   { num: '13', node: 'VEGA_13', hull: 4, flame: [0.45, 0.7, 1.0], name: 'VEGA', tag: 'Tres motores y salida fulgurante. Muy estable en apoyo, pero tarda en cambiar de dirección.',
     V: 4, A: 5, M: 3,
     style: { response: 8.2, grip: 6.6, gripAB: 8.6, ab: 1.0, mass: 1.08, lean: 0.34, bob: 0.05, bobHz: 2.0, drift: 0.22, pitch: 0.9, kick: 1.15 } },
+  { num: '14', node: 'RAMA_14', hull: 4, flame: [0.55, 0.92, 1.0], name: 'RAMA', tag: 'Escultura de nácar. La más fina en el aire: punta altísima y trazada limpia, pero castiga cada golpe.',
+    V: 5, A: 3, M: 4,
+    style: { response: 9, grip: 6.8, gripAB: 8.8, ab: 1.0, mass: 0.95, lean: 0.36, bob: 0.04, bobHz: 2.2, drift: 0.2, pitch: 0.8, wallLoss: 1.15 } },
 ];
 
 // hull: impactos de cohete que aguanta (las más rápidas, menos: 3 · 4 · 5)
