@@ -217,5 +217,43 @@ CIRCUITS.push({
   wind: [20, 1.0, -8],
 });
 
+// Sexta fase: CASSINI-7, sobre los anillos de Saturno junto a la división de Cassini (trazado inspirado en
+// Fuji Speedway 1965/74; cassini.js)
+CIRCUITS.push({
+  id: 'cassini',
+  name: 'CASSINI-7',
+  sub: 'Saturno · anillos',
+  blurb: 'Saturno · sobre los anillos, junto a la división de Cassini · columnas clavadas en fragmentos de hielo',
+  unlockAfter: 'tharsis',
+  generated: 'cassini',
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 400000,
+  rockets: false,
+  sunFrom: 'cassini',
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.45, 0.2, -0.87).normalize(),
+    baseDensity: 0.000016, heightDensity: 0.00011, heightFalloff: 0.0035, fogMax: 0.72,
+    exposure: 0.9, saturation: 0.72, redKeep: 0.4,
+    bloom: { strength: 0.4, radius: 0.55, threshold: 0.86 },
+    sky: {
+      horizon: [0.1, 0.095, 0.09], zenith: [0.004, 0.004, 0.007], below: [0.06, 0.058, 0.055], zLow: -0.05, zHigh: 0.35,
+      glow: [1.0, 0.92, 0.8], glowK: 0.08, glowExp: 40, haloCol: [1.0, 0.95, 0.88], halo: 0.1, haloExp: 900,
+      sun: [1.0, 0.97, 0.92], corona: 0.5, coronaExp: 5000, disc: 5.0, discExp: 60000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff2e2, sunI: 3.0, hemiSky: 0x8a8578, hemiGround: 0x2a2724, hemiI: 0.35, env: 0.4 },
+  grade: { tint: [1.02, 1.0, 0.97], vignette: 0.45, grain: 0.035, contrast: 0.3 },
+  paint: {
+    edge: [1.0, 0.86, 0.6], chev: [0.95, 0.55, 0.2], lane: [0.88, 0.86, 0.82],
+    kerbA: [0.92, 0.9, 0.86], kerbB: [0.85, 0.62, 0.3], edgeGlow: 0.45, chevGlow: 0.3, kerbGlow: 0.15,
+    buoy: 0xffb45a, guide: 0xffe2b0,
+  },
+  structures: { dark: 0x1f1f20, pale: 0xc9c6bf, lamp: 0xffd9a0, ivory: 0xfff4e4 },
+  pad: 0x1f1f20,
+  cards: ['Speed Racing Skies', 'CASSINI-7'],
+});
+
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];
 export { hex };
