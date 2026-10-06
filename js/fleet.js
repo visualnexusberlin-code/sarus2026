@@ -47,6 +47,9 @@ export const FLEET = [
   { num: '15', node: 'UBIK_15', hull: 5, flame: [1.0, 0.14, 0.1], name: 'UBIK', tag: 'Obsidiana silenciosa. Cuatro motores, equilibrio total y un blindaje que aguanta como ninguno.',
     V: 4, A: 4, M: 4,
     style: { response: 7.6, grip: 6.4, gripAB: 8.4, ab: 1.0, mass: 1.18, lean: 0.3, bob: 0.04, bobHz: 1.8, drift: 0.2, pitch: 0.7 } },
+  { num: '16', node: 'ALTAIR_16', hull: 3, flame: [1.0, 0.22, 0.16], name: 'ALTAIR', tag: 'El águila. Grafito ondulado y un solo motor central: velocísima en recta y fina en curva rápida, pero frágil.',
+    V: 5, A: 4, M: 3,
+    style: { response: 8.2, grip: 5.8, gripAB: 8.0, ab: 0.95, mass: 0.98, lean: 0.4, bob: 0.05, bobHz: 2.0, drift: 0.26, pitch: 0.9, wallLoss: 1.1 } },
 ];
 
 // hull: impactos de cohete que aguanta (las más rápidas, menos: 3 · 4 · 5)
