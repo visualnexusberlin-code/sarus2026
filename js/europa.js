@@ -9,6 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 import { cofferPatch, cofferKey } from './facades.js';
+import { buildRaceRings } from './rings.js';
 
 // Trazado (px del plano), salida hacia +x, sentido antihorario como en Interlagos
 const RAW = [[695, 443], [760, 428], [810, 413], [830, 395], [836, 380], [832, 365], [820, 352], [802, 340], [795, 325], [797, 307], [810, 290], [820, 270], [824, 245], [820, 220], [810, 195], [795, 172], [775, 150], [750, 135], [700, 120], [650, 108], [560, 88], [480, 68], [400, 50], [330, 33], [285, 25], [260, 25], [245, 40], [235, 75], [230, 110], [232, 150], [245, 185], [265, 200], [310, 235], [360, 272], [415, 312], [465, 340], [487, 360], [495, 390], [492, 420], [480, 442], [460, 457], [400, 472], [360, 480], [340, 472], [335, 452], [350, 432], [362, 410], [360, 385], [345, 372], [322, 372], [302, 385], [280, 407], [250, 430], [215, 450], [180, 457], [160, 450], [162, 432], [185, 410], [215, 385], [235, 360], [243, 320], [237, 292], [215, 270], [165, 237], [110, 207], [80, 190], [62, 195], [50, 215], [40, 250], [37, 290], [47, 340], [62, 385], [82, 422], [107, 452], [145, 477], [200, 495], [275, 512], [350, 525], [400, 524], [475, 505], [550, 485], [625, 465]];
@@ -296,63 +297,6 @@ function planetMaterial(center, sunDir, kind, tex) {
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
-      }`,
-  });
-}
-
-// Película de luz de los anillos (lámina) — se ondula al cruzarla
-function filmMaterial() {
-  return new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
-    uniforms: { uT: { value: 0 }, uHit: { value: -10 } },
-    vertexShader: /* glsl */`
-      #include <common>
-      #include <logdepthbuf_pars_vertex>
-      varying vec2 vUv;
-      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        #include <logdepthbuf_vertex>
-      }`,
-    fragmentShader: /* glsl */`
-      #include <common>
-      #include <logdepthbuf_pars_fragment>
-      uniform float uT, uHit; varying vec2 vUv;
-      void main(){
-        #include <logdepthbuf_fragment>
-        vec2 p = vUv * 2.0 - 1.0; float r = length(p);
-        float rim = smoothstep(0.7, 1.0, r);
-        float sh = 0.5 + 0.5 * sin(r * 30.0 - uT * 3.0 + sin(atan(p.y, p.x) * 6.0 + uT) * 0.6);
-        float dt = uT - uHit;
-        float wave = exp(-pow((r - dt * 1.4) * 9.0, 2.0)) * exp(-dt * 1.6) * step(0.0, dt);
-        float a = 0.05 + 0.1 * sh * (0.3 + rim) + 0.5 * rim * rim + 1.4 * wave;
-        gl_FragColor = vec4(vec3(0.3, 0.75, 1.0) * a, 1.0);
-      }`,
-  });
-}
-
-// Película azul que recorre la nave al pasar por un anillo
-function shellMaterial() {
-  return new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
-    uniforms: { uP: { value: 1 } },
-    vertexShader: /* glsl */`
-      #include <common>
-      #include <logdepthbuf_pars_vertex>
-      varying vec3 vP; varying vec3 vN; varying vec3 vV;
-      void main(){ vP = position; vec4 wp = modelMatrix * vec4(position, 1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz);
-        gl_Position = projectionMatrix * viewMatrix * wp;
-        #include <logdepthbuf_vertex>
-      }`,
-    fragmentShader: /* glsl */`
-      #include <common>
-      #include <logdepthbuf_pars_fragment>
-      uniform float uP; varying vec3 vP; varying vec3 vN; varying vec3 vV;
-      void main(){
-        #include <logdepthbuf_fragment>
-        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
-        float sweep = exp(-pow((vP.z - (1.2 - uP * 3.0)) * 3.2, 2.0));
-        float lines = 0.5 + 0.5 * sin(vP.z * 40.0 - uP * 30.0);
-        float a = (0.9 * f + 1.6 * sweep * (0.6 + 0.4 * lines)) * pow(1.0 - uP, 1.4);
-        gl_FragColor = vec4(vec3(0.35, 0.8, 1.0) * a, 1.0);
       }`,
   });
 }
@@ -797,74 +741,18 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
 
   // ── Anillos de carrera ──
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0x2c313a, roughness: 0.32, metalness: 0.9 }); own.push(ringMat);
-  const gates = [];
-  const RR = 30, RC = 8;
-  for (const f of rings) {
-    const s = f * L; track.sample(s, F);
-    const grp = new THREE.Group();
-    const basis = new THREE.Matrix4().makeBasis(F.right.clone().negate(), F.up, F.tan);
-    grp.quaternion.setFromRotationMatrix(basis); grp.position.copy(F.pos).addScaledVector(F.up, RC);
-    const gp = { metal: [], silver: [], cyan: [], star: [] };
-    gp.metal.push(new THREE.TorusGeometry(RR, 2.6, 14, 120));
-    gp.cyan.push(new THREE.TorusGeometry(RR - 2.7, 0.42, 8, 120));
-    gp.star.push(new THREE.TorusGeometry(RR + 2.9, 0.22, 6, 120));
-    for (let k = 0; k < 36; k++) {
-      const a = k / 36 * Math.PI * 2, big = k % 3 === 0;
-      const b = new THREE.BoxGeometry(big ? 7.6 : 6.4, big ? 4.2 : 2.6, big ? 6.4 : 5.6);
-      b.rotateZ(a); b.translate(Math.cos(a) * RR, Math.sin(a) * RR, 0);
-      (big ? gp.silver : gp.metal).push(b);
-      if (big) gp.cyan.push(new THREE.BoxGeometry(0.5, 2.6, 6.6).rotateZ(a).translate(Math.cos(a) * (RR - 3.75), Math.sin(a) * (RR - 3.75), 0));
-    }
-    const mats = { metal: ringMat, silver: PM.silver, cyan: PM.cyan, star: PM.star };
-    for (const [k, l] of Object.entries(gp)) { const mg = mergeGeometries(norm(l), false); l.forEach((gq) => gq.dispose()); const mesh = new THREE.Mesh(mg, mats[k]); mesh.castShadow = k === 'metal' || k === 'silver'; mesh.receiveShadow = true; grp.add(mesh); own.push(mg); }
-    const fm = filmMaterial(); own.push(fm);
-    const film = new THREE.Mesh(new THREE.CircleGeometry(RR - 2.6, 72), fm); film.renderOrder = 3; grp.add(film); own.push(film.geometry);
-    world.add(grp);
-    gates.push({ s, film: fm });
-  }
-
-  // ── Película azul sobre las naves que cruzan un anillo ──
-  const shellGeo = new THREE.SphereGeometry(1, 28, 18); own.push(shellGeo);
-  const shells = new Map(), prevD = new Map();
-  const shellFor = (sh) => {
-    let e = shells.get(sh);
-    if (!e) {
-      const m = shellMaterial(); own.push(m);
-      const mesh = new THREE.Mesh(shellGeo, m); mesh.frustumCulled = false; mesh.renderOrder = 4;
-      mesh.scale.set(sh.halfWidthGeo * 1.25, sh.size.y * 0.8, sh.length * 0.62);
-      mesh.position.set(0, sh.bottom + sh.size.y * 0.5, 0);
-      (sh.body || sh.root).add(mesh);
-      e = { mesh, m, p: 1 }; shells.set(sh, e);
-    }
-    return e;
-  };
+  const rr = buildRaceRings(world, track, rings.map((f) => f * L), own);
+  const gates = rr.gates;
 
   const fx = {
     t: 0, gates,
     update(dt) {
       this.t += dt;
       jm.uniforms.uT.value = this.t;
-      for (const gt of gates) gt.film.uniforms.uT.value = this.t;
-      for (const e of shells.values()) { if (e.p < 1) { e.p = Math.min(1, e.p + dt / 1.15); e.m.uniforms.uP.value = e.p; } e.mesh.visible = e.p < 1; }
+      rr.update(dt);
     },
-    // cruce de anillos: devuelve al llamador cada nave que pasa por uno
-    passRings(ships, onPass) {
-      for (const sh of ships) {
-        if (sh.out || sh.dead > 0) { prevD.delete(sh); continue; }
-        let pd = prevD.get(sh); if (!pd) { pd = gates.map(() => null); prevD.set(sh, pd); }
-        gates.forEach((gt, i) => {
-          const d = track.delta(sh.s, gt.s);
-          if (pd[i] !== null && pd[i] > 0 && d <= 0 && d > -40) {
-            gt.film.uniforms.uHit.value = this.t;
-            const e = shellFor(sh); e.p = 0; e.m.uniforms.uP.value = 0; e.mesh.visible = true;
-            onPass?.(sh);
-          }
-          pd[i] = d;
-        });
-      }
-    },
-    reset() { prevD.clear(); for (const e of shells.values()) { e.p = 1; e.mesh.visible = false; } },
+    passRings: (ships, onPass) => rr.passRings(ships, onPass),
+    reset: () => rr.reset(),
   };
 
   // Intro: Júpiter sobre la llanura y la ciudadela, vuelo rasante sobre la sima de Senna y bajada a la parrilla

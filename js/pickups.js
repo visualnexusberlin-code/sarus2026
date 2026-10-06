@@ -77,7 +77,8 @@ export class Pickups {
     for (let s = C.firstAt; s < track.length - 160; s += C.every, k++) {
       if (track.gapAt && [0, 30, -30].some((d) => track.gapAt(s + d) >= 0)) continue;   // nada en el aire de los saltos
       const pat = PATTERNS[k % PATTERNS.length];
-      C.lanes.forEach((x, i) => this.items.push({ s, x, type: pat[i], active: true, t: 0, pop: 1, seed: Math.random() * 10 }));
+      const wq = Math.min(1, track.wAt ? track.wAt(s) : 1);
+      C.lanes.forEach((x, i) => this.items.push({ s, x: x * wq, type: pat[i], active: true, t: 0, pop: 1, seed: Math.random() * 10 }));
     }
     this.meshes = {};
     const geo = new THREE.IcosahedronGeometry(1.25, 3);

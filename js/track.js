@@ -159,6 +159,9 @@ export class Track {
       }
     }
 
+    // Estrechamientos opcionales (tramos a anchura de carrera): escala la anchura útil
+    if (opts.narrow) for (let i = 0; i < M; i++) this.widen[i] *= opts.narrow(i / M);
+
     // Línea de carrera aproximada: interior de la curva en el vértice (curvatura suavizada ±45 m).
     this.line = new Float32Array(M);
     const W2 = Math.round(45 / this.ds);
@@ -166,7 +169,7 @@ export class Track {
     for (let k = -W2; k <= W2; k++) acc += this.kappa[(k + M) % M];
     for (let i = 0; i < M; i++) {
       const kk = acc / (2 * W2 + 1);
-      this.line[i] = -Math.max(-10.5, Math.min(10.5, kk * 700));
+      { const lim = 10.5 * Math.min(1, this.widen[i] * this.widen[i]); this.line[i] = -Math.max(-lim, Math.min(lim, kk * 700)); }
       acc += this.kappa[(i + W2 + 1) % M] - this.kappa[(i - W2 + M) % M];
     }
 

@@ -58,7 +58,7 @@ export function buildDeckDetail(parent, track, palette = {}, { skip = [] } = {})
   const L = track.length;
   const dark = [], plate = [], lit = [];
   const halfW = (track.width || 32) / 2 - 0.9;
-  const excluded = (s) => skip.some(([a, b]) => { const d = track.delta(a, s); return d >= -6 && d <= b - a + 6; }) || track.gapAt(s) >= 0;
+  const excluded = (s) => skip.some(([a, b]) => { const d = track.delta(a, s); return d >= -6 && d <= b - a + 6; }) || track.gapAt(s) >= 0 || track.wAt(s) < 0.97;
   const k = (s) => Math.abs(track.kappaAt(s));
   const ahead = (s) => { let m = 0; for (let d = 20; d <= 140; d += 10) m = Math.max(m, k(s + d)); return m; };
   const hashS = (s) => Math.abs(Math.sin(s * 12.9898) * 43758.5453) % 1;

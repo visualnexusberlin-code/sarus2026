@@ -37,6 +37,7 @@ import { buildTharsis, tharsisSunDir } from './tharsis.js';
 import { buildCassini, cassiniSunDir } from './cassini.js';
 import { buildTiphares, tipharesSunDir } from './tiphares.js';
 import { buildEuropa, europaSunDir } from './europa.js';
+import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
@@ -339,6 +340,7 @@ function applyLook(def) {
   if (def.sunFrom === 'cassini' && !def._sun) { def.atmosphere.sunDir = cassiniSunDir(); def._sun = true; }
   if (def.sunFrom === 'tiphares' && !def._sun) { def.atmosphere.sunDir = tipharesSunDir(); def._sun = true; }
   if (def.sunFrom === 'europa' && !def._sun) { def.atmosphere.sunDir = europaSunDir(); def._sun = true; }
+  if (def.sunFrom === 'miranda' && !def._sun) { def.atmosphere.sunDir = mirandaSunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -346,6 +348,7 @@ function applyLook(def) {
     G.fx.motes.wind = def.wind ? new THREE.Vector3(...def.wind) : null;
     G.fx.motes.points.material.color.setHex(def.wind ? 0xd9a27c : 0xe8e4da);
     G.fx.motes.points.material.size = def.wind ? 0.22 : 0.16;
+    G.fx.motes.points.visible = def.motes !== false;          // sin polvo flotante en las lunas sin aire (MIRANDA)
   }
   applyAtmosphere(def.atmosphere, scene, G.showroom?.scene);
   scene.fog.density = A.baseDensity;
@@ -631,7 +634,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa })[def.generated](def, { world, own, srcMat, renderer });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
@@ -1345,7 +1348,7 @@ function tick(dt) {
     G.fx.rockets.update(dt, camera, renderer);
   }
   if (G.state !== 'select') G.fx.motes.update(camera, G.paused ? 0 : dt);
-  if (G.state !== 'select' && !G.paused) G.circuitFx?.update(dt, camera);
+  if (G.state !== 'select' && !G.paused) G.circuitFx?.update(dt, camera, G);
   if (!G.flyers && G.track && G.ships.length) G.flyers = new Flyers(scene, G.track, G.ships, G.circuitId === 'olympus' ? 8 : 6);
   if (G.flyers && G.state !== 'select' && !G.paused) G.flyers.update(dt);
   if (G.flyers) G.flyers.group.visible = G.state !== 'select';

@@ -334,5 +334,44 @@ CIRCUITS.push({
   cards: ['Speed Racing Skies', 'EUROPA'],
 });
 
+// Novena fase: MIRANDA, luna de Urano. Todo sobre el terreno, al borde de Verona Rupes, con Urano al fondo
+// (trazado inspirado en Suzuka: el cruce es un gran puente en arco con el anillo de recuperación; miranda.js)
+CIRCUITS.push({
+  id: 'miranda',
+  name: 'MIRANDA',
+  sub: 'Urano · Verona Rupes',
+  blurb: 'Miranda · al borde de Verona Rupes, el acantilado más alto del sistema solar · Urano llena el cielo',
+  unlockAfter: 'europa',
+  generated: 'miranda',
+  motes: false,
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 400000,
+  rockets: false,
+  sunFrom: 'miranda',
+  atmosphere: {
+    sunDir: new THREE.Vector3(-0.5, 0.45, 0.7).normalize(),
+    baseDensity: 0.000006, heightDensity: 0.00003, heightFalloff: 0.002, fogMax: 0.45,
+    exposure: 1.0, saturation: 0.9, redKeep: 0.9,
+    bloom: { strength: 0.45, radius: 0.5, threshold: 0.88 },
+    sky: {
+      horizon: [0.01, 0.013, 0.015], zenith: [0.001, 0.0015, 0.002], below: [0.01, 0.012, 0.014], zLow: -0.05, zHigh: 0.25,
+      glow: [0.35, 0.55, 0.6], glowK: 0.06, glowExp: 10, haloCol: [0.8, 0.95, 1.0], halo: 0.12, haloExp: 300,
+      sun: [1.0, 0.98, 0.95], corona: 0.25, coronaExp: 9000, disc: 6.0, discExp: 160000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xf2fbff, sunI: 2.1, hemiSky: 0x3e5664, hemiGround: 0x151c22, hemiI: 0.75, env: 0.3 },
+  grade: { tint: [0.94, 1.0, 1.04], vignette: 0.52, grain: 0.04, contrast: 0.36 },
+  paint: {
+    edge: [0.45, 0.85, 1.0], chev: [1.0, 0.6, 0.2], lane: [0.85, 0.9, 0.95],
+    kerbA: [0.92, 0.94, 0.96], kerbB: [1.0, 0.55, 0.2], edgeGlow: 0.6, chevGlow: 0.4, kerbGlow: 0.2,
+    buoy: 0x5fd8ff, guide: 0xbfeaff,
+  },
+  structures: { dark: 0x2c2f33, pale: 0xc8ccd0, lamp: 0xffe8c8, ivory: 0xeef2f4 },
+  pad: 0x2c2f33,
+  cards: ['Speed Racing Skies', 'MIRANDA'],
+});
+
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];
 export { hex };
