@@ -219,14 +219,54 @@ CIRCUITS.push({
   wind: [20, 1.0, -8],
 });
 
-// Sexta fase: CASSINI-7, sobre los anillos de Saturno junto a la división de Cassini (trazado inspirado en
+// Sexta fase: PHOBOS, la luna de Marte. Superficie, cráter Stickney, túneles octogonales y una gran caverna
+// con módulos industriales (trazado inspirado en Mónaco 1950; phobos.js)
+CIRCUITS.push({
+  id: 'phobos',
+  name: 'PHOBOS',
+  sub: 'Marte · luna interior',
+  blurb: 'Phobos · de la superficie al cráter Stickney y por dentro de la luna · Marte llena el horizonte',
+  unlockAfter: 'tharsis',
+  generated: 'phobos',
+  music: 'pursuit',
+  motes: false,
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 400000,
+  rockets: false,
+  sunFrom: 'phobos',
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.6, 0.42, 0.6).normalize(),
+    baseDensity: 0.000005, heightDensity: 0.00002, heightFalloff: 0.002, fogMax: 0.35,
+    exposure: 1.0, saturation: 0.95, redKeep: 0.9,
+    bloom: { strength: 0.5, radius: 0.55, threshold: 0.84 },
+    sky: {
+      horizon: [0.012, 0.01, 0.01], zenith: [0.001, 0.001, 0.0015], below: [0.01, 0.009, 0.009], zLow: -0.05, zHigh: 0.25,
+      glow: [1.0, 0.92, 0.82], glowK: 0.04, glowExp: 20, haloCol: [1.0, 0.95, 0.88], halo: 0.08, haloExp: 900,
+      sun: [1.0, 0.97, 0.92], corona: 0.35, coronaExp: 6000, disc: 6.0, discExp: 90000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff1e2, sunI: 2.6, hemiSky: 0x5a4a44, hemiGround: 0x2a2220, hemiI: 0.6, env: 0.35 },
+  grade: { tint: [1.03, 1.0, 0.97], vignette: 0.5, grain: 0.04, contrast: 0.34 },
+  paint: {
+    edge: [1.0, 0.62, 0.25], chev: [1.0, 0.4, 0.15], lane: [0.9, 0.88, 0.85],
+    kerbA: [0.92, 0.9, 0.86], kerbB: [1.0, 0.45, 0.15], edgeGlow: 0.55, chevGlow: 0.4, kerbGlow: 0.2,
+    buoy: 0xff8a3a, guide: 0xffd2a0,
+  },
+  structures: { dark: 0x2a2c30, pale: 0xc9ccd0, lamp: 0xffb070, ivory: 0xfff0e0 },
+  pad: 0x2a2c30,
+  cards: ['Speed Racing Skies', 'PHOBOS'],
+});
+
+// Séptima fase: CASSINI-7, sobre los anillos de Saturno junto a la división de Cassini (trazado inspirado en
 // Fuji Speedway 1965/74; cassini.js)
 CIRCUITS.push({
   id: 'cassini',
   name: 'CASSINI-7',
   sub: 'Saturno · anillos',
   blurb: 'Saturno · sobre los anillos, junto a la división de Cassini · columnas clavadas en fragmentos de hielo',
-  unlockAfter: 'tharsis',
+  unlockAfter: 'phobos',
   generated: 'cassini',
   inSectorOrder: false,
   hoverMax: 6,

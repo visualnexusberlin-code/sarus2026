@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Película de luz de los anillos (lámina) — se ondula al cruzarla
-function filmMaterial() {
+function filmMaterial(col = [0.3, 0.75, 1.0]) {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
-    uniforms: { uT: { value: 0 }, uHit: { value: -10 } },
+    uniforms: { uT: { value: 0 }, uHit: { value: -10 }, uCol: { value: new THREE.Vector3(...col) } },
     vertexShader: /* glsl */`
       #include <common>
       #include <logdepthbuf_pars_vertex>
@@ -18,7 +18,7 @@ function filmMaterial() {
     fragmentShader: /* glsl */`
       #include <common>
       #include <logdepthbuf_pars_fragment>
-      uniform float uT, uHit; varying vec2 vUv;
+      uniform float uT, uHit; uniform vec3 uCol; varying vec2 vUv;
       void main(){
         #include <logdepthbuf_fragment>
         vec2 p = vUv * 2.0 - 1.0; float r = length(p);
@@ -27,16 +27,16 @@ function filmMaterial() {
         float dt = uT - uHit;
         float wave = exp(-pow((r - dt * 1.4) * 9.0, 2.0)) * exp(-dt * 1.6) * step(0.0, dt);
         float a = 0.05 + 0.1 * sh * (0.3 + rim) + 0.5 * rim * rim + 1.4 * wave;
-        gl_FragColor = vec4(vec3(0.3, 0.75, 1.0) * a, 1.0);
+        gl_FragColor = vec4(uCol * a, 1.0);
       }`,
   });
 }
 
 // Película azul que recorre la nave al pasar por un anillo
-function shellMaterial() {
+function shellMaterial(col = [0.35, 0.8, 1.0]) {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
-    uniforms: { uP: { value: 1 } },
+    uniforms: { uP: { value: 1 }, uCol: { value: new THREE.Vector3(...col) } },
     vertexShader: /* glsl */`
       #include <common>
       #include <logdepthbuf_pars_vertex>
@@ -48,14 +48,14 @@ function shellMaterial() {
     fragmentShader: /* glsl */`
       #include <common>
       #include <logdepthbuf_pars_fragment>
-      uniform float uP; varying vec3 vP; varying vec3 vN; varying vec3 vV;
+      uniform float uP; uniform vec3 uCol; varying vec3 vP; varying vec3 vN; varying vec3 vV;
       void main(){
         #include <logdepthbuf_fragment>
         float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
         float sweep = exp(-pow((vP.z - (1.2 - uP * 3.0)) * 3.2, 2.0));
         float lines = 0.5 + 0.5 * sin(vP.z * 40.0 - uP * 30.0);
         float a = (0.9 * f + 1.6 * sweep * (0.6 + 0.4 * lines)) * pow(1.0 - uP, 1.4);
-        gl_FragColor = vec4(vec3(0.35, 0.8, 1.0) * a, 1.0);
+        gl_FragColor = vec4(uCol * a, 1.0);
       }`,
   });
 }
@@ -92,10 +92,10 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
       const mg = mergeGeometries(l.map((g) => { g.deleteAttribute('uv'); return g; }), false); l.forEach((gq) => gq.dispose());
       const mesh = new THREE.Mesh(mg, M[k]); mesh.castShadow = k === 'metal' || k === 'silver'; mesh.receiveShadow = true; grp.add(mesh); own.push(mg);
     }
-    const fm = filmMaterial(); own.push(fm);
+    const fm = filmMaterial(opts.color); own.push(fm);
     const film = new THREE.Mesh(new THREE.CircleGeometry(RR - 2.6, 72), fm); film.renderOrder = 3; grp.add(film); own.push(film.geometry);
     world.add(grp);
-    gates.push({ s, film: fm, group: grp });
+    gates.push({ s, film: fm, group: grp, kind: opts.kind || 'full' });
   }
 
   const shellGeo = new THREE.SphereGeometry(1, 28, 18); own.push(shellGeo);
@@ -105,7 +105,7 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
     if (!e) {
       const host = sh.body || sh.root;
       for (const o of [...host.children]) if (o.name === 'ringShell') host.remove(o);     // restos de otra fase
-      const m = shellMaterial(); own.push(m);
+      const m = shellMaterial(opts.color); own.push(m);
       const mesh = new THREE.Mesh(shellGeo, m); mesh.name = 'ringShell'; mesh.frustumCulled = false; mesh.renderOrder = 4;
       mesh.scale.set(sh.halfWidthGeo * 1.25, sh.size.y * 0.8, sh.length * 0.62);
       mesh.position.set(0, sh.bottom + sh.size.y * 0.5, 0);
@@ -131,7 +131,7 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
           if (pd[i] !== null && pd[i] > 0 && d <= 0 && d > -40) {
             gt.film.uniforms.uHit.value = t;
             const e = shellFor(sh); e.p = 0; e.m.uniforms.uP.value = 0; e.mesh.visible = true;
-            onPass?.(sh);
+            onPass?.(sh, gt);
           }
           pd[i] = d;
         });

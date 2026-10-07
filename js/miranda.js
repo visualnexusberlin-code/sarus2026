@@ -50,8 +50,8 @@ function layout() {
 }
 
 // ── Horneado del regolito (GPU, una vez): baldosa periódica de 800 m, media precisión ──
-const TILE = 800;
-const BAKE = /* glsl */`
+export const TILE = 800;
+export const BAKE = /* glsl */`
   varying vec2 vUv;
   float hP(vec2 n, float N){ n = mod(n, N); return fract(sin(dot(n, vec2(127.1, 311.7))) * 43758.5453); }
   vec2 h2P(vec2 n, float N){ n = mod(n, N); return fract(sin(vec2(dot(n, vec2(127.1, 311.7)), dot(n, vec2(269.5, 183.3)))) * 43758.5453); }
@@ -104,7 +104,7 @@ const BAKE = /* glsl */`
     gl_FragColor = vec4(h, alb, m1 + m2, wall);
   }`;
 
-function gpuBake(renderer, size, frag) {
+export function gpuBake(renderer, size, frag) {
   const rt = new THREE.WebGLRenderTarget(size, size, { depthBuffer: false, type: THREE.HalfFloatType, wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping,
     generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
   rt.texture.anisotropy = 8;
