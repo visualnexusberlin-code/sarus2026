@@ -50,6 +50,9 @@ export const FLEET = [
   { num: '16', node: 'ALTAIR_16', hull: 3, flame: [1.0, 0.22, 0.16], name: 'ALTAIR', tag: 'El águila. Grafito ondulado y un solo motor central: velocísima en recta y fina en curva rápida, pero frágil.',
     V: 5, A: 4, M: 3,
     style: { response: 8.2, grip: 5.8, gripAB: 8.0, ab: 0.95, mass: 0.98, lean: 0.4, bob: 0.05, bobHz: 2.0, drift: 0.26, pitch: 0.9, wallLoss: 1.1 } },
+  { num: '17', node: 'KIBEROS_17', hull: 4, flame: [1.0, 0.12, 0.08], name: 'KIBEROS', tag: 'El can de tres cabezas. Morro y dos garras de plata sobre un núcleo negro: arranca como nadie y muerde en el cuerpo a cuerpo.',
+    V: 4, A: 5, M: 3,
+    style: { response: 8.0, grip: 6.0, gripAB: 8.2, ab: 1.0, mass: 1.12, lean: 0.38, bob: 0.05, bobHz: 2.2, drift: 0.28, pitch: 0.85, kick: 1.15 } },
 ];
 
 // hull: impactos de cohete que aguanta (las más rápidas, menos: 3 · 4 · 5)
