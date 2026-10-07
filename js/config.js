@@ -72,7 +72,7 @@ export const CONFIG = {
   },
 
   // ── Atmósfera (niebla de altura analítica + niebla de distancia) ──
-  // Atmósfera activa: la de SATURN-6 al arrancar; cada circuito trae la suya (circuits.js)
+  // Atmósfera activa: la del primer circuito al arrancar; cada circuito trae la suya (circuits.js)
   atmosphere: { ...CIRCUITS[0].atmosphere },
 
   introSpeed: 1.0,

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 //  NUEVA-ITAKA · isla flotante en órbita baja, entre la Tierra y la Luna
-//  Circuito generado: trazado inspirado en el Nordschleife, dentro de un tubo de cristal continuo.
+//  Circuito generado: trazado de archivo (gran bucle de bosque), dentro de un tubo de cristal continuo.
 //  Tramos subterráneos con paneles hexagonales, subidas a dos colinas altas y una cúpula
 //  de rejilla hexagonal sobre toda la isla. Fondo: espacio, con la Tierra y la Luna.
 // ─────────────────────────────────────────────────────────────
@@ -11,7 +11,7 @@ import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGu
 
 // Trazado (píxeles de la referencia, sentido de carrera desde la salida hacia el oeste)
 const RAW = [[193, 821], [135, 830], [78, 846], [48, 846], [38, 832], [50, 815], [97, 808], [152, 799], [202, 793], [221, 788], [229, 777], [222, 762], [180, 770], [136, 735], [104, 698], [77, 633], [57, 563], [51, 501], [87, 452], [116, 407], [133, 351], [139, 289], [124, 256], [139, 236], [180, 239], [263, 228], [303, 205], [332, 179], [350, 158], [407, 149], [466, 131], [478, 101], [463, 75], [458, 48], [474, 47], [514, 35], [535, 24], [565, 42], [575, 66], [578, 87], [592, 87], [638, 107], [667, 127], [676, 113], [683, 99], [745, 114], [800, 123], [830, 133], [817, 155], [793, 201], [793, 236], [820, 281], [857, 313], [890, 360], [926, 397], [933, 411], [990, 418], [1039, 425], [1064, 434], [1069, 445], [1050, 454], [1025, 452], [1004, 458], [1003, 472], [1020, 482], [1050, 482], [1080, 480], [1110, 474], [1127, 466], [1144, 449], [1164, 443], [1184, 461], [1200, 492], [1215, 523], [1222, 554], [1203, 578], [1198, 608], [1202, 636], [1185, 652], [1166, 642], [1141, 630], [1114, 645], [1086, 671], [1045, 707], [1013, 705], [961, 724], [903, 723], [862, 707], [829, 673], [810, 671], [793, 687], [797, 701], [815, 722], [821, 750], [818, 762], [790, 780], [700, 775], [600, 772], [500, 773], [406, 773], [367, 780], [300, 785], [246, 812]];
-const IDX = { flug0: 14, flug1: 18, schw0: 82, schw1: 87, hoheAcht: 70, wehrseifen: 35, karussell: 62, doettinger: 97 };
+const IDX = { jump0: 14, jump1: 18, cross0: 82, cross1: 87, crest: 70, dip: 35, bowl: 62, longStraight: 97 };
 const K = 2.6;                     // m por píxel → ≈ 10,5 km
 
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -57,7 +57,7 @@ export function buildItaka(def, { world, own, srcMat }) {
   const R_I = rMax + 650;                            // radio de la isla
 
   // ── Relieve de la isla: praderas onduladas, dos colinas altas, borde que cae al vacío ──
-  const H1 = P[IDX.hoheAcht], H2 = P[IDX.wehrseifen];
+  const H1 = P[IDX.crest], H2 = P[IDX.dip];
   function base(x, z) {
     const d = Math.hypot(x - centroid.x, z - centroid.z);
     let h = 22 * (fbm(x * 0.0016, z * 0.0016, 4) - 0.5) + 6 * (fbm(x * 0.012, z * 0.012, 3) - 0.5);
@@ -74,7 +74,7 @@ export function buildItaka(def, { world, own, srcMat }) {
   const ramp = 320 / total;
   const deep = (f) => {
     let d = 0;
-    for (const [a, b] of [[corner.flug0, corner.flug1], [corner.schw0, corner.schw1]]) {
+    for (const [a, b] of [[corner.jump0, corner.jump1], [corner.cross0, corner.cross1]]) {
       const da = ((f - a + 1) % 1), db = ((b - f + 1) % 1), len = ((b - a + 1) % 1);
       if (da <= len) d = Math.max(d, Math.min(sstep(0, ramp, da), sstep(0, ramp, db)));
     }

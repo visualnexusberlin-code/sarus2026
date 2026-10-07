@@ -1,5 +1,5 @@
-// TIPHARES: Venus, sobre el mar de nubes al atardecer. Trazado inspirado en el autódromo Oscar y Juan Gálvez
-// (Buenos Aires). La pista se despliega sobre una cadena de plataformas flotantes de nácar y oro con jardines;
+// TIPHARES: Venus, sobre el mar de nubes al atardecer. Trazado de archivo (autódromo urbano del sur).
+// La pista se despliega sobre una cadena de plataformas flotantes de nácar y oro con jardines;
 // en el gran espacio interior del trazado (donde estaría el lago) flota la ciudadela Tiphares: un loto metálico
 // de pétalos curvos, con una cúpula de cristal llena de agujas y un tallo de discos que se hunde en las nubes.
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGu
 
 // Trazado (px del recorte del plano), recta de meta hacia +x
 const RAW = [[350, 183], [500, 172], [650, 158], [710, 155], [738, 175], [745, 205], [765, 215], [800, 190], [860, 130], [920, 90], [980, 62], [1020, 58], [1035, 80], [1020, 105], [960, 130], [900, 170], [875, 200], [900, 225], [960, 215], [1100, 170], [1250, 115], [1380, 72], [1450, 75], [1540, 150], [1585, 260], [1560, 370], [1480, 400], [1250, 435], [1000, 470], [800, 495], [700, 500], [670, 490], [640, 510], [580, 505], [450, 420], [300, 300], [180, 200], [95, 125], [100, 105], [130, 108], [230, 150]];
-const IDX = { curva1: 5, reutemann: 11, ciervo: 16, lago: 20, salotto: 24, km: 28, ascari: 31, larga: 37 };
+const IDX = { curva1: 5, c2: 11, c3: 16, lago: 20, c5: 24, km: 28, c6: 31, larga: 37 };
 const CITADEL_PX = [1150, 300];       // centro del lago
 const K = 1.6;                        // ≈ 6,1 km
 const CLOUD_Y = -320;                 // techo del mar de nubes
@@ -190,9 +190,9 @@ export function buildTiphares(def, { world, own, srcMat }) {
   const centroid = S.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / N);
   let rMax = 0; for (const p of S) rMax = Math.max(rMax, Math.hypot(p.x - centroid.x, p.z - centroid.z));
 
-  // ── Cotas: ondulación suave, sube en Reutemann y en el curvón; baja en la recta del kilómetro ──
+  // ── Cotas: ondulación suave, sube en la curva rápida y en el curvón; baja en la recta del kilómetro ──
   const g = (f, c, w) => { let d = Math.abs(f - c); d = Math.min(d, 1 - d); return Math.exp(-((d * total / w) ** 2)); };
-  let y = S.map((_, i) => { const f = cum[i] / total; return 10 + 16 * g(f, corner.reutemann, 360) + 12 * g(f, corner.salotto, 500) - 10 * g(f, corner.km, 600) + 8 * g(f, corner.larga, 300) - 6 * g(f, corner.ciervo, 200); });
+  let y = S.map((_, i) => { const f = cum[i] / total; return 10 + 16 * g(f, corner.c2, 360) + 12 * g(f, corner.c5, 500) - 10 * g(f, corner.km, 600) + 8 * g(f, corner.larga, 300) - 6 * g(f, corner.c3, 200); });
   for (let pass = 0; pass < 4; pass++) y = y.map((_, i) => { let a = 0; for (let k = -4; k <= 4; k++) a += y[(i + k + N) % N]; return a / 9; });
   const ground = () => CLOUD_Y;
 

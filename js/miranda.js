@@ -1,5 +1,5 @@
 // MIRANDA: luna de Urano. Todo sobre el terreno: la pista es un camino nivelado en el regolito, con guardarraíles
-// luminosos recorridos por pulsos y balizas sueltas. Trazado inspirado en Suzuka (figura en ocho): el cruce se
+// luminosos recorridos por pulsos y balizas sueltas. Trazado de archivo en figura de ocho: el cruce se
 // resuelve con un gran puente en arco, mirador de todo el paisaje y anillo de recuperación. La recta y la horquilla
 // van al borde de Verona Rupes: un corte de varios kilómetros con Urano gigante al fondo. Las eses se encajan en
 // una garganta a anchura de carrera.
@@ -8,12 +8,12 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { buildRaceRings } from './rings.js';
 
-// Trazado (px del plano). Salida hacia el oeste (−x): primera curva, eses, Dunlop, Degner, bajo el puente,
-// horquilla, Spoon, 130R sobre el puente, chicane Casio y recta
+// Trazado (px del plano). Salida hacia el oeste (−x): primera curva, eses, curva larga, cresta, bajo el puente,
+// horquilla, arco largo, arco sobre el puente, última chicane y recta
 const RAW = [[235, 592], [180, 600], [120, 609], [80, 615], [50, 612], [27, 598], [20, 578], [30, 560], [55, 550], [90, 548], [118, 546], [135, 535], [148, 515], [165, 508], [190, 508], [215, 510], [240, 503], [260, 483], [282, 468], [305, 466], [325, 478], [342, 500], [362, 512], [385, 508], [408, 492], [430, 475], [440, 450], [445, 410], [440, 375], [430, 345], [415, 322], [425, 295], [437, 270], [448, 256], [470, 262], [500, 275], [540, 290], [580, 302], [600, 320], [615, 340], [625, 348], [633, 342], [632, 330], [620, 310], [607, 285], [597, 260], [595, 235], [600, 210], [612, 185], [635, 160], [660, 140], [690, 128], [720, 121], [750, 122], [780, 127], [810, 131], [832, 125], [845, 108], [848, 80], [842, 62], [825, 51], [800, 50], [770, 56], [730, 70], [700, 87], [650, 115], [600, 157], [550, 197], [500, 237], [480, 255], [467, 285], [462, 310], [462, 350], [467, 390], [475, 425], [480, 450], [480, 472], [465, 476], [455, 483], [452, 500], [452, 520], [447, 535], [435, 548], [400, 568], [350, 578], [290, 586]];
-const IDX = { first: 5, t2: 7, s3: 11, t4: 13, s5: 16, s6: 19, s7: 22, dunlop: 25, degner: 29, t9: 33, crossLo: 34, t10: 37, hairpin: 40, t12: 47, t13: 56, spoon: 59, crossHi: 69, t15: 71, casio: 78, t17: 80, t18: 82 };
-const CORNERS = [[1, 'first', 'FIRST TURN'], [2, 't2', 'FIRST TURN'], [3, 's3', "'S' CURVES"], [4, 't4', "'S' CURVES"], [5, 's5', "'S' CURVES"], [6, 's6', "'S' CURVES"], [7, 's7', "'S' CURVES"], [8, 'degner', 'DEGNER'], [9, 't9', 'DEGNER'], [10, 't10', ''], [11, 'hairpin', 'HAIRPIN'], [12, 't12', ''], [13, 't13', 'SPOON'], [14, 'spoon', 'SPOON'], [15, 't15', '130R'], [16, 'casio', 'CASIO'], [17, 't17', 'CASIO'], [18, 't18', 'CASIO']];
-// Borde de Verona Rupes (px): al sur de la recta, al este de la horquilla y de Spoon; el vacío queda fuera
+const IDX = { first: 5, t2: 7, s3: 11, t4: 13, s5: 16, s6: 19, s7: 22, c8a: 25, ridge: 29, t9: 33, crossLo: 34, t10: 37, hairpin: 40, t12: 47, t13: 56, arc: 59, crossHi: 69, t15: 71, chicane: 78, t17: 80, t18: 82 };
+const CORNERS = [[1, 'first', 'FIRST TURN'], [2, 't2', 'FIRST TURN'], [3, 's3', 'GORGE ESSES'], [4, 't4', 'GORGE ESSES'], [5, 's5', 'GORGE ESSES'], [6, 's6', 'GORGE ESSES'], [7, 's7', 'GORGE ESSES'], [8, 'ridge', 'RIDGE'], [9, 't9', 'RIDGE'], [10, 't10', ''], [11, 'hairpin', 'RUPES HAIRPIN'], [12, 't12', ''], [13, 't13', 'LONG ARC'], [14, 'arc', 'LONG ARC'], [15, 't15', 'BRIDGE ARC'], [16, 'chicane', 'LAST CHICANE'], [17, 't17', 'LAST CHICANE'], [18, 't18', 'LAST CHICANE']];
+// Borde de Verona Rupes (px): al sur de la recta, al este de la horquilla y del arco largo; el vacío queda fuera
 const RIM = [[-1800, 1150], [-700, 780], [-150, 690], [-10, 656], [60, 640], [200, 612], [350, 591], [470, 575], [560, 560], [605, 522], [628, 462], [640, 402], [648, 352], [662, 300], [705, 262], [780, 228], [855, 202], [880, 130], [886, 40], [876, -60], [910, -500], [1150, -2600]];
 const K = 2.5;
 const FLOOR = -4200;                 // fondo del corte
@@ -358,9 +358,9 @@ export function buildMiranda(def, { world, own, renderer }) {
   const sMid = (corner.s3 + corner.s7) / 2;
   let y = S.map((_, i) => {
     const f = cum[i] / total;
-    return 2 - 7 * g(f, corner.first, 180) - 34 * g(f, sMid, 330) + 10 * g(f, corner.dunlop, 160) + 6 * g(f, corner.degner, 160)
-      - 10 * g(f, corner.crossLo, 110) - 4 * g(f, corner.hairpin, 150) + 16 * g(f, corner.t12, 190) + 9 * g(f, corner.spoon, 200)
-      + 50 * g(f, corner.crossHi, 210) - 4 * g(f, corner.casio, 160);
+    return 2 - 7 * g(f, corner.first, 180) - 34 * g(f, sMid, 330) + 10 * g(f, corner.c8a, 160) + 6 * g(f, corner.ridge, 160)
+      - 10 * g(f, corner.crossLo, 110) - 4 * g(f, corner.hairpin, 150) + 16 * g(f, corner.t12, 190) + 9 * g(f, corner.arc, 200)
+      + 50 * g(f, corner.crossHi, 210) - 4 * g(f, corner.chicane, 160);
   });
   for (let pass = 0; pass < 3; pass++) y = y.map((_, i) => { let a = 0; for (let k = -3; k <= 3; k++) a += y[(i + k + N) % N]; return a / 7; });
   // la pista va sobre el terreno: se suma la cota natural de su sitio (suavizada)

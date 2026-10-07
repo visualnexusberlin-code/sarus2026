@@ -1,31 +1,37 @@
-// Circuitos del campeonato. Los dos usan el mismo GLB (SATURN-6_v03): cambian sentido, relieve,
-// atmósfera, luz, grading y materiales. ARCADIA-2 se desbloquea al terminar SATURN-6.
+// Circuitos del campeonato SARUS. SELENE (Luna) y ARCADIA (Tierra) usan el mismo GLB: cambian sentido,
+// relieve, atmósfera, luz, grading y materiales. El resto son circuitos generados.
 import * as THREE from 'three';
+import { NODES, CIRCUIT_LORE } from './lore.js';
 
 const hex = (h) => new THREE.Color(h);
 
 export const CIRCUITS = [
   {
     id: 'saturn',
-    name: 'SATURN-6',
-    sub: 'Circuito v03',
-    blurb: 'Estación en la niebla',
+    name: 'SELENE',
+    sub: 'Luna · órbita terrestre',
+    blurb: 'Luna · estación en el mar basáltico · la Tierra sobre la línea de salida',
+    earth: true,                     // la Tierra ocupa el lugar de la gran luna del GLB; sin lava ni satélite
     inSectorOrder: true,
     relief: { amplify: 1.45, hills: [[18, 6, 0.7], [9, 11, 2.1]] },
     hoverMax: 5,
+    // Luna: sin aire. Cielo negro con estrellas, sol duro y bajo (sombras largas), la Tierra en el cielo.
+    // La 'niebla' es solo la oscuridad: lo lejano se funde con el negro del horizonte.
     atmosphere: {
       sunDir: new THREE.Vector3(0.78, 0.26, -0.56).normalize(),
-      baseDensity: 0.00034, heightDensity: 0.0011, heightFalloff: 0.0058, fogMax: 0.985,
-      exposure: 0.76, saturation: 0.3,
-      bloom: { strength: 0.38, radius: 0.55, threshold: 0.92 },
+      baseDensity: 0.00011, heightDensity: 0.00022, heightFalloff: 0.004, fogMax: 0.93,
+      exposure: 0.92, saturation: 0.62, redKeep: 1,
+      bloom: { strength: 0.34, radius: 0.5, threshold: 0.9 },
       sky: {
-        horizon: [0.64, 0.595, 0.53], zenith: [0.29, 0.292, 0.29], below: [0.31, 0.29, 0.265], zLow: 0.02, zHigh: 0.62,
-        glow: [1.0, 0.8, 0.55], glowK: 0.16, sun: [1.0, 0.9, 0.75], halo: 0.22, corona: 0.38, disc: 1.6,
+        horizon: [0.03, 0.032, 0.037], zenith: [0.003, 0.004, 0.006], below: [0.018, 0.018, 0.02], zLow: 0.0, zHigh: 0.32,
+        glow: [0.55, 0.55, 0.58], glowK: 0.025, glowExp: 6, haloCol: [1.0, 0.97, 0.92], halo: 0.06, haloExp: 80,
+        sun: [1.0, 0.98, 0.95], corona: 0.3, coronaExp: 2400, disc: 7.0, discExp: 140000,
       },
+      stars: 1,
       clouds: null,
     },
-    light: { sun: 0xffdcb4, sunI: 2.5, hemiSky: 0xd8cbb6, hemiGround: 0x241d18, hemiI: 0.6, env: 0.85 },
-    grade: { tint: [1.045, 1.0, 0.925], vignette: 0.42, grain: 0.045, contrast: 0.22 },
+    light: { sun: 0xfff6ec, sunI: 3.4, hemiSky: 0x46505e, hemiGround: 0x16171a, hemiI: 0.5, env: 0.62 },
+    grade: { tint: [1.0, 1.0, 1.02], vignette: 0.46, grain: 0.04, contrast: 0.3 },
     // pintura de pista (uniforms de dressing.js)
     paint: {
       edge: [1.0, 0.46, 0.08], chev: [0.9, 0.12, 0.05], lane: [0.86, 0.84, 0.78],
@@ -34,15 +40,14 @@ export const CIRCUITS = [
     },
     structures: { dark: 0x1b1d1e, pale: 0x8f8e88, lamp: 0xff7a1c, ivory: 0xf1ece0 },
     pad: 0x1b1d1e,
-    cards: ['Speed Racing Skies', 'SATURN-6'],
   },
   {
     id: 'arcadia',
-    name: 'ARCADIA-2',
-    sub: 'Costa · sentido inverso',
-    blurb: 'Costa al sol · sentido inverso · desniveles extremos',
+    name: 'ARCADIA',
+    sub: 'Tierra · costa de Arcadia',
+    blurb: 'Tierra · costa al sol · desniveles extremos',
     unlockAfter: 'saturn',
-    inSectorOrder: false,            // al revés que SATURN-6
+    inSectorOrder: false,            // al revés que SELENE
     // mucho más desnivel; 'clamp' mantiene holgura sobre el terreno y los edificios
     relief: { amplify: 2.25, hills: [[34, 4, 0.9], [20, 7, 2.5], [9, 13, 0.3]], clamp: { below: 30, above: 26 } },
     hoverMax: 8,                     // en las crestas se despega más
@@ -66,7 +71,6 @@ export const CIRCUITS = [
     },
     structures: { dark: 0xe6dfd2, pale: 0xc4623a, lamp: 0x19e0cc, ivory: 0xfff6e0 },
     pad: 0xe2dccf,
-    cards: ['Speed Racing Skies', 'ARCADIA-2'],
     // Recoloreado de piezas del GLB: [regex del objeto, regex del material, color | {paint:[…], cell}]
     recolor: [
       [/^LAND \| utility/, /Charcoal/, { paint: [0xf2ede2, 0xdccdb5, 0xc98d70, 0x9dbcc0, 0xe8d6a8], cell: 36 }],
@@ -104,7 +108,7 @@ export const CIRCUITS = [
 CIRCUITS.push({
   id: 'olympus',
   music: 'pursuit',
-  name: 'OLYMPUS-3',
+  name: 'OLYMPUS',
   sub: 'Marte · Olympus Mons',
   blurb: 'Marte · borde de la caldera del Olympus Mons · saltos y túnel en la lava',
   unlockAfter: 'arcadia',
@@ -137,15 +141,14 @@ CIRCUITS.push({
   },
   structures: { dark: 0x2a2522, pale: 0x8a817a, lamp: 0xff8a3c, ivory: 0xfff0dc },
   pad: 0x2a2522,
-  cards: ['Speed Racing Skies', 'OLYMPUS-3'],
   wind: [24, 1.2, -9],
 });
 
 // Cuarta fase: NUEVA-ITAKA, isla flotante en órbita (circuito generado en itaka.js)
 CIRCUITS.push({
   id: 'itaka',
-  name: 'NUEVA-ITAKA',
-  sub: 'Isla orbital · tubo de cristal',
+  name: 'NUEVA ITAKA',
+  sub: 'Órbita cislunar · sede de SARUS',
   blurb: 'Isla flotante en órbita · tubo de cristal continuo · túneles hexagonales y dos colinas',
   unlockAfter: 'olympus',
   generated: 'itaka',
@@ -174,11 +177,10 @@ CIRCUITS.push({
   },
   structures: { dark: 0x23282c, pale: 0x9aa4ab, lamp: 0x4fdcff, ivory: 0xeef6ff },
   pad: 0x23282c,
-  cards: ['Speed Racing Skies', 'NUEVA-ITAKA'],
 });
 
 // Quinta fase: THARSIS SIERRA, Marte, meseta de Tharsis con los tres volcanes al fondo; estadio y ciudad
-// (trazado inspirado en el Jarama; tharsis.js)
+// (trazado de archivo; tharsis.js)
 CIRCUITS.push({
   id: 'tharsis',
   music: 'pursuit',
@@ -215,7 +217,6 @@ CIRCUITS.push({
   },
   structures: { dark: 0x1d1b1f, pale: 0xb59a80, lamp: 0xffa040, ivory: 0xfff0d8 },
   pad: 0x1d1b1f,
-  cards: ['Speed Racing Skies', 'THARSIS SIERRA'],
   wind: [20, 1.0, -8],
 });
 
@@ -256,14 +257,13 @@ CIRCUITS.push({
   },
   structures: { dark: 0x2a2c30, pale: 0xc9ccd0, lamp: 0xffb070, ivory: 0xfff0e0 },
   pad: 0x2a2c30,
-  cards: ['Speed Racing Skies', 'PHOBOS'],
 });
 
 // Séptima fase: CASSINI-7, sobre los anillos de Saturno junto a la división de Cassini (trazado inspirado en
-// Fuji Speedway 1965/74; cassini.js)
+// trazado de archivo de los años setenta; cassini.js)
 CIRCUITS.push({
   id: 'cassini',
-  name: 'CASSINI-7',
+  name: 'CASSINI',
   sub: 'Saturno · anillos',
   blurb: 'Saturno · sobre los anillos, junto a la división de Cassini · columnas clavadas en fragmentos de hielo',
   unlockAfter: 'phobos',
@@ -294,7 +294,6 @@ CIRCUITS.push({
   },
   structures: { dark: 0x1f1f20, pale: 0xc9c6bf, lamp: 0xffd9a0, ivory: 0xfff4e4 },
   pad: 0x1f1f20,
-  cards: ['Speed Racing Skies', 'CASSINI-7'],
 });
 
 // Séptima fase: TIPHARES, Venus, plataformas flotantes sobre el mar de nubes alrededor de la ciudadela
@@ -333,11 +332,10 @@ CIRCUITS.push({
   },
   structures: { dark: 0xe9e0d4, pale: 0xd9a75e, lamp: 0xffd6a0, ivory: 0xfff4e4 },
   pad: 0xe9e0d4,
-  cards: ['Speed Racing Skies', 'TIPHARES'],
 });
 
 // Octava fase: EUROPA, noche sobre el hielo con Júpiter llenando el cielo; simas con la ciudad azul y anillos
-// que reparan, recargan cohetes y dan boost (trazado inspirado en Interlagos; europa.js)
+// que reparan, recargan cohetes y dan boost (trazado de archivo; europa.js)
 CIRCUITS.push({
   id: 'europa',
   name: 'EUROPA',
@@ -371,11 +369,10 @@ CIRCUITS.push({
   },
   structures: { dark: 0x2c313a, pale: 0xd6dce4, lamp: 0x9fe4ff, ivory: 0xeef6ff },
   pad: 0x2c313a,
-  cards: ['Speed Racing Skies', 'EUROPA'],
 });
 
 // Novena fase: MIRANDA, luna de Urano. Todo sobre el terreno, al borde de Verona Rupes, con Urano al fondo
-// (trazado inspirado en Suzuka: el cruce es un gran puente en arco con el anillo de recuperación; miranda.js)
+// (trazado de archivo en ocho: el cruce es un gran puente en arco con el anillo de recuperación; miranda.js)
 CIRCUITS.push({
   id: 'miranda',
   name: 'MIRANDA',
@@ -410,7 +407,18 @@ CIRCUITS.push({
   },
   structures: { dark: 0x2c2f33, pale: 0xc8ccd0, lamp: 0xffe8c8, ivory: 0xeef2f4 },
   pad: 0x2c2f33,
-  cards: ['Speed Racing Skies', 'MIRANDA'],
+});
+
+// ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'itaka', 'olympus', 'tharsis', 'phobos', 'europa', 'cassini', 'miranda'];
+CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
+CIRCUITS.forEach((c, i) => {
+  c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;
+  const nd = NODES.find((n) => n.circuits.includes(c.id));
+  c.mapNode = nd;
+  c.lore = CIRCUIT_LORE[c.id];
+  c.num = String(nd.n).padStart(2, '0') + (nd.circuits.length > 1 ? '·' + 'AB'[nd.circuits.indexOf(c.id)] : '');
+  c.cards = [`${c.num} · ${nd.system}`, c.name];
 });
 
 export const circuitById = (id) => CIRCUITS.find((c) => c.id === id) || CIRCUITS[0];

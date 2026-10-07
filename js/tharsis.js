@@ -1,5 +1,5 @@
 // THARSIS SIERRA: Marte, meseta de Tharsis, con la cadena de los tres grandes volcanes (Arsia, Pavonis y
-// Ascraeus Mons) al fondo. Trazado inspirado en el Jarama (plano de accesos, 2015), con altibajos que siguen
+// Ascraeus Mons) al fondo. Trazado de archivo (circuito de meseta), con altibajos que siguen
 // la sierra cercana. Estadio con tribunas cubiertas y público animado, plataformas flotantes de espectadores,
 // una nave-palco suspendida sobre la recta y una ciudad de arquitectura escalonada con ventanales y franjas de luz.
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGu
 
 // Trazado calcado del plano (px del recorte ×2), sentido de la lista; recta de meta abajo, hacia +x
 const RAW = [[150,410], [300,410], [500,410], [700,410], [900,410], [990,405], [1035,385], [1058,345], [1065,290], [1060,250], [1045,232], [1018,236], [995,262], [960,300], [900,335], [840,355], [805,350], [790,320], [800,285], [835,262], [880,238], [960,200], [1060,150], [1125,112], [1165,85], [1172,62], [1150,42], [1105,40], [1050,58], [980,90], [900,138], [820,188], [740,236], [660,272], [580,290], [520,280], [480,262], [458,275], [468,310], [500,345], [480,362], [420,350], [360,322], [320,300], [270,302], [200,325], [140,355], [105,382], [105,402]];
-const IDX = { straightEnd: 5, bugatti: 10, loopLow: 16, top: 25, vip: 37, karts: 43, ultima: 47 };
+const IDX = { straightEnd: 5, bend: 10, loopLow: 16, top: 25, vip: 37, karts: 43, ultima: 47 };
 const K = 1.45;                  // m por px → ≈ 4,6 km
 
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -358,7 +358,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
   const standDefs = [
     [-0.03, corner.straightEnd - 0.01, 'out', 22],          // recta de meta: gran tribuna
     [0.03, corner.straightEnd - 0.04, 'in', 12],            // boxes / podio enfrente
-    [corner.bugatti - 0.025, corner.bugatti + 0.02, 'out', 14],
+    [corner.bend - 0.025, corner.bend + 0.02, 'out', 14],
     [corner.top - 0.03, corner.top + 0.015, 'out', 14],
     [corner.vip - 0.03, corner.vip + 0.02, 'out', 16],
     [corner.karts - 0.02, corner.karts + 0.03, 'out', 12],

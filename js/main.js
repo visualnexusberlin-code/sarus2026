@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
-//  SPEED RACING SKIES · SATURN-6 · prototipo 02
-//  Estados: loading → title → select (hangar) → intro (vuelo de águila) → countdown → race → finished
+//  SARUS · Solar Advanced Racing Union Series
+//  Estados: loading → menu (cabecera SARUS) → map (Solar Map) / select (hangar) → intro (vuelo de águila)
+//           → countdown → race → finished. TRAINING corre sobre los mismos estados de carrera.
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -14,7 +15,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { N8AOPass } from 'n8ao';
 
 import { CONFIG } from './config.js';
-import { installFogChunks, applyAtmosphere, skyUniforms, createSky, createMoonMaterial, lavaMaterial, lavaUniforms, basaltMaterial, createWater, buildEnvironment } from './atmosphere.js';
+import { installFogChunks, applyAtmosphere, skyUniforms, createSky, createMoonMaterial, earthMaterial, lavaMaterial, lavaUniforms, basaltMaterial, createWater, buildEnvironment } from './atmosphere.js';
 import { terrainMaterial, seaMaterial, facadeMaterial, paintedMaterial, plantTrees } from './landscape.js';
 import { CIRCUITS, circuitById } from './circuits.js';
 import { Track, normName } from './track.js';
@@ -41,6 +42,9 @@ import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
+import { NODES, FAMILIES, LINEAGES, MOTTO } from './lore.js';
+import { SolarMap } from './solarmap.js';
+import { Training } from './training.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 installFogChunks();
@@ -191,7 +195,12 @@ const audio = new Audio();
 const G = { state: 'loading', track: null, ship: null, ships: [], ai: new Map(), chase: null, intro: null, hud: null, fx: {}, race: null, paused: false, time: 0, choice: DEFAULT_SHIP };
 window.__srs = G; // gancho de depuración
 
-// ── Circuitos y campeonato: ARCADIA-2 se desbloquea al terminar SATURN-6 ──
+// ── Progreso guardado en el navegador (sin cuentas ni datos personales) ──
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } },
+};
+// ── Campeonato: la ruta del Solar Map; cada circuito se desbloquea al terminar el anterior ──
 const POINTS = [15, 12, 10, 8, 6, 5, 4, 3, 2, 1];
 // combate: puntúa aunque la nave acabe eliminada (impacto de cohete +2, eliminación +5)
 const HIT_PTS = 2, KILL_PTS = 5;
@@ -199,18 +208,22 @@ const combatPts = (sh) => (sh.race?.hits || 0) * HIT_PTS + (sh.race?.kills || 0)
 const racePts = (sh, i) => (sh.out ? 0 : POINTS[i] || 0) + combatPts(sh);
 {
   const url = new URLSearchParams(location.search).get('circuit');
-  G.unlocked = new Set(['saturn']);
-  try { JSON.parse(localStorage.getItem('srs-unlocked') || '[]').forEach((k) => G.unlocked.add(k)); } catch (e) { /* sin almacenamiento */ }
+  G.unlocked = new Set([CIRCUITS[0].id, ...store.get('sarus-unlocked', [])]);
+  G.done = new Set(store.get('sarus-done', []));
+  G.best = store.get('sarus-best', {});
+  G.lens = store.get('sarus-len', {});
   if (url && circuitById(url).id === url) G.unlocked.add(url);
-  G.circuitId = url && G.unlocked.has(url) ? url : 'saturn';
+  G.circuitId = url && G.unlocked.has(url) ? url : CIRCUITS[0].id;
   G.pick = G.circuitId;
   G.cup = null;          // { round, results: [Map(nombre → puntos)] }
 }
 function unlock(id) {
   G.unlocked.add(id);
-  try { localStorage.setItem('srs-unlocked', JSON.stringify([...G.unlocked])); } catch (e) { /* sin almacenamiento */ }
+  store.set('sarus-unlocked', [...G.unlocked]);
   renderCircuitChips();
 }
+// el circuito más avanzado de la ruta que ya está abierto (RACE lleva directo a él)
+function lastUnlocked() { return [...CIRCUITS].reverse().find((c) => G.unlocked.has(c.id)) || CIRCUITS[0]; }
 function nextCircuit() {
   const i = CIRCUITS.findIndex((c) => c.id === G.circuitId);
   return CIRCUITS[i + 1] || null;
@@ -347,11 +360,8 @@ function onLoaded(gltf, fleetGltf) {
   setPlayer(G.choice);
   resetRace();
   G.intro.update(0);
-  G.state = 'title';
   prog.style.width = '100%';
-  startBtn.disabled = false;
-  startBtn.textContent = 'Iniciar · Enter';
-  startBtn.focus();
+  showMenu();
 }
 
 // ── Circuito: atmósfera + pista + mundo. Se puede reconstruir en caliente (campeonato). ──
@@ -502,13 +512,15 @@ function buildCircuit(def) {
   // Materiales del paisaje
   if (moonBig) {
     if (arcadia && def.moons && !def.moons.big) moonBig.visible = false;
+    else if (def.earth) own.push(moonBig.material = earthMaterial());
     else own.push(moonBig.material = createMoonMaterial(0.6));
   }
-  if (moonSmall) {
+  if (moonSmall && def.earth) moonSmall.visible = false;
+  else if (moonSmall) {
     const M = arcadia ? def.moons?.small : null;
     own.push(moonSmall.material = M ? createMoonMaterial(M.haze, new THREE.Color(...M.tint)) : createMoonMaterial(0.62, new THREE.Color(0.5, 0.5, 0.48)));
   }
-  if (lava) { if (arcadia) lava.visible = false; else own.push(lava.material = lavaMaterial()); }
+  if (lava) { if (arcadia || def.earth) lava.visible = false; else own.push(lava.material = lavaMaterial()); }
   const ground = arcadia ? terrainMaterial() : basaltMaterial();
   own.push(ground);
   land.forEach((m) => { m.material = ground; });
@@ -693,8 +705,9 @@ function finishCircuit(def, world, track, t0) {
   G.missiles = new Missiles(world, track, { sparks: G.fx.sparks, smoke: G.fx.rockets.smoke });
 
   // lo que ya existía apunta a la pista nueva
-  for (const sh of G.ships || []) { sh.track = track; sh.frame = track.frame(); }
+  for (const sh of G.fleet || G.ships || []) { sh.track = track; sh.frame = track.frame(); }
   G.hud?.setTrack(track);
+  if (G.lens[def.id] !== Math.round(track.length)) { G.lens[def.id] = Math.round(track.length); store.set('sarus-len', G.lens); }
   console.info(`[SRS] ${def.name} construido en ${(performance.now() - t0).toFixed(0)} ms`);
 }
 
@@ -709,7 +722,7 @@ function setPlayer(i) {
     const pick = [...others.slice(k0), ...others.slice(0, k0)].slice(0, QUALITY.rivals);
     G.ships = [G.ship, ...pick];
     for (const s of G.fleet) s.root.visible = G.ships.includes(s);
-  } else G.ships = G.fleet;
+  } else { G.ships = G.fleet; for (const s of G.fleet) s.root.visible = true; }
   G.ship.player = true;
   G.ship.assist = G.assistOn ? 1 : 0;
   G.ship.addEngineLight();
@@ -761,31 +774,121 @@ function resetRace() {
 // ── Flujo de estados ──
 const $ = (id) => document.getElementById(id);
 
-function begin() {
-  if (G.state !== 'title') return;
+// ── Cabecera SARUS: RACE · HANGAR · SOLAR MAP · TRAINING · SETTINGS ──
+let started = false;
+function ensureStarted() {
+  if (started) return;
+  started = true;
   audio.start();
   if (IS_TOUCH) {   // pantalla completa + horizontal cuando el navegador lo permite
     const el = document.documentElement;
     const fs = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null;
     Promise.resolve(fs).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
   }
-  $('title').classList.add('gone');
-  goSelect();
 }
+
+function hideLayers() {
+  for (const id of ['select', 'map', 'pause', 'results', 'settings']) $(id).hidden = true;
+  $('title').classList.add('gone');
+  G.paused = false;
+  if (G.map) G.map.controls.enabled = false;
+  restoreLook();
+}
+
+function showMenu() {
+  if (G.training) stopTraining();
+  hideLayers();
+  G.state = 'menu';
+  audio.setEngines(false);
+  document.body.classList.remove('cine');
+  G.hud?.show(false);
+  for (const sh of G.fleet || []) { sh.out = false; sh.dead = 0; }
+  setView(scene, camera);
+  $('title').classList.remove('gone');
+  startBtn.hidden = true; prog.parentElement.hidden = true;
+  $('menu').hidden = false;
+  const c = lastUnlocked();
+  $('menuRaceSub').textContent = `${c.num} · ${c.name}`;
+  const open = NODES.filter((n) => n.circuits.some((id) => G.unlocked.has(id))).length;
+  $('menuMapSub').textContent = `${open} / ${NODES.length} nodos abiertos`;
+  if (!IS_TOUCH) document.querySelector('.mbtn.primary')?.focus();
+}
+
+function menuAction(k) {
+  ensureStarted();
+  audio.music();
+  audio.beep(k === 'race');
+  if (k === 'race') {
+    G.pick = lastUnlocked().id;
+    if (!store.get('sarus-trained', false)) startTraining('race'); else goSelect();
+  } else if (k === 'hangar') goSelect();
+  else if (k === 'map') goMap();
+  else if (k === 'training') startTraining('menu');
+  else if (k === 'settings') openSettings();
+}
+document.querySelectorAll('[data-menu]').forEach((b) => b.addEventListener('click', () => menuAction(b.dataset.menu)));
+document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { audio.beep(false); if (b.dataset.go === 'map') goMap(); else showMenu(); }));
+function begin() { if (G.state === 'menu' || G.state === 'title') menuAction('race'); }
 startBtn.addEventListener('click', begin);
 
+// ── Settings ──
+function openSettings() {
+  $('settings').hidden = false;
+  const set = (k, on) => document.querySelector(`[data-set="${k}"]`)?.setAttribute('aria-pressed', String(on));
+  set('music', audio.musicOn); set('sfx', audio.sfxOn); set('assist', !!G.assistOn);
+}
+document.querySelectorAll('[data-set]').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.set, on = b.getAttribute('aria-pressed') !== 'true';
+  if (k === 'music') { audio.setMusicOn(on); if (on) audio.music(); }
+  if (k === 'sfx') audio.setSfxOn(on);
+  if (k === 'assist') setAssist(on);
+  b.setAttribute('aria-pressed', String(on));
+  audio.beep(false);
+}));
+$('setBack').addEventListener('click', () => { $('settings').hidden = true; audio.beep(false); });
+$('setReset').addEventListener('click', () => {
+  if (!confirm('¿Borrar el progreso del campeonato (circuitos abiertos, récords, training)?')) return;
+  for (const k of ['sarus-unlocked', 'sarus-done', 'sarus-best', 'sarus-trained', 'sarus-lineage']) { try { localStorage.removeItem(k); } catch (e) { /* sin almacenamiento */ } }
+  location.reload();
+});
+
+// ── Hangar ──
+G.family = null;
 function goSelect() {
+  if (G.training) stopTraining();
+  hideLayers();
   G.state = 'select';
   audio.setEngines(false);
-  G.paused = false;
-  $('pause').hidden = true; $('results').hidden = true;
   document.body.classList.remove('cine');
   G.hud.show(false);
   $('select').hidden = false;
-  G.pick = G.circuitId;
-  for (const sh of G.fleet) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); }   // el hangar las muestra reparadas
+  if (!G.unlocked.has(G.pick)) G.pick = G.circuitId;
+  for (const sh of G.fleet) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); sh.root.visible = true; }   // el hangar las muestra reparadas
   setView(G.showroom.scene, G.showroom.camera);
+  renderFamilies();
   showChoice(G.choice);
+  if (!store.get('sarus-lineage', false)) showLineage();
+}
+
+function famList() { return G.fleet.map((s, i) => i).filter((i) => !G.family || G.fleet[i].def.family === G.family); }
+function stepChoice(dir) {
+  const L = famList(), p = L.indexOf(G.choice);
+  showChoice(p < 0 ? L[0] : L[(p + dir + L.length) % L.length]);
+  audio.beep(false);
+}
+function setFamily(f) {
+  G.family = f;
+  renderFamilies();
+  const L = famList();
+  if (!L.includes(G.choice)) showChoice(L[0]);
+}
+function renderFamilies() {
+  const row = $('famRow');
+  if (!row.children.length) {
+    row.innerHTML = [`<button class="chip" type="button" data-fam="">All</button>`, ...FAMILIES.map((f) => `<button class="chip" type="button" data-fam="${f.id}" title="${f.sub}">${f.label}</button>`)].join('');
+    row.querySelectorAll('[data-fam]').forEach((b) => b.addEventListener('click', () => { setFamily(b.dataset.fam || null); audio.beep(false); }));
+  }
+  row.querySelectorAll('[data-fam]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.fam || null) === G.family)));
 }
 
 function showChoice(i) {
@@ -794,62 +897,256 @@ function showChoice(i) {
   const sh = G.fleet[G.choice], d = sh.def;
   G.showroom.show(G.choice);
   renderCircuitChips();
-  $('selNum').textContent = d.num;
-  $('selTot').textContent = String(n).padStart(2, '0');
+  const L = famList();
+  $('selNum').textContent = G.family ? String(L.indexOf(G.choice) + 1).padStart(2, '0') : d.num;
+  $('selTot').textContent = String(G.family ? L.length : n).padStart(2, '0');
   $('selName').textContent = d.name;
-  $('selTag').textContent = d.tag;
+  $('selHouse').textContent = d.house || d.name;
+  $('selModel').textContent = d.model || '';
+  $('selClass').textContent = d.cls || '';
+  $('selOrigin').textContent = [d.sector, d.origin].filter(Boolean).join(' · ');
+  $('selTag').textContent = d.doctrine || d.tag;
+  $('selRec').hidden = !d.recommended;
   const pips = (el, v) => { el.innerHTML = [1, 2, 3, 4, 5].map((k) => `<i class="${k <= v ? 'on' : ''}"></i>`).join(''); };
   const t = traits(d);
-  pips($('stV'), t.V); pips($('stA'), t.A); pips($('stM'), t.M); pips($('stD'), t.D); pips($('stP'), t.P); pips($('stH'), t.H);
+  pips($('stV'), t.V); pips($('stA'), t.A); pips($('stM'), t.M); pips($('stH'), t.H);
   $('selLen').textContent = `${(sh.length / (CONFIG.shipScale || 1)).toFixed(1).replace('.', ',')} m`;
+  const lin = LINEAGES[d.lineage];
+  $('selLore').innerHTML = `<span class="label">${lin ? lin.label : ''}</span><p>${d.lore || ''}</p><span class="label">En pista</span><p>${d.tag}</p>`;
 }
-$('selPrev').addEventListener('click', () => { showChoice(G.choice - 1); audio.beep(false); });
-$('selNext').addEventListener('click', () => { showChoice(G.choice + 1); audio.beep(false); });
+$('selPrev').addEventListener('click', () => stepChoice(-1));
+$('selNext').addEventListener('click', () => stepChoice(1));
 $('selGo').addEventListener('click', () => confirmChoice());
+$('selMenu').addEventListener('click', () => { audio.beep(false); showMenu(); });
+$('selMap').addEventListener('click', () => { audio.beep(false); goMap(); });
+$('selMore').addEventListener('click', () => {
+  const open = $('selLore').hidden;
+  $('selLore').hidden = !open; $('selMore').setAttribute('aria-expanded', String(open));
+  audio.beep(false);
+});
 {
   let x0 = null;
-  $('select').addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) x0 = e.clientX; });
+  $('select').addEventListener('pointerdown', (e) => { if (!e.target.closest('button, .sel-panel, .lineage')) x0 = e.clientX; });
   $('select').addEventListener('pointerup', (e) => {
     if (x0 === null) return;
     const dx = e.clientX - x0; x0 = null;
-    if (Math.abs(dx) > 40) { showChoice(G.choice + (dx < 0 ? 1 : -1)); audio.beep(false); }
+    if (Math.abs(dx) > 40) stepChoice(dx < 0 ? 1 : -1);
   });
 }
 
+// primera visita al hangar: los cuatro linajes corporativos
+function showLineage() {
+  const el = $('lineage');
+  const byLin = (k) => G.fleet.filter((s) => s.def.lineage === k).map((s) => s.def.house).join(' · ');
+  el.innerHTML = `<span class="label">SARUS · Racing houses</span><h3>${MOTTO}</h3><dl>${Object.entries(LINEAGES).map(([k, l]) => `<div><dt>${l.label}</dt><dd>${l.text}<br><em>${byLin(k)}</em></dd></div>`).join('')}</dl><div class="row" style="justify-content:flex-start"><button class="btn primary" type="button" id="linOk">Enter hangar</button></div>`;
+  el.hidden = false;
+  $('linOk').addEventListener('click', () => { el.hidden = true; store.set('sarus-lineage', true); audio.beep(false); });
+}
+
 function renderCircuitChips() {
-  document.querySelectorAll('[data-circ]').forEach((b) => {
-    const c = circuitById(b.dataset.circ), open = G.unlocked.has(c.id);
-    b.classList.toggle('locked', !open);
-    b.setAttribute('aria-pressed', String(G.pick === c.id));
-    b.setAttribute('aria-disabled', String(!open));
-  });
   const c = circuitById(G.pick);
-  const note = $('circNote');
-  if (note) note.textContent = c.id === 'saturn' ? `${c.blurb} · abre el campeonato de ${CIRCUITS.length} carreras` : c.blurb;
+  const el = $('selCirc');
+  if (el) el.textContent = `${c.num} · ${c.name} · ${c.mapNode.system}`;
 }
 function pickCircuit(id) {
   const c = circuitById(id);
   if (!G.unlocked.has(c.id)) {
-    // atajo de prototipo: tres toques seguidos en el circuito bloqueado lo abren
+    // atajo de prototipo: tres toques seguidos en un circuito bloqueado lo abren
     const now = performance.now();
     G.lockTaps = G.lockTaps && G.lockTaps.id === c.id && now - G.lockTaps.t < 1500 ? { id: c.id, n: G.lockTaps.n + 1, t: now } : { id: c.id, n: 1, t: now };
     if (G.lockTaps.n >= 3) { unlock(c.id); G.lockTaps = null; }
-    else {
-      const need = circuitById(c.unlockAfter);
-      $('circNote').textContent = `Termina ${need.name} para desbloquear ${c.name}`;
-      audio.beep(false);
-      return;
-    }
+    else { audio.beep(false); return false; }
   }
   G.pick = c.id;
   renderCircuitChips();
   audio.beep(false);
+  return true;
 }
-document.querySelectorAll('[data-circ]').forEach((b) => b.addEventListener('click', () => pickCircuit(b.dataset.circ)));
+
+// ── Solar Map ──
+function nodeStatus(nd) {
+  if (nd.soon) return 'soon';
+  if (nd.circuits.length && nd.circuits.every((id) => G.done.has(id))) return 'done';
+  if (nd.circuits.some((id) => G.unlocked.has(id))) return 'active';
+  return 'locked';
+}
+const STATUS_TXT = { done: 'COMPLETED', active: 'ACTIVE', locked: 'LOCKED', soon: 'IN CONSTRUCTION' };
+let savedLook = null;
+function mapLook() {
+  if (savedLook) return;
+  const u = grade.uniforms;
+  savedLook = { sat: u.uSat.value, tint: u.uTint.value.clone(), vig: u.uVignette.value, grain: u.uGrain.value, con: u.uContrast.value, red: u.uRedKeep.value,
+    exp: renderer.toneMappingExposure, bs: bloom.strength, br: bloom.radius, bt: bloom.threshold };
+  u.uSat.value = 1; u.uTint.value.set(1, 1, 1); u.uVignette.value = 0.5; u.uGrain.value = 0.03; u.uContrast.value = 0.12; u.uRedKeep.value = 1;
+  u.uAberr.value = 0; u.uBlur.value = 0;
+  renderer.toneMappingExposure = 1.0; bloom.strength = 0.7; bloom.radius = 0.55; bloom.threshold = 0.72;
+}
+function restoreLook() {
+  if (!savedLook) return;
+  const u = grade.uniforms, L = savedLook;
+  u.uSat.value = L.sat; u.uTint.value.copy(L.tint); u.uVignette.value = L.vig; u.uGrain.value = L.grain; u.uContrast.value = L.con; u.uRedKeep.value = L.red;
+  renderer.toneMappingExposure = L.exp; bloom.strength = L.bs; bloom.radius = L.br; bloom.threshold = L.bt;
+  savedLook = null;
+}
+
+function goMap() {
+  if (G.training) stopTraining();
+  hideLayers();
+  G.state = 'map';
+  audio.setEngines(false);
+  document.body.classList.remove('cine');
+  G.hud?.show(false);
+  if (!G.map) {
+    G.map = new SolarMap(canvas, LITE);
+    const box = $('mapLabels');
+    for (const nd of G.map.nodes) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'mnode';
+      b.innerHTML = `<i></i><b>${String(nd.n).padStart(2, '0')}</b><span>${nd.label}</span>`;
+      b.addEventListener('click', (e) => { e.stopPropagation(); selectNode(nd); });
+      box.appendChild(b); nd.el = b;
+    }
+  }
+  const st = G.map.nodes.map((nd) => ({ status: nodeStatus(nd) }));
+  G.map.setState(st);
+  G.map.nodes.forEach((nd, i) => { nd.el.className = `mnode ${st[i].status}`; });
+  const done = G.map.nodes.filter((nd) => nodeStatus(nd) === 'done').length;
+  $('mapProg').textContent = `Championship route · ${done} / ${NODES.length - 1} completed`;
+  G.map.controls.enabled = true;
+  $('map').hidden = false;
+  mapLook();
+  setView(G.map.scene, G.map.camera);
+  // abre la ficha del circuito elegido (o el siguiente de la ruta)
+  const cur = G.map.nodes.find((nd) => nd.circuits.includes(G.pick)) || G.map.nodes[0];
+  G.map.overview(innerWidth / innerHeight);
+  $('mapCard').hidden = true; mapShift();
+  setTimeout(() => { if (G.state === 'map' && $('mapCard').hidden) selectNode(cur, G.pick); }, 900);
+}
+
+function selectNode(nd, circId) {
+  G.map.focus(nd);
+  G.map.nodes.forEach((n) => n.el.classList.toggle('sel', n === nd));
+  const status = nodeStatus(nd);
+  const ids = nd.circuits;
+  const id = circId && ids.includes(circId) ? circId : ids.find((x) => G.unlocked.has(x) && !G.done.has(x)) || ids[0];
+  const c = id ? circuitById(id) : null;
+  const L = c?.lore || {};
+  const cs = c ? (G.done.has(c.id) ? 'done' : G.unlocked.has(c.id) ? 'active' : 'locked') : status;
+  const len = c && G.lens[c.id] ? `${(G.lens[c.id] / 1000).toFixed(2).replace('.', ',')} KM` : '—';
+  const best = c && G.best[c.id] ? fmt(G.best[c.id]) : '—';
+  const diffPips = L.diff ? '●'.repeat(L.diff) + '○'.repeat(5 - L.diff) : '—';
+  const prev = c ? CIRCUITS[CIRCUITS.indexOf(c) - 1] : null;
+  const card = $('mapCard');
+  card.innerHTML = `
+    <button class="mc-close" type="button" aria-label="Cerrar">×</button>
+    <div class="mc-num"><span class="num">${c ? c.num : String(nd.n).padStart(2, '0')} / ${String(NODES.length).padStart(2, '0')}</span><span class="st ${cs}">${STATUS_TXT[cs]}</span></div>
+    <h2>${c ? c.name : nd.title}</h2>
+    <span class="mc-loc">${nd.system} · ${nd.place}</span>
+    ${ids.length > 1 ? `<div class="mc-tabs">${ids.map((x) => { const k = circuitById(x); return `<button class="chip" type="button" data-tab="${x}" aria-pressed="${x === id}">${k.num} ${k.name}</button>`; }).join('')}</div>` : ''}
+    <dl class="mc-data">
+      <dt>Gravity</dt><dd>${L.gravity || nd.gravity || '—'}</dd>
+      ${c ? `<dt>Surface</dt><dd>${L.surface}</dd>
+      <dt>Length</dt><dd>${len}</dd>
+      <dt>Laps</dt><dd>${CONFIG.laps}</dd>
+      <dt>Difficulty</dt><dd>${diffPips}</dd>
+      <dt>Local record</dt><dd>${best}</dd>
+      <dt>Rebuilt</dt><dd>${L.year}</dd>` : ''}
+    </dl>
+    <div class="mc-arch"><span class="label">Archival DNA</span><p>${L.archive || nd.archive || ''}</p></div>
+    ${c ? (cs === 'locked' ? `<p class="mc-note">Termina ${prev.num} ${prev.name} para abrir este circuito.</p>` : '') : '<p class="mc-note">Próximamente: el cinturón de asteroides está en construcción.</p>'}
+    ${c ? `<div class="row"><button class="btn primary" type="button" id="mcGo" ${cs === 'locked' ? 'aria-disabled="true" style="opacity:.4"' : ''}>Race ▸</button></div>` : ''}`;
+  card.hidden = false;
+  mapShift();
+  card.querySelector('.mc-close').addEventListener('click', () => { card.hidden = true; mapShift(); G.map.overview(innerWidth / innerHeight); G.map.nodes.forEach((n) => n.el.classList.remove('sel')); });
+  card.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { audio.beep(false); selectNode(nd, b.dataset.tab); }));
+  card.querySelector('#mcGo')?.addEventListener('click', () => {
+    if (!pickCircuit(c.id)) return;
+    audio.beep(true);
+    goSelect();
+  });
+  audio.beep(false);
+}
+$('mapBack').addEventListener('click', () => { audio.beep(false); showMenu(); });
+// la ficha tapa parte de la vista: el centro de la cámara se corre al espacio libre
+function mapShift() {
+  const card = $('mapCard');
+  if (!G.map) return;
+  if (card.hidden) { G.map.shiftX = G.map.shiftY = 0; return; }
+  const r = card.getBoundingClientRect();
+  if (innerWidth > innerHeight) { G.map.shiftX = (innerWidth - r.left) / 2 / innerWidth; G.map.shiftY = 0; }
+  else { G.map.shiftX = 0; G.map.shiftY = (innerHeight - r.top) / 2 / innerHeight; }
+}
+addEventListener('resize', () => { if (G.state === 'map') mapShift(); });
+$('mapAll').addEventListener('click', () => { audio.beep(false); $('mapCard').hidden = true; mapShift(); G.map.nodes.forEach((n) => n.el.classList.remove('sel')); G.map.overview(innerWidth / innerHeight); });
+{
+  // tocar un planeta en el mapa también lo selecciona
+  let p0 = null;
+  canvas.addEventListener('pointerdown', (e) => { p0 = G.state === 'map' ? [e.clientX, e.clientY] : null; });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!p0 || G.state !== 'map') return;
+    if (Math.hypot(e.clientX - p0[0], e.clientY - p0[1]) > 6) return;
+    const nd = G.map.pick(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    if (nd) selectNode(nd);
+  });
+}
+
+// ── Training: tramo guiado en ARCADIA con PRIME-EX ──
+const trainEl = { box: $('train'), num: $('trNum'), title: $('trTitle'), text: $('trText'), hint: $('trHint') };
+function startTraining(then) {
+  if (G.training) stopTraining();
+  hideLayers();
+  G.trainThen = then;
+  G.cup = null;
+  const pi = Math.max(0, G.fleet.findIndex((s) => s.def.node === 'PRIMEX_5'));
+  setPlayer(pi);
+  G.ships = [G.ship];
+  for (const s of G.fleet) s.root.visible = s === G.ship;
+  const id = CIRCUITS[0].id;
+  travel(id, () => {
+    resetRace();
+    audio.music(true, G.circuit?.music || 'perimeter');
+    audio.setEngines(true);
+    document.body.classList.remove('cine');
+    G.state = 'countdown';
+    G.race.countdown = 2.4;
+    G.hud.show(true);
+    G.chase.snap(G.ship);
+    G.training = new Training({ G, el: trainEl, touch: IS_TOUCH });
+    G.training.start(null);
+  }, G.circuitId !== id, 'Training · Pilot test');
+}
+// el objetivo de la prueba de tiro: una nave que entra en pista justo delante (sin disparar)
+G.trainAddTarget = () => {
+  const tg = G.fleet.find((s) => s.def.node === 'UBIK_15') || G.fleet.find((s) => s !== G.ship);
+  if (!G.ships.includes(tg)) {
+    G.ships.push(tg);
+    tg.race = { lap: 1, halfway: false, prevS: tg.s, finished: false, finishTime: null, lapStart: 0, progress: 0, slot: 1, hits: 0, kills: 0 };
+    const ai = new AIDriver(tg, G.track, { skill: 0.7 });
+    ai.cruise = 0.55;
+    G.ai.set(tg, ai);
+  }
+  tg.root.visible = true;
+  return tg;
+};
+function stopTraining() {
+  G.training?.stop();
+  G.training = null;
+  G.ai.clear();
+  setPlayer(G.choice);
+}
+function endTraining() {
+  store.set('sarus-trained', true);
+  const then = G.trainThen;
+  stopTraining();
+  resetRace();
+  if (then === 'race') goSelect(); else showMenu();
+}
+$('trSkip').addEventListener('click', () => { audio.beep(false); endTraining(); });
 
 // Cambio de circuito con cortinilla (la reconstrucción tarda un par de segundos)
-function travel(id, then, rebuild = true) {
+function travel(id, then, rebuild = true, label) {
   const c = circuitById(id);
+  $('travelLbl').textContent = label || `Rumbo a ${c.num} · ${c.mapNode.system}`;
   $('travelName').textContent = c.name;
   $('travelSub').textContent = c.blurb;
   $('travel').hidden = false;
@@ -891,7 +1188,7 @@ function confirmChoice() {
   setView(scene, camera);
   setPlayer(G.choice);
   audio.beep(true);
-  // SATURN-6 abre el campeonato; ARCADIA-2 elegida suelta es una carrera independiente
+  // el primer circuito de la ruta abre el campeonato; cualquier otro elegido suelto es una carrera independiente
   G.cup = G.pick === CIRCUITS[0].id ? { round: 0, results: [] } : null;
   travel(G.pick, startIntro, G.pick !== G.circuitId);
 }
@@ -929,7 +1226,7 @@ function endIntro() {
 
 function introCards() {
   const c = G.circuit;
-  const round = G.cup ? `Campeonato · carrera ${G.cup.round + 1}/${CIRCUITS.length}` : c.cards[0];
+  const round = G.cup ? `SARUS Championship · race ${G.cup.round + 1}/${CIRCUITS.length}` : c.cards[0];
   return [
     [0.9, 4.6, round, c.cards[1]],
     [6.6, 10.4, `${c.sub} · ${G.ships.length} naves · ${CONFIG.laps} vueltas`, `${(G.track.length / 1000).toFixed(2).replace('.', ',')} KM`],
@@ -1030,6 +1327,7 @@ function updateRace(dt) {
   if (running) {
     G.pickups.update(dt, G.ships, (sh, it) => {
       if (it.type === 'G') sh.boostPad(); else sh.ammo = Math.min(2, sh.ammo + 1);
+      G.training?.onPick(sh, it);
       if (sh === ship) {
         audio.chime(it.type === 'R');
         hud.banner(it.type === 'G' ? 'Boost' : 'Cohete listo', it.type === 'R' ? (IS_TOUCH ? 'Pulsa COHETE' : 'F · disparar') : '', false, 1.2, true);
@@ -1047,11 +1345,12 @@ function updateRace(dt) {
       if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner('Anillo', 'Blindaje restaurado · cohetes × 2 · boost', false, 1.6, true); }
     });
     for (const sh of G.ships) {
-      const wants = sh === ship ? (inp.fire && !G.playerAI) : G.ai.get(sh)?.inp.fire;
+      const wants = sh === ship ? (inp.fire && !G.playerAI) : (!G.training && G.ai.get(sh)?.inp.fire);
       if (wants && sh.ammo > 0 && G.state === 'race' && G.missiles.fire(sh, G.ships) && (sh === ship || sh.root.position.distanceTo(ship.root.position) < 300)) audio.launch();
     }
   }
   G.missiles.update(dt, G.ships, (shooter, victim, result, pos) => {
+    G.training?.onHit(shooter, victim);
     if (shooter && shooter !== victim && shooter.race) { shooter.race.hits++; if (result === 'destroyed') shooter.race.kills++; }
     const d = victim.root.position.distanceTo(ship.root.position);
     const destroyed = result === 'destroyed';
@@ -1070,7 +1369,7 @@ function updateRace(dt) {
   });
   // jugador eliminado: unos segundos viendo los restos y a la clasificación
   // jugador eliminado: cámara lenta, la cámara se aleja de los restos y enseguida la clasificación en vivo
-  if (ship.out && G.state === 'race') {
+  if (ship.out && G.state === 'race' && !G.training) {
     if (!G.slow) G.slow = { t: 0 };
     if (G.slow.t > 1.1) finish();
   }
@@ -1127,6 +1426,7 @@ function updateRace(dt) {
   }
   if (ship.deckScrape > 0.08 && !ship.out) G.chase.addShake(Math.min(0.25, ship.deckScrape * 0.6) * dt * 10);
   if (input.hit('KeyC', 'PadY')) hud.el.cam.textContent = G.chase.cycle().label;
+  if (G.training && G.training.update(G.realDt ?? dt, inp)) { endTraining(); return; }
   if (ship.quickEvent) { audio.whoosh(); G.chase.addShake(0.12); }
   for (const sh of G.ships) sh.quickEvent = false;
   const spect = spectateTarget();
@@ -1156,7 +1456,7 @@ function playerLap() {
   const r = G.race;
   r.times.push(r.lapTime);
   if (r.lapTime < r.best) r.best = r.lapTime;
-  if (G.ship.race.finished) { finish(); return; }
+  if (G.ship.race.finished && !G.training) { finish(); return; }
   G.hud.banner(G.ship.race.lap === r.laps ? `Última vuelta · P${r.pos}` : `Vuelta ${G.ship.race.lap} · P${r.pos}`, fmt(r.lapTime), false, 2.6);
   r.lapTime = 0; r.sectorIdx = 0; r.sector = 1; G.ship.race._lastSector = 0;
   audio.beep(true);
@@ -1175,6 +1475,8 @@ function finish() {
   const nx = nextCircuit();
   const unlocking = nx && !G.unlocked.has(nx.id) && nx.unlockAfter === G.circuitId;
   if (unlocking) unlock(nx.id);
+  if (!G.ship.out) { G.done.add(G.circuitId); store.set('sarus-done', [...G.done]); }
+  if (r.best < (G.best[G.circuitId] ?? Infinity)) { G.best[G.circuitId] = r.best; store.set('sarus-best', G.best); }
   const last = G.cup && G.cup.round === CIRCUITS.length - 1;
   const dnf = G.ship.out;
   $('resLabel').textContent = last ? 'Campeonato · clasificación final' : `${G.circuit.name} · ${dnf ? 'Eliminado' : 'Carrera terminada'}`;
@@ -1384,17 +1686,19 @@ function tick(dt) {
   renderer.info.reset();
   input.poll();
   // teclas globales
-  if (G.state === 'title' && input.hit('Enter', 'Space', 'PadA', 'PadStart')) begin();
+  if (G.state === 'menu' && $('settings').hidden && input.hit('PadA', 'PadStart')) menuAction('race');
+  else if (G.state === 'menu' && !$('settings').hidden && input.hit('Escape', 'PadB')) $('settings').hidden = true;
+  else if (G.state === 'map' && input.hit('Escape', 'PadB')) showMenu();
   else if (G.state === 'select') {
     const st = Math.round(input.state.steer);
-    if (input.hit('ArrowLeft', 'KeyA') || (st < 0 && selPrevSteer >= 0 && !input.keys.size)) { showChoice(G.choice - 1); audio.beep(false); }
-    if (input.hit('ArrowRight', 'KeyD') || (st > 0 && selPrevSteer <= 0 && !input.keys.size)) { showChoice(G.choice + 1); audio.beep(false); }
+    if (input.hit('ArrowLeft', 'KeyA') || (st < 0 && selPrevSteer >= 0 && !input.keys.size)) stepChoice(-1);
+    if (input.hit('ArrowRight', 'KeyD') || (st > 0 && selPrevSteer <= 0 && !input.keys.size)) stepChoice(1);
     selPrevSteer = st;
-    if (input.hit('Enter', 'Space', 'PadA', 'PadStart')) confirmChoice();
-    const keys = Object.keys(CONFIG.difficulties), di = keys.indexOf(G.diffKey);
-    if (input.hit('ArrowUp', 'KeyW')) setDifficulty(keys[Math.max(0, di - 1)]);
-    if (input.hit('ArrowDown', 'KeyS')) setDifficulty(keys[Math.min(keys.length - 1, di + 1)]);
-    CIRCUITS.forEach((c, i) => { if (input.hit(`Digit${i + 1}`)) pickCircuit(c.id); });
+    if (input.hit('Enter', 'Space', 'PadA', 'PadStart') && $('lineage').hidden) confirmChoice();
+    if (input.hit('Escape', 'PadB')) showMenu();
+    const fams = [null, ...FAMILIES.map((f) => f.id)], fi = fams.indexOf(G.family);
+    if (input.hit('ArrowUp', 'KeyW')) setFamily(fams[(fi - 1 + fams.length) % fams.length]);
+    if (input.hit('ArrowDown', 'KeyS')) setFamily(fams[(fi + 1) % fams.length]);
   }
   else if (G.state === 'intro' && input.hit('Enter', 'Space', 'Escape', 'PadA', 'PadStart')) { G.intro.t = G.intro.duration - 0.01; }
   else if (['countdown', 'race', 'finished'].includes(G.state)) {
@@ -1408,11 +1712,18 @@ function tick(dt) {
   if (input.hit('KeyM')) audio.toggleMute();
   document.body.classList.toggle('racing', (G.state === 'countdown' || G.state === 'race') && !G.paused);
 
+  const inCircuit = G.state !== 'select' && G.state !== 'map';
   if (G.state === 'select') {
     G.time += dt;
     G.showroom.update(dt, innerWidth / innerHeight, G.fleet);
     audio.engine(0, 0, 0, false);
+  } else if (G.state === 'map') {
+    G.time += dt;
+    G.map.update(dt, innerWidth / innerHeight, innerWidth, innerHeight);
+    audio.engine(0, 0, 0, false);
   } else if (!G.paused) {
+    G.realDt = dt;
+    if (G.training) dt *= G.training.timeScale;             // instante de cámara lenta al presentar cada paso
     if (G.slow) {                                          // cámara lenta tras la eliminación del jugador
       const t = (G.slow.t += dt);
       G.slow.k = t < 0.35 ? 1 - 0.82 * (t / 0.35) : t < 2.4 ? 0.18 : t < 3.6 ? 0.18 + 0.82 * ((t - 2.4) / 1.2) : 1;
@@ -1421,7 +1732,11 @@ function tick(dt) {
     G.time += dt;
     lavaUniforms.uTime.value = G.time;
     skyUniforms.uTime.value = G.time;
-    if (G.state === 'intro') {
+    if (G.state === 'menu') {                             // cabecera: la cámara deriva despacio por el arranque del circuito
+      G.intro.t = 4.7 - 4.5 * Math.cos(G.time * 0.05);
+      G.intro.update(0);
+      audio.engine(0, 0, 0, false);
+    } else if (G.state === 'intro') {
       updateIntro(dt);
       for (const sh of G.ships) sh.update(dt, { throttle: 0, brake: 0, steer: 0, abL: 0, abR: 0, boost: false }, true);
       audio.engine(0, 0, 0, false);
@@ -1437,17 +1752,17 @@ function tick(dt) {
     G.fx.sparks.update(dt, camera, renderer);
     G.fx.rockets.update(dt, camera, renderer);
   }
-  if (G.state !== 'select') G.fx.motes.update(camera, G.paused ? 0 : dt);
-  if (G.state !== 'select' && !G.paused) G.circuitFx?.update(dt, camera, G);
+  if (inCircuit) G.fx.motes.update(camera, G.paused ? 0 : dt);
+  if (inCircuit && !G.paused) G.circuitFx?.update(dt, camera, G);
   if (!G.flyers && G.track && G.ships.length) G.flyers = new Flyers(scene, G.track, G.ships, G.circuitId === 'olympus' ? 8 : 6);
-  if (G.flyers && G.state !== 'select' && !G.paused) G.flyers.update(dt);
-  if (G.flyers) G.flyers.group.visible = G.state !== 'select';
+  if (G.flyers && inCircuit && !G.paused) G.flyers.update(dt);
+  if (G.flyers) G.flyers.group.visible = inCircuit;
 
   // dentro del túnel baja la luz global (el techo y las cuadernas ya arrojan sombra)
   trackUniforms.uTime.value = G.time;
   const tn = G.structures?.tunnel;
   let inside = 0;
-  if (tn && G.state !== 'select' && G.state !== 'title' && G.state !== 'intro') {
+  if (tn && inCircuit && G.state !== 'title' && G.state !== 'menu' && G.state !== 'intro') {
     const d = G.track.delta(tn.s, G.ship.s);
     inside = Math.min(THREE.MathUtils.smoothstep(d, -10, 30), 1 - THREE.MathUtils.smoothstep(d, tn.len - 30, tn.len + 10));
   }
@@ -1462,8 +1777,8 @@ function tick(dt) {
   sun.position.copy(G.ship.root.position).addScaledVector(CONFIG.atmosphere.sunDir, 300);
 
   // grading dinámico
-  const sp = G.state === 'select' ? 0 : Math.min(1, G.ship.v / G.ship.C.vmaxBoost);
-  const boostOn = G.state !== 'select' && (G.ship.boosting || G.ship.boostKick > 0);
+  const sp = !inCircuit ? 0 : Math.min(1, G.ship.v / G.ship.C.vmaxBoost);
+  const boostOn = inCircuit && (G.ship.boosting || G.ship.boostKick > 0);
   grade.uniforms.uTime.value = G.time;
   grade.uniforms.uAberr.value += ((sp * sp * 0.006 + (boostOn ? 0.008 : 0)) - grade.uniforms.uAberr.value) * Math.min(1, dt * 4);
   grade.uniforms.uBlur.value += (((boostOn ? 1 : 0) * sp) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
@@ -1477,10 +1792,10 @@ function tick(dt) {
   }
 }
 // cabecera: la música arranca con el primer gesto (los navegadores no dejan sonar antes)
-const firstGesture = () => { if (G.state === 'title' || G.state === 'loading') audio.music(true); else audio.music(); removeEventListener('pointerdown', firstGesture); removeEventListener('keydown', firstGesture); };
+const firstGesture = () => { if (G.state === 'title' || G.state === 'loading' || G.state === 'menu') audio.music(true); else audio.music(); removeEventListener('pointerdown', firstGesture); removeEventListener('keydown', firstGesture); };
 addEventListener('pointerdown', firstGesture); addEventListener('keydown', firstGesture);
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
-G.showChoice = showChoice; G.begin = begin; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
+G.showChoice = showChoice; G.begin = begin; G.goMap = goMap; G.menu = showMenu; G.train = startTraining; G.menuAction = menuAction; G.setFamily = setFamily; G.selectNode = (n, c) => selectNode(G.map.nodes[n - 1], c); G.store = store; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer;
 G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);

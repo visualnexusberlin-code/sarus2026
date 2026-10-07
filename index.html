@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Speed Racing Skies</title>
+<title>SARUS · Solar Advanced Racing Union Series</title>
 <script>
   // Algunos visores traen una consola recortada: garantiza los métodos que usan el juego y three.js.
   (function () {
@@ -18,7 +18,7 @@
     }
   })();
 </script>
-<meta name="description" content="SATURN-6 · prototipo jugable">
+<meta name="description" content="SARUS · carreras antigravedad por el Sistema Solar">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=IBM+Plex+Mono:wght@300;400;500&display=swap">
@@ -227,6 +227,9 @@
 
   /* ---------- Hangar ---------- */
   #select { pointer-events: auto; z-index: 5; touch-action: pan-y; }
+  #select::before { content: ''; position: fixed; inset: 0 auto 0 0; width: min(560px, 62vw); pointer-events: none;
+    background: linear-gradient(90deg, rgba(12,13,14,.78) 0%, rgba(12,13,14,.55) 55%, rgba(12,13,14,0) 100%); }
+  @media (orientation: portrait) { #select::before { inset: auto 0 0 0; width: auto; height: 70%; background: linear-gradient(0deg, rgba(12,13,14,.85) 40%, rgba(12,13,14,0)); } }
   .sel-panel {
     position: fixed; left: calc(var(--gutter) + env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-50%);
     display: grid; gap: 14px; width: min(380px, 44vw);
@@ -310,7 +313,7 @@
   .row.actions { position: sticky; bottom: 0; padding: 10px 0 2px; background: linear-gradient(rgba(12,13,14,0), rgba(12,13,14,.92) 30%); width: 100%; }
   /* hangar: el panel se desplaza si no cabe y el botón de correr queda siempre a la vista */
   .sel-panel { max-height: calc(100dvh - 2 * var(--gutter)); overflow-y: auto; overscroll-behavior: contain; }
-  .sel-row { position: sticky; bottom: 0; z-index: 1; }
+  .sel-row { position: sticky; bottom: 0; z-index: 1; padding: 10px 0 2px; background: linear-gradient(rgba(14,15,16,0), rgba(14,15,16,.9) 35%); }
   @media (max-height: 500px) {
     .standings { font-size: 11px; } .standings li { padding: 3px 8px; } .standings li b { font-size: 10px; } .res-head h2 { font-size: 18px; }
     .res-pos { font-size: 40px; } .panel .inner { gap: 10px; }
@@ -328,6 +331,125 @@
     .bar, #card, #title { transition: none; }
     #warn.show { animation: none; }
   }
+
+  /* ---------- SARUS: cabecera y menú principal ---------- */
+  .title-block h1.logo { font-size: clamp(44px, 9vw, 112px); letter-spacing: .32em; margin-right: -.32em; line-height: 1; }
+  .logo-sub { letter-spacing: .42em; color: var(--fog); margin-top: -12px; text-shadow: 0 1px 8px rgba(0,0,0,.7); }
+  .title-block h1.logo { text-shadow: 0 2px 30px rgba(0,0,0,.35); }
+  .menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; pointer-events: auto; }
+  .mbtn { display: grid; gap: 6px; text-align: left; min-width: 150px; padding: 14px 18px 13px; cursor: pointer;
+    background: rgba(12,13,14,.5); color: var(--fog); border: 1px solid var(--fog-faint); backdrop-filter: blur(3px);
+    transition: background .2s, border-color .2s, color .2s; }
+  .mbtn b { font-family: var(--display); font-weight: 400; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; }
+  .mbtn small { font-size: 10px; color: var(--fog-dim); letter-spacing: .06em; }
+  .mbtn.primary { border-color: var(--fog); }
+  .mbtn.primary b::before { content: '▸ '; color: var(--vermilion); }
+  .mbtn:hover, .mbtn:focus-visible { background: var(--fog); color: var(--graphite); border-color: var(--fog); outline: none; }
+  .mbtn:hover small, .mbtn:focus-visible small { color: rgba(20,22,23,.7); }
+  @media (max-height: 500px) {
+    .title-block { gap: 12px; } .title-block h1.logo { font-size: 40px; } .logo-sub { margin-top: -6px; }
+    .mbtn { min-width: 128px; padding: 10px 12px; } .mbtn small { display: none; }
+  }
+  @media (orientation: portrait) and (max-width: 600px) { .menu { flex-direction: column; width: min(320px, 86vw); } }
+
+  /* ---------- Settings ---------- */
+  #settings { z-index: 8; }
+  .set-inner { max-height: calc(100dvh - 2 * var(--gutter)); overflow-y: auto; }
+  .set-grid { display: grid; grid-template-columns: auto 1fr; gap: 14px 22px; align-items: center; text-align: left; }
+  .set-inner .keys { margin-top: 4px; }
+
+  /* ---------- Hangar: ficha de escudería ---------- */
+  .sel-top { display: flex; align-items: center; gap: 14px; }
+  .btn.sm { padding: 8px 12px; font-size: 9px; }
+  .fam { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fam .chip { padding: 6px 9px; font-size: 8px; }
+  .rec { font-family: var(--display); font-size: 8px; letter-spacing: .24em; color: var(--graphite); background: #19e0cc; padding: 3px 7px; margin-left: 8px; vertical-align: 1px; }
+  .sel-house { font-size: 12px; letter-spacing: .12em; color: var(--fog-dim); margin-top: -6px; }
+  .sel-house b { font-family: var(--display); font-weight: 400; font-size: 10px; letter-spacing: .22em; color: var(--fog); }
+  .sel-meta { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: 11px; }
+  .sel-meta dt { font-family: var(--display); font-size: 8px; letter-spacing: .26em; color: var(--fog-dim); text-transform: uppercase; padding-top: 2px; }
+  .sel-meta dd { margin: 0; letter-spacing: .06em; }
+  .more { justify-self: start; background: none; border: 0; padding: 2px 0; color: var(--fog-dim); cursor: pointer;
+    font-family: var(--display); font-size: 8px; letter-spacing: .3em; text-transform: uppercase; border-bottom: 1px solid var(--fog-faint); }
+  .more::after { content: ' +'; } .more[aria-expanded="true"]::after { content: ' −'; }
+  .more:hover { color: var(--fog); }
+  .sel-lore { display: grid; gap: 8px; font-size: 12px; line-height: 1.55; max-width: 40ch; color: var(--fog); }
+  .sel-lore .label { color: var(--fog-dim); }
+  .sel-lore p { margin: 0; }
+  .sel-circ-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sel-circ-row b { font-family: var(--display); font-weight: 400; font-size: 10px; letter-spacing: .2em; }
+  .lineage { position: fixed; right: var(--gutter); top: 50%; transform: translateY(-50%); width: min(380px, 42vw); pointer-events: auto;
+    background: rgba(12,13,14,.82); border: 1px solid var(--fog-faint); padding: 22px; display: grid; gap: 14px; backdrop-filter: blur(4px); z-index: 6;
+    max-height: calc(100dvh - 2 * var(--gutter)); overflow-y: auto; }
+  .lineage h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: .16em; line-height: 1.5; }
+  .lineage dl { margin: 0; display: grid; gap: 10px; }
+  .lineage dt { font-family: var(--display); font-size: 9px; letter-spacing: .24em; color: #19e0cc; }
+  .lineage dd { margin: 2px 0 0; font-size: 11px; color: var(--fog-dim); line-height: 1.5; }
+  .lineage dd em { font-style: normal; color: var(--fog); }
+  @media (orientation: portrait) { .lineage { left: var(--gutter); right: var(--gutter); top: var(--gutter); transform: none; width: auto; } }
+  @media (max-height: 500px) { .sel-meta, .sel-house { font-size: 10px; } .fam .chip { padding: 4px 7px; } .sel-lore { font-size: 11px; } }
+
+  /* ---------- Solar Map ---------- */
+  #map { z-index: 5; }
+  .map-top { position: fixed; top: calc(var(--gutter) * .7); left: calc(var(--gutter) + env(safe-area-inset-left, 0px)); right: calc(var(--gutter) + 48px);
+    display: flex; align-items: center; gap: 16px; pointer-events: none; }
+  .map-top .btn { pointer-events: auto; padding: 9px 14px; font-size: 9px; background: rgba(12,13,14,.5); }
+  .map-top > div { flex: 1; text-shadow: 0 1px 6px #000, 0 0 14px rgba(0,0,0,.8); }
+  .map-sub { margin: 4px 0 0; font-size: 11px; color: var(--fog-dim); letter-spacing: .06em; }
+  .map-hint { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); opacity: .7; white-space: nowrap; }
+  #mapLabels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .mnode { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; background: none; border: 0; padding: 0; color: var(--fog);
+    display: flex; align-items: center; gap: 6px; margin: -30px 0 0 -6px; white-space: nowrap; font-family: var(--mono); }
+  .mnode::before { content: ''; position: absolute; left: 5px; top: 18px; width: 1px; height: 12px; background: currentColor; opacity: .5; }
+  .mnode i { width: 11px; height: 11px; border-radius: 50%; border: 1px solid currentColor; display: block; flex: none; }
+  .mnode b { font-family: var(--display); font-weight: 400; font-size: 9px; letter-spacing: .14em; }
+  .mnode span { font-family: var(--display); font-size: 8px; letter-spacing: .22em; padding: 3px 6px; background: rgba(8,9,10,.55); }
+  .mnode.done { color: #ff8a5c; } .mnode.done i { background: currentColor; }
+  .mnode.active { color: #fff4e6; } .mnode.active i { background: var(--vermilion); border-color: #fff; box-shadow: 0 0 0 4px rgba(228,57,31,.25); animation: npulse 1.6s ease-in-out infinite; }
+  .mnode.locked { color: rgba(216,213,205,.45); }
+  .mnode.soon { color: #8fc6d0; } .mnode.soon i { border-style: dashed; }
+  .mnode.sel span { background: var(--fog); color: var(--graphite); }
+  @keyframes npulse { 50% { box-shadow: 0 0 0 9px rgba(228,57,31,0); } }
+  .map-card { position: fixed; right: calc(var(--gutter) + env(safe-area-inset-right, 0px)); top: calc(var(--gutter) + 52px); bottom: calc(var(--gutter) + 26px);
+    width: min(360px, 40vw); overflow-y: auto; pointer-events: auto; background: rgba(10,11,12,.78); border: 1px solid var(--fog-faint);
+    backdrop-filter: blur(5px); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .map-card .mc-num { padding-right: 26px; display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--fog-dim); letter-spacing: .14em; }
+  .map-card h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(22px, 3vw, 32px); letter-spacing: .1em; line-height: 1.1; }
+  .map-card .mc-loc { font-family: var(--display); font-size: 9px; letter-spacing: .26em; color: var(--fog-dim); margin-top: -6px; }
+  .st { font-family: var(--display); font-size: 8px; letter-spacing: .26em; padding: 3px 7px; border: 1px solid currentColor; }
+  .st.done { color: #ff8a5c; } .st.active { color: #19e0cc; } .st.locked { color: var(--fog-dim); } .st.soon { color: #8fc6d0; }
+  .mc-data { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 0; font-size: 12px; }
+  .mc-data dt { font-family: var(--display); font-size: 8px; letter-spacing: .24em; color: var(--fog-dim); padding-top: 3px; }
+  .mc-data dd { margin: 0; }
+  .mc-arch { border-top: 1px solid var(--fog-faint); padding-top: 12px; display: grid; gap: 6px; }
+  .mc-arch p { margin: 0; font-size: 12px; line-height: 1.6; }
+  .mc-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .map-card .row { justify-content: flex-start; margin-top: auto; }
+  .mc-note { font-size: 11px; color: var(--fog-dim); margin: 0; }
+  .mc-close { position: absolute; top: 10px; right: 12px; background: none; border: 0; color: var(--fog-dim); font-size: 18px; cursor: pointer; }
+  @media (orientation: portrait) {
+    .map-card { left: var(--gutter); right: var(--gutter); width: auto; top: auto; max-height: 52dvh; bottom: calc(var(--gutter) + env(safe-area-inset-bottom, 0px)); }
+    .map-hint { display: none; }
+  }
+  @media (max-height: 500px) and (orientation: landscape) {
+    .map-card { top: calc(var(--gutter) + 40px); bottom: var(--gutter); padding: 14px 16px; gap: 9px; width: min(320px, 42vw); }
+    .mc-data { font-size: 10px; } .mc-arch p { font-size: 11px; line-height: 1.45; } .map-hint { display: none; }
+  }
+
+  /* ---------- Training ---------- */
+  #train { position: fixed; left: 50%; top: calc(var(--gutter) + 6px); transform: translateX(-50%); z-index: 6; pointer-events: none;
+    min-width: min(460px, 86vw); max-width: 90vw; padding: 14px 20px 14px; display: grid; gap: 6px; text-align: center; justify-items: center;
+    background: rgba(10,11,12,.62); border: 1px solid var(--fog-faint); backdrop-filter: blur(3px); }
+  #train.pop { animation: trpop .45s ease-out; }
+  @keyframes trpop { 0% { opacity: 0; transform: translate(-50%, -8px); } 100% { opacity: 1; transform: translate(-50%, 0); } }
+  .tr-head { display: flex; gap: 14px; align-items: baseline; }
+  .tr-num { font-family: var(--display); font-size: 11px; color: var(--vermilion); letter-spacing: .1em; }
+  .tr-head b { font-family: var(--display); font-weight: 400; font-size: clamp(16px, 2.4vw, 24px); letter-spacing: .26em; }
+  #trText { margin: 0; font-size: 12px; letter-spacing: .06em; color: var(--fog); }
+  #train .label { color: #19e0cc; }
+  #train.granted { border-color: #19e0cc; } #train.granted .tr-num { color: #19e0cc; }
+  .tr-skip { pointer-events: auto; position: absolute; right: -1px; top: calc(100% + 8px); padding: 7px 11px; font-size: 8px; background: rgba(12,13,14,.5); }
+  body.touch #train { top: calc(var(--gutter) * .5); padding: 8px 14px; } body.touch #trText { font-size: 11px; }
 </style>
 
 <canvas id="view"></canvas>
@@ -398,11 +520,41 @@
 
 <div id="title" class="layer">
   <div class="title-block">
-    <span class="label">SATURN-6 · Circuito v03</span>
-    <h1>SPEED RACING<br>SKIES<span>.</span></h1>
+    <h1 class="logo">SARUS<span>.</span></h1>
+    <span class="label logo-sub">Solar Advanced Racing Union Series</span>
     <div class="progress"><i id="prog"></i></div>
     <button id="startBtn" type="button" disabled>Cargando…</button>
     <p id="bootErr" class="num" hidden></p>
+    <nav id="menu" class="menu" hidden aria-label="Menú principal">
+      <button type="button" class="mbtn primary" data-menu="race"><b>Race</b><small id="menuRaceSub">01 · Arcadia</small></button>
+      <button type="button" class="mbtn" data-menu="hangar"><b>Hangar</b><small>18 escuderías</small></button>
+      <button type="button" class="mbtn" data-menu="map"><b>Solar Map</b><small id="menuMapSub">Ruta del campeonato</small></button>
+      <button type="button" class="mbtn" data-menu="training"><b>Training</b><small>Pilot test · PRIME-EX</small></button>
+      <button type="button" class="mbtn" data-menu="settings"><b>Settings</b><small>Sonido · gráficos · controles</small></button>
+    </nav>
+  </div>
+</div>
+
+<div id="settings" class="panel" hidden>
+  <div class="inner set-inner">
+    <span class="label">SARUS · Settings</span>
+    <div class="set-grid">
+      <span class="label">Sound</span>
+      <div class="diff"><button class="chip" type="button" data-set="music" aria-pressed="true">Música</button><button class="chip" type="button" data-set="sfx" aria-pressed="true">Efectos</button></div>
+      <span class="label">Graphics</span>
+      <div class="diff" role="group" aria-label="Calidad gráfica">
+        <button class="chip" type="button" data-quality="full" aria-pressed="false">Completos</button>
+        <button class="chip" type="button" data-quality="lite" aria-pressed="false">Ligeros</button>
+      </div>
+      <span class="label">Rivals</span>
+      <div class="diff" role="group" aria-label="Dificultad">
+        <button class="chip" type="button" data-diff="easy" aria-pressed="false">Fácil</button>
+        <button class="chip" type="button" data-diff="normal" aria-pressed="true">Normal</button>
+        <button class="chip" type="button" data-diff="hard" aria-pressed="false">Difícil</button>
+      </div>
+      <span class="label">Controls</span>
+      <div class="diff"><button class="chip" type="button" data-set="assist" aria-pressed="true">Asistencia de trazada</button></div>
+    </div>
     <div class="keys desk-only">
       <span><b>W / ↑</b>Acelerar</span>
       <span><b>S / ↓</b>Frenar</span>
@@ -417,65 +569,67 @@
       <span><b>M</b>Sonido</span>
       <span><b>H</b>Asistencia</span>
     </div>
-    <span class="label desk-only">Esfera verde = boost · esfera roja = cohete · Mando: RT acelerar · LT frenar · LB/RB aerofrenos (doble toque: giro brusco) · A boost · X cohete</span>
+    <span class="label desk-only">Mando: RT acelerar · LT frenar · LB/RB aerofrenos (doble toque: giro brusco) · A boost · X cohete</span>
     <div class="keys touch-only" style="grid-template-columns: repeat(2, auto)">
       <span><b>Izquierda</b>Desliza para girar</span>
       <span><b>Desliz rápido</b>Giro brusco</span>
       <span><b>Auto</b>Acelera solo</span>
       <span><b>Freno</b>Mantén para frenar</span>
       <span><b>◁ AF ▷</b>Aerofrenos en horquillas</span>
-      <span><b>Esfera verde</b>Boost</span>
-      <span><b>Esfera roja</b>Cohete</span>
+      <span><b>Esferas</b>Verde boost · roja cohete</span>
     </div>
+    <div class="row"><button class="btn primary" type="button" id="setBack">Back</button><button class="btn" type="button" id="setReset">Reiniciar progreso</button></div>
   </div>
+</div>
+
+<div id="map" class="layer" hidden>
+  <div class="map-top">
+    <button class="btn" type="button" id="mapBack">Menu</button>
+    <div><span class="label">SARUS · Solar Map</span><p class="map-sub" id="mapProg">Championship route</p></div>
+    <button class="btn" type="button" id="mapAll">Overview</button>
+  </div>
+  <div id="mapLabels"></div>
+  <aside id="mapCard" class="map-card" hidden></aside>
+  <span class="label map-hint desk-only">Arrastra para girar · rueda para acercar · pulsa un nodo</span>
+  <span class="label map-hint touch-only">Arrastra para girar · pellizca para acercar · toca un nodo</span>
+</div>
+
+<div id="train" hidden>
+  <div class="tr-head"><span class="tr-num num" id="trNum">01</span><b id="trTitle">THROTTLE</b></div>
+  <p id="trText"></p>
+  <span class="label" id="trHint"></span>
+  <button class="btn tr-skip" type="button" id="trSkip">Skip</button>
 </div>
 
 <div id="select" class="layer" hidden>
   <div class="sel-panel">
-    <span class="label">Hangar · elige nave</span>
-    <div class="sel-num num"><span id="selNum">05</span> / <span id="selTot">08</span> · <span id="selLen">5,5 m</span></div>
+    <div class="sel-top"><button class="btn sm" type="button" id="selMenu">Menu</button><span class="label">Hangar</span></div>
+    <div class="fam" role="group" aria-label="Familia de vehículo" id="famRow"></div>
+    <div class="sel-num num"><span id="selNum">05</span> / <span id="selTot">18</span> · <span id="selLen">5,5 m</span> <span class="rec" id="selRec" hidden>Recommended</span></div>
     <h2 id="selName">PRIME-EX</h2>
+    <div class="sel-house"><b id="selHouse">PRIME-EX</b> · <span id="selModel">PX-01</span></div>
+    <dl class="sel-meta">
+      <dt>Class</dt><dd id="selClass">BALANCED / STANDARD</dd>
+      <dt>Origin</dt><dd id="selOrigin"></dd>
+    </dl>
     <p id="selTag" class="sel-tag"></p>
     <div class="stats">
-      <span class="label">Velocidad</span><div class="pips" id="stV"></div>
-      <span class="label">Aceleración</span><div class="pips" id="stA"></div>
-      <span class="label">Manejo</span><div class="pips" id="stM"></div>
-      <span class="label">Derrape</span><div class="pips" id="stD"></div>
-      <span class="label">Peso</span><div class="pips" id="stP"></div>
-      <span class="label">Blindaje</span><div class="pips hullp" id="stH"></div>
+      <span class="label">Speed</span><div class="pips" id="stV"></div>
+      <span class="label">Acceleration</span><div class="pips" id="stA"></div>
+      <span class="label">Handling</span><div class="pips" id="stM"></div>
+      <span class="label">Armor</span><div class="pips hullp" id="stH"></div>
     </div>
+    <button class="more" type="button" id="selMore" aria-expanded="false">More data</button>
+    <div class="sel-lore" id="selLore" hidden></div>
     <div class="row sel-row">
       <button class="btn" type="button" id="selPrev" aria-label="Nave anterior">◁</button>
-      <button class="btn primary" type="button" id="selGo">Correr</button>
+      <button class="btn primary" type="button" id="selGo">Race</button>
       <button class="btn" type="button" id="selNext" aria-label="Nave siguiente">▷</button>
     </div>
-    <div class="diff" role="group" aria-label="Dificultad">
-      <span class="label">Rivales</span>
-      <button class="chip" type="button" data-diff="easy" aria-pressed="false">Fácil</button>
-      <button class="chip" type="button" data-diff="normal" aria-pressed="true">Normal</button>
-      <button class="chip" type="button" data-diff="hard" aria-pressed="false">Difícil</button>
-    </div>
-    <div class="diff" role="group" aria-label="Calidad gráfica">
-      <span class="label">Gráficos</span>
-      <button class="chip" type="button" data-quality="full" aria-pressed="false">Completos</button>
-      <button class="chip" type="button" data-quality="lite" aria-pressed="false">Ligeros</button>
-    </div>
-    <div class="diff" role="group" aria-label="Circuito">
-      <span class="label">Circuito</span>
-      <button class="chip" type="button" data-circ="saturn" aria-pressed="true">SATURN-6</button>
-      <button class="chip" type="button" data-circ="arcadia" aria-pressed="false">ARCADIA-2</button>
-      <button class="chip" type="button" data-circ="olympus" aria-pressed="false">OLYMPUS-3</button>
-      <button class="chip" type="button" data-circ="itaka" aria-pressed="false">NUEVA-ITAKA</button>
-      <button class="chip" type="button" data-circ="tharsis" aria-pressed="false">THARSIS SIERRA</button>
-      <button class="chip" type="button" data-circ="phobos" aria-pressed="false">PHOBOS</button>
-      <button class="chip" type="button" data-circ="cassini" aria-pressed="false">CASSINI-7</button>
-      <button class="chip" type="button" data-circ="tiphares" aria-pressed="false">TIPHARES</button>
-      <button class="chip" type="button" data-circ="europa" aria-pressed="false">EUROPA</button>
-      <button class="chip" type="button" data-circ="miranda" aria-pressed="false">MIRANDA</button>
-    </div>
-    <p class="sel-circ" id="circNote"></p>
-    <span class="label desk-only">← → nave · ↑ ↓ dificultad · 1 2 3 circuito · Enter correr</span>
+    <div class="sel-circ-row"><span class="label">Circuit</span><b id="selCirc">01 · ARCADIA</b><button class="chip" type="button" id="selMap">Solar Map</button></div>
+    <span class="label desk-only">← → nave · ↑ ↓ familia · M mapa · Enter correr</span>
   </div>
+  <div class="lineage" id="lineage" hidden></div>
 </div>
 
 <div id="pause" class="panel" hidden>
@@ -488,6 +642,7 @@
       <button class="btn" type="button" data-key="KeyV">Cambiar nave</button>
       <button class="btn" type="button" data-key="KeyH" id="assistBtn">Asistencia · sí</button>
       <button class="btn" type="button" id="qualityBtn">Calidad · completa</button>
+      <button class="btn" type="button" data-go="menu">Menu</button>
     </div>
     <span class="label desk-only">P · continuar  ·  R · reiniciar  ·  I · repetir intro</span>
   </div>
@@ -495,19 +650,19 @@
 
 <div id="results" class="panel" hidden>
   <div class="inner">
-    <span class="label" id="resLabel">SATURN-6 · Carrera terminada</span>
+    <span class="label" id="resLabel">Carrera terminada</span>
     <span class="res-unlock" id="resUnlock" hidden></span>
     <div class="res-head"><span class="res-pos" id="resPos">–</span><div><h2 id="resTotal">0:00.00</h2><span class="sub num" id="resBest"></span></div></div>
     <ol class="standings num" id="standings"></ol>
-    <div class="row actions"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden>Siguiente</button><button class="btn" type="button" data-key="KeyR">Repetir carrera</button><button class="btn" type="button" data-key="KeyV">Cambiar nave</button></div>
+    <div class="row actions"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden>Siguiente</button><button class="btn" type="button" data-key="KeyR">Repetir carrera</button><button class="btn" type="button" data-key="KeyV">Cambiar nave</button><button class="btn" type="button" data-go="map">Solar Map</button><button class="btn" type="button" data-go="menu">Menu</button></div>
     <span class="label desk-only">N · siguiente  ·  R · repetir  ·  V · hangar</span>
   </div>
 </div>
 <button id="fsBtn" class="fs-btn" type="button" aria-label="Pantalla completa" hidden><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
 <div id="travel" class="panel" hidden>
   <div class="inner">
-    <span class="label">Rumbo al siguiente circuito</span>
-    <h2 id="travelName">ARCADIA-2</h2>
+    <span class="label" id="travelLbl">Rumbo al siguiente circuito</span>
+    <h2 id="travelName">ARCADIA</h2>
     <span class="sub" id="travelSub"></span>
   </div>
 </div>

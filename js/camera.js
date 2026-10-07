@@ -111,7 +111,7 @@ export class EagleFlight {
     this.chase.pose(sh, endPos, endLook, fwd, up);
 
     // [tiempo, posición, objetivo, fov]
-    // tramo inicial propio de cada circuito (o el de SATURN-6: monolitos y cohete)
+    // tramo inicial propio de cada circuito (o el de SELENE: monolitos y cohete)
     const head = this.introKeys ? this.introKeys(at) : [
       [0.0, new THREE.Vector3(-640, -12, -380), new THREE.Vector3(-862, 62, -1000), 50],
       [4.2, new THREE.Vector3(-676, 22, -468), new THREE.Vector3(-840, 215, -1000), 50],

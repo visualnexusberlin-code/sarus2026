@@ -1,6 +1,6 @@
 // EUROPA: noche sobre la corteza de hielo de la luna Europa, con Júpiter llenando medio cielo. Trazado inspirado
-// en el autódromo José Carlos Pace (Interlagos). Las zonas sombreadas del plano (S de Senna, Descida do Lago,
-// Ferradura y Laranjinha, Bico de Pato, Subida dos Boxes) son simas en el hielo: la pista flota sobre el vacío y
+// en un autódromo de archivo. Las zonas sombreadas del plano (eses, bajada del lago,
+// herradura, pico, subida a boxes) son simas en el hielo: la pista flota sobre el vacío y
 // abajo brilla la ciudad azul. Junto a la salida, gradas estratificadas como terrazas de arenisca con luz cálida;
 // por la llanura, cúpulas de cristal hexagonal y torres-faro. Anillos de carrera: atravesarlos repara el blindaje,
 // recarga dos cohetes y da un empujón de velocidad (con una película de luz azul).
@@ -11,9 +11,9 @@ import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGu
 import { cofferPatch, cofferKey } from './facades.js';
 import { buildRaceRings } from './rings.js';
 
-// Trazado (px del plano), salida hacia +x, sentido antihorario como en Interlagos
+// Trazado (px del plano), salida hacia +x, sentido antihorario como el original
 const RAW = [[695, 443], [760, 428], [810, 413], [830, 395], [836, 380], [832, 365], [820, 352], [802, 340], [795, 325], [797, 307], [810, 290], [820, 270], [824, 245], [820, 220], [810, 195], [795, 172], [775, 150], [750, 135], [700, 120], [650, 108], [560, 88], [480, 68], [400, 50], [330, 33], [285, 25], [260, 25], [245, 40], [235, 75], [230, 110], [232, 150], [245, 185], [265, 200], [310, 235], [360, 272], [415, 312], [465, 340], [487, 360], [495, 390], [492, 420], [480, 442], [460, 457], [400, 472], [360, 480], [340, 472], [335, 452], [350, 432], [362, 410], [360, 385], [345, 372], [322, 372], [302, 385], [280, 407], [250, 430], [215, 450], [180, 457], [160, 450], [162, 432], [185, 410], [215, 385], [235, 360], [243, 320], [237, 292], [215, 270], [165, 237], [110, 207], [80, 190], [62, 195], [50, 215], [40, 250], [37, 290], [47, 340], [62, 385], [82, 422], [107, 452], [145, 477], [200, 495], [275, 512], [350, 525], [400, 524], [475, 505], [550, 485], [625, 465]];
-const IDX = { senna: 4, sol: 15, oposta: 19, lago: 27, ferradura: 36, laranjinha: 39, pinheirinho: 48, bico: 54, mergulho: 60, juncao: 65, boxes: 72, arquib: 77, standA: 76, standB: 1 };
+const IDX = { esses: 4, sweep: 15, back: 19, lake: 27, horseshoe: 36, c7: 39, c8: 48, beak: 54, dive: 60, junction: 65, boxes: 72, stands: 77, standA: 76, standB: 1 };
 // simas: [cx, cy, semieje x, semieje y, giro°] en px del plano
 const CHASMS = [[791, 372, 66, 82, -20], [222, 98, 68, 84, 28], [508, 362, 64, 26, -4], [495, 432, 86, 34, 2], [218, 418, 72, 42, -18], [118, 455, 64, 34, 32]];
 const CITADEL_PX = [610, 238];        // montículo con la ciudadela en el gran hueco interior
@@ -402,17 +402,17 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
     return y;
   };
 
-  // ── Cotas: Interlagos baja de la recta por el S de Senna hasta el lago y sube por la Subida dos Boxes ──
+  // ── Cotas: el trazado baja de la recta por las eses hasta el lago y sube hacia boxes ──
   const g = (f, c, w) => { let d = Math.abs(f - c); d = Math.min(d, 1 - d); return Math.exp(-((d * total / w) ** 2)); };
-  // relieve con golpes: caída al S de Senna, dos lomos en la Reta Oposta, zambullida dentro de la sima del Lago,
-  // subida a Ferradura, el Mergulho (picado) y la rampa de la Subida dos Boxes
+  // relieve con golpes: caída en las eses, dos lomos en la recta opuesta, zambullida dentro de la sima del lago,
+  // subida a la herradura, el picado y la rampa de subida a boxes
   const fo = (c, m) => c + m / total;
   let y = S.map((_, i) => {
     const f = cum[i] / total;
-    return 14 + 12 * g(f, 0, 520) - 14 * g(f, corner.senna, 150) + 9 * g(f, corner.sol, 220)
-      + 11 * g(f, fo(corner.oposta, 330), 85) + 9 * g(f, fo(corner.oposta, 700), 80)
-      - 48 * g(f, corner.lago, 210) + 15 * g(f, corner.ferradura, 170) + 7 * g(f, corner.pinheirinho, 130)
-      - 16 * g(f, corner.mergulho, 110) + 5 * g(f, corner.juncao, 180) - 22 * g(f, fo(corner.boxes, -60), 120) + 12 * g(f, corner.arquib, 260);
+    return 14 + 12 * g(f, 0, 520) - 14 * g(f, corner.esses, 150) + 9 * g(f, corner.sweep, 220)
+      + 11 * g(f, fo(corner.back, 330), 85) + 9 * g(f, fo(corner.back, 700), 80)
+      - 48 * g(f, corner.lake, 210) + 15 * g(f, corner.horseshoe, 170) + 7 * g(f, corner.c8, 130)
+      - 16 * g(f, corner.dive, 110) + 5 * g(f, corner.junction, 180) - 22 * g(f, fo(corner.boxes, -60), 120) + 12 * g(f, corner.stands, 260);
   });
   // cota mínima: 7 m sobre el hielo, salvo donde toda la anchura de la pista cae sobre una sima (puede hundirse dentro)
   const yMin = S.map((p) => {
@@ -428,8 +428,8 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   for (let pass = 0; pass < 2; pass++) y = y.map((_, i) => { let a = 0; for (let k = -2; k <= 2; k++) a += y[(i + k + N) % N]; return a / 5; });
 
   const pts = []; for (let i = 0; i < N; i += 2) pts.push(new THREE.Vector3(S[i].x, y[i], S[i].z));
-  // peralte: hasta ~14° en las curvas cerradas, más marcado en el S de Senna, Ferradura y Bico de Pato
-  const bankBoost = (f) => 1 + 0.5 * (g(f, corner.senna, 200) + g(f, corner.ferradura, 200) + g(f, corner.bico, 160));
+  // peralte: hasta ~14° en las curvas cerradas, más marcado en las eses, la herradura y el pico
+  const bankBoost = (f) => 1 + 0.5 * (g(f, corner.esses, 200) + g(f, corner.horseshoe, 200) + g(f, corner.beak, 160));
   const track = new Track(null, { points: pts, inSectorOrder: false, sectors: [0, 0.16, 0.33, 0.5, 0.66, 0.82], bank: (f, k) => THREE.MathUtils.clamp(k * 42 * bankBoost(f), -0.25, 0.25) });
   const F = track.frame();
   const L = track.length;
@@ -755,14 +755,14 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
     reset: () => rr.reset(),
   };
 
-  // Intro: Júpiter sobre la llanura y la ciudadela, vuelo rasante sobre la sima de Senna y bajada a la parrilla
+  // Intro: Júpiter sobre la llanura y la ciudadela, vuelo rasante sobre la primera sima y bajada a la parrilla
   track.sample(0, F); const grid = F.pos.clone(); const gridTan = F.tan.clone();
   const side = new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x);
-  const senna = new THREE.Vector3(chasms[0].x, 0, chasms[0].z);
+  const chasmA = new THREE.Vector3(chasms[0].x, 0, chasms[0].z);
   const introKeys = () => [
     [0.0, centroid.clone().addScaledVector(JUP_DIR, -1500).addScaledVector(side, 500).setY(260), centroid.clone().addScaledVector(JUP_DIR, 4000).setY(1300), 52],
-    [4.2, citadel.clone().addScaledVector(JUP_DIR, -420).addScaledVector(side, -260).setY(120), senna.clone().setY(-40), 54],
-    [7.4, senna.clone().lerp(centroid, 0.12).setY(75), grid.clone().setY(grid.y + 4), 56],
+    [4.2, citadel.clone().addScaledVector(JUP_DIR, -420).addScaledVector(side, -260).setY(120), chasmA.clone().setY(-40), 54],
+    [7.4, chasmA.clone().lerp(centroid, 0.12).setY(75), grid.clone().setY(grid.y + 4), 56],
     [9.5, grid.clone().addScaledVector(gridTan, -180).setY(grid.y + 55), grid.clone(), 60],
   ];
 

@@ -1,13 +1,26 @@
 // Sonido sintetizado con WebAudio (sin archivos): turbina, viento, impactos y pitidos de salida.
 export class Audio {
-  constructor() { this.ctx = null; this.muted = false; }
+  constructor() {
+    this.ctx = null; this.muted = false;
+    const get = (k) => { try { return localStorage.getItem(k) !== '0'; } catch (e) { return true; } };
+    this.musicOn = get('sarus-music'); this.sfxOn = get('sarus-sfx');
+  }
+  sfxGain() { return this.muted || !this.sfxOn ? 0 : 0.55; }
+  setMusicOn(on) {
+    this.musicOn = on; try { localStorage.setItem('sarus-music', on ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+    if (this.track) this.track.muted = this.muted || !on;
+  }
+  setSfxOn(on) {
+    this.sfxOn = on; try { localStorage.setItem('sarus-sfx', on ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+    if (this.master) this.master.gain.setTargetAtTime(this.sfxGain(), this.ctx.currentTime, 0.05);
+  }
 
   start() {
     if (this.ctx) { this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const c = this.ctx = new AC();
-    this.master = c.createGain(); this.master.gain.value = 0.55; this.master.connect(c.destination);
+    this.master = c.createGain(); this.master.gain.value = this.sfxGain(); this.master.connect(c.destination);
 
     // turbina: dos osciladores desafinados → paso bajo
     this.lp = c.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.Q.value = 6; this.lp.frequency.value = 400;
@@ -47,15 +60,15 @@ export class Audio {
       this.track = new window.Audio(src); this.track.loop = true; this.track.volume = 0.5;
       this.trackName = want; fromStart = true;
     }
-    this.track.muted = this.muted;
+    this.track.muted = this.muted || !this.musicOn;
     if (fromStart) { try { this.track.currentTime = 0; } catch (e) { /* aún sin cargar */ } }
     const p = this.track.play(); if (p && p.catch) p.catch(() => {});
   }
 
   toggleMute() {
     this.muted = !this.muted;
-    if (this.track) this.track.muted = this.muted;
-    if (this.master) this.master.gain.setTargetAtTime(this.muted ? 0 : 0.55, this.ctx.currentTime, 0.05);
+    if (this.track) this.track.muted = this.muted || !this.musicOn;
+    if (this.master) this.master.gain.setTargetAtTime(this.sfxGain(), this.ctx.currentTime, 0.05);
     return this.muted;
   }
 

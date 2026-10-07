@@ -1,6 +1,8 @@
-// Flota SATURN-6 v08 (ships8.glb): 12 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
+// Flota SARUS (ships41.glb): 18 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
+import { SHIP_LORE } from './lore.js';
+
 export const FLEET = [
   { num: '01', node: 'ILION_1', hull: 3, flame: [1.0, 0.76, 0.42], name: 'ILION', tag: 'Flecha de recta. Dirección lenta y pesada, pide anticipar la curva.',
     V: 5, A: 4, M: 3,
@@ -11,7 +13,7 @@ export const FLEET = [
   { num: '03', node: 'THULE_3', hull: 4, flame: [0.72, 0.3, 1.0], name: 'THULE', tag: 'Ligera y saltarina. Sale disparada y rebota en cada bache.',
     V: 3, A: 5, M: 4,
     style: { response: 10, grip: 5.2, gripAB: 7.5, ab: 0.95, mass: 0.78, lean: 0.55, bob: 0.13, bobHz: 3.4, drift: 0.3, pitch: 1.6, kick: 1.35 } },
-  { num: '04', node: 'LUDOX_4', hull: 5, flame: [1.0, 0.45, 0.08], name: 'LUDOX', tag: 'Tanque. Apenas se inmuta con los golpes y sus aerofrenos clavan la nave.',
+  { num: '04', node: 'LUDOX_4', hull: 5, flame: [1.0, 0.45, 0.08], name: 'CALIBUR', logo: 'LUDOX', tag: 'Tanque. Apenas se inmuta con los golpes y sus aerofrenos clavan la nave.',
     V: 4, A: 3, M: 5,
     style: { response: 5.5, grip: 7.2, gripAB: 11, ab: 1.3, mass: 1.45, lean: 0.2, bob: 0.025, bobHz: 1.3, drift: 0.12, pitch: 0.4 } },
   { num: '05', node: 'PRIMEX_5', hull: 4, flame: [1.0, 0.16, 0.05], name: 'PRIME-EX', tag: 'La referencia. Neutra, predecible y rápida en manos finas.',
@@ -58,16 +60,16 @@ export const FLEET = [
     style: { response: 7.8, grip: 6.6, gripAB: 8.6, ab: 1.0, mass: 1.24, lean: 0.3, bob: 0.04, bobHz: 1.8, drift: 0.2, pitch: 0.75 } },
 ];
 
+// capa creativa: escudería, modelo, clase, familia, linaje, procedencia y lore (lore.js)
+for (const d of FLEET) Object.assign(d, SHIP_LORE[d.node] || {});
+
 // hull: impactos de cohete que aguanta (las más rápidas, menos: 3 · 4 · 5)
 // flame: color de la propulsión (los colores de cada escudería)
 export const DEFAULT_SHIP = 4; // PRIME-EX
 
-// Rasgos para el hangar (1–5): derrape y peso se derivan del estilo.
+// Rasgos para el hangar (1–5): velocidad, aceleración, manejo y blindaje (los que cambian la conducción)
 export function traits(d) {
-  const s = d.style;
-  const drift = Math.max(1, Math.min(5, Math.round(6.2 - s.grip * 0.62)));
-  const weight = Math.max(1, Math.min(5, Math.round((s.mass - 0.7) / 0.18 + 1)));
-  return { V: d.V, A: d.A, M: d.M, D: drift, P: weight, H: d.hull || 4 };
+  return { V: d.V, A: d.A, M: d.M, H: d.hull || 4 };
 }
 
 export function statsFor(d) {

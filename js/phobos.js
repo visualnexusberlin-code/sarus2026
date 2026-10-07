@@ -1,7 +1,7 @@
-// PHOBOS: la luna de Marte. Trazado inspirado en Mónaco 1950. Salida en la superficie con Marte enorme al fondo;
+// PHOBOS: la luna de Marte. Trazado de archivo: circuito urbano portuario, c. 1950. Salida en la superficie con Marte enorme al fondo;
 // la pista baja al cráter Stickney, entra en la roca por una boca en su pared (portal con módulos industriales),
-// recorre un túnel octogonal iluminado hasta una gran caverna excavada (Mirabeau, horquilla y Portier, con
-// módulos en las paredes y el anillo de cohetes), vuelve por el túnel largo (Le Tunnel) y sale al fondo del cráter.
+// recorre un túnel octogonal iluminado hasta una gran caverna excavada (curva de entrada, horquilla y salida, con
+// módulos en las paredes y el anillo de cohetes), vuelve por el túnel largo y sale al fondo del cráter.
 //
 // Túneles octogonales: caras planas (pocos vértices, paneles y tiras de luz en las aristas, lectura clara a
 // velocidad) frente al tubo redondo (más vértices para la misma silueta) o el rectangular (demasiado plano).
@@ -13,10 +13,10 @@ import { buildRaceRings } from './rings.js';
 import { TILE, BAKE, gpuBake } from './miranda.js';
 import { QUALITY } from './quality.js';
 
-// Trazado (px del plano). Salida hacia el noreste: Sainte Dévote, Beau Rivage, Massenet (fondo del cráter),
-// boca A, Cassino, caverna (Mirabeau, horquilla, Portier), Le Tunnel, boca B, Chicane du Port, Tabac, Gazomètre
+// Trazado (px del plano). Salida hacia el noreste: primera curva, subida, curva del fondo del cráter,
+// boca A, caverna (entrada, horquilla, salida), túnel largo, boca B, chicane, curva del puerto, última curva
 const RAW = [[95, 335], [130, 300], [170, 268], [210, 245], [245, 228], [272, 222], [292, 232], [312, 258], [340, 282], [370, 300], [398, 322], [415, 345], [440, 362], [470, 378], [500, 400], [525, 428], [550, 442], [578, 440], [598, 424], [606, 398], [612, 370], [630, 355], [670, 352], [720, 354], [765, 357], [778, 372], [768, 390], [752, 404], [745, 425], [750, 442], [762, 438], [768, 418], [778, 402], [798, 406], [818, 420], [824, 438], [804, 456], [772, 476], [736, 492], [690, 506], [650, 515], [612, 512], [580, 500], [548, 484], [512, 464], [478, 440], [452, 418], [432, 408], [412, 400], [396, 384], [372, 356], [340, 326], [308, 296], [280, 274], [255, 266], [228, 274], [195, 293], [160, 320], [128, 350], [104, 385], [85, 425], [68, 458], [50, 480], [32, 482], [22, 462], [26, 432], [40, 400], [64, 366]];
-const IDX = { devote: 5, massenet: 15, inA: 16, cassino: 21, mirabeau: 25, hairpin: 29, portier: 35, ring: 36, tunnel: 40, outB: 46, chicane: 48, tabac: 52 };
+const IDX = { c1: 5, c2: 15, inA: 16, c3: 21, c4: 25, hairpin: 29, c5: 35, ring: 36, tunnel: 40, outB: 46, chicane: 48, c6: 52 };
 const K = 3.4;                                 // ≈ 7,6 km
 const STICKNEY = [480, 420], ST_R = 520, ST_D = 150;
 const HALL = [770, 412], HALL_R = [310, 245], HALL_H = 64;
@@ -267,8 +267,8 @@ export function buildPhobos(def, { world, own, srcMat, renderer }) {
   for (let pass = 0; pass < 8; pass++) base = base.map((_, i) => { let a = 0; for (let k = -12; k <= 12; k++) a += base[(i + k + N) % N]; return a / 25; });
   let y = S.map((p, i) => {
     const f = cum[i] / total;
-    if (!inInt(i)) return Math.max(base[i], natural(p.x, p.z) - 28) + 3 * g(f, corner.devote, 140);
-    return Y_TUN - 16 * g(f, corner.tunnel, 230) + 4 * g(f, corner.cassino, 120);
+    if (!inInt(i)) return Math.max(base[i], natural(p.x, p.z) - 28) + 3 * g(f, corner.c1, 140);
+    return Y_TUN - 16 * g(f, corner.tunnel, 230) + 4 * g(f, corner.c3, 120);
   });
   for (let pass = 0; pass < 5; pass++) y = y.map((_, i) => { let a = 0; for (let k = -6; k <= 6; k++) a += y[(i + k + N) % N]; return a / 13; });
   // caverna: plana
@@ -597,7 +597,7 @@ export function buildPhobos(def, { world, own, srcMat, renderer }) {
     const stp = new THREE.Points(gg, sm); stp.frustumCulled = false; stp.renderOrder = -2; world.add(stp); own.push(gg, sm);
   }
 
-  // ── Anillo de cohetes, a la salida de Portier ──
+  // ── Anillo de cohetes, a la salida de la caverna ──
   const rr = buildRaceRings(world, track, [corner.ring * L], own, { kind: 'rockets', color: [1.0, 0.45, 0.18] });
 
   const fx = {

@@ -9,9 +9,9 @@ import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 import { lavaUniforms } from './atmosphere.js';
 
-// Trazado de la referencia (píxeles de la imagen, sentido de carrera: salida → La Source → Eau Rouge → …)
+// Trazado de la referencia (píxeles de la imagen, sentido de carrera: salida → horquilla → subida del valle → …)
 const RAW = [[290, 715], [200, 773], [110, 833], [40, 875], [14, 886], [6, 870], [28, 832], [60, 760], [95, 690], [130, 648], [175, 610], [215, 568], [255, 520], [290, 470], [322, 440], [365, 420], [420, 405], [480, 355], [540, 305], [600, 262], [660, 240], [800, 190], [950, 135], [1070, 95], [1120, 75], [1155, 68], [1182, 80], [1205, 100], [1240, 100], [1290, 82], [1322, 86], [1360, 130], [1410, 180], [1450, 230], [1476, 268], [1474, 298], [1447, 306], [1415, 282], [1377, 242], [1340, 218], [1300, 224], [1200, 257], [1100, 285], [1020, 305], [970, 335], [952, 380], [955, 440], [985, 500], [1050, 530], [1150, 555], [1240, 578], [1280, 610], [1285, 650], [1275, 700], [1290, 735], [1340, 770], [1420, 810], [1445, 845], [1430, 880], [1390, 935], [1330, 965], [1250, 962], [1180, 935], [1120, 895], [1070, 820], [1030, 745], [990, 680], [960, 650], [880, 612], [760, 585], [680, 610], [560, 665], [450, 690], [392, 706], [376, 690], [368, 665], [352, 654], [336, 664], [312, 694]];
-const IDX = { eauRouge: 12, raidillon: 15, kemmel: 22, combes: 27, bruxelles: 35, pouhon: 45, stavelot: 58, blanchimont: 66 };
+const IDX = { climbA: 12, climbB: 15, longStraight: 22, chicane1: 27, hairpinB: 35, dblLeft: 45, curveS: 58, fastLeft: 66 };
 const K = 1.75;                 // m por píxel → ≈ 8,9 km
 const R_CALDERA = 9000;         // radio de la caldera (comprimida para que se lea desde la pista)
 const MARS_R = 3389500;
@@ -39,10 +39,10 @@ function layout() {
   return { S, cum, total, corner, P };
 }
 
-// Dirección del sol: al final de la recta de Kemmel, casi en el horizonte (atardecer azul marciano)
+// Dirección del sol: al final de la recta larga, casi en el horizonte (atardecer azul marciano)
 export function marsSunDir(elev = 0.075) {
   const { P } = layout();
-  const d = P[IDX.kemmel + 1].clone().sub(P[IDX.kemmel - 2]).setY(0).normalize();
+  const d = P[IDX.longStraight + 1].clone().sub(P[IDX.longStraight - 2]).setY(0).normalize();
   return d.multiplyScalar(Math.cos(elev)).setY(Math.sin(elev)).normalize();
 }
 
@@ -52,18 +52,18 @@ export function buildMars(def, { world, own, srcMat }) {
   const N = S.length;
   const centroid = S.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / N);
 
-  // Caldera: el borde corre paralelo a la recta de Kemmel, a 130 m por el lado de fuera
-  const kA = P[IDX.kemmel - 2], kB = P[IDX.kemmel + 1];
+  // Caldera: el borde corre paralelo a la recta larga, a 130 m por el lado de fuera
+  const kA = P[IDX.longStraight - 2], kB = P[IDX.longStraight + 1];
   const kMid = kA.clone().add(kB).multiplyScalar(0.5);
   const kDir = kB.clone().sub(kA).setY(0).normalize();
   let nOut = new THREE.Vector3(-kDir.z, 0, kDir.x);
   if (nOut.dot(kMid.clone().sub(centroid)) < 0) nOut.negate();
   const C = kMid.clone().addScaledVector(nOut, R_CALDERA + 130);
 
-  // Lengua de lava sobre Stavelot → túnel; grietas bajo los dos saltos
-  const spur = P[IDX.stavelot].clone().lerp(P[IDX.stavelot + 2], 0.5);
+  // Lengua de lava sobre la curva baja → túnel; grietas bajo los dos saltos
+  const spur = P[IDX.curveS].clone().lerp(P[IDX.curveS + 2], 0.5);
   const fAt = (f) => S[Math.round(((f % 1) + 1) % 1 * N) % N];
-  const gapDefs = [[corner.kemmel + 0.004, 58], [corner.blanchimont - 0.012, 50]];   // [fracción, largo m]
+  const gapDefs = [[corner.longStraight + 0.004, 58], [corner.fastLeft - 0.012, 50]];   // [fracción, largo m]
   const trenches = gapDefs.map(([f, len]) => {
     const i = Math.round(f * N) % N, p = S[i], t = S[(i + 2) % N].clone().sub(S[(i - 2 + N) % N]).setY(0).normalize();
     return { p: p.clone().addScaledVector(t, len / 2), d: new THREE.Vector3(-t.z, 0, t.x) };
@@ -99,8 +99,8 @@ export function buildMars(def, { world, own, srcMat }) {
   const hb = S.map((p) => base(p.x, p.z));
   let hs = hb.map((_, i) => { let a = 0; for (let k = -15; k <= 15; k++) a += hb[(i + k + N) % N]; return a / 31; });
   const g = (f, c, w) => { let d = Math.abs(f - c); d = Math.min(d, 1 - d); return Math.exp(-((d * total / w) ** 2)); };
-  const feat = (f) => -32 * g(f, corner.eauRouge, 60) + 42 * g(f, corner.raidillon, 75) + 30 * g(f, corner.kemmel, 110)
-    + 18 * g(f, corner.combes, 150) + 24 * g(f, corner.blanchimont - 0.014, 90) + 30 * g(f, (corner.kemmel + corner.raidillon) / 2, 400);
+  const feat = (f) => -32 * g(f, corner.climbA, 60) + 42 * g(f, corner.climbB, 75) + 30 * g(f, corner.longStraight, 110)
+    + 18 * g(f, corner.chicane1, 150) + 24 * g(f, corner.fastLeft - 0.014, 90) + 30 * g(f, (corner.longStraight + corner.climbB) / 2, 400);
   let y = S.map((p, i) => hs[i] + 58 + feat(cum[i] / total));
   const lim = 0.42 * 8;                                    // pendiente máxima ~42 %
   for (let pass = 0; pass < 3; pass++) {

@@ -6,7 +6,7 @@ import { CONFIG } from './config.js';
 export class Showroom {
   constructor(env, ships, logos = []) {
     const s = this.scene = new THREE.Scene();
-    s.fog = new THREE.FogExp2(0xcccccc, CONFIG.atmosphere.baseDensity * 1.6);
+    s.fog = new THREE.FogExp2(0xcccccc, 0.00054);   // niebla fija del hangar (el cielo sigue al circuito)
     s.environment = env;
     s.environmentIntensity = 0.9;
     s.add(createSky());

@@ -1,4 +1,4 @@
-// ARCADIA-2: paisaje terrestre y colorido sobre la geometría de SATURN-6.
+// ARCADIA: paisaje terrestre y colorido sobre la geometría de SELENE (mismo GLB).
 // Terreno (hierba, roca ocre, campos de lavanda / girasol / amapola, playas), mar turquesa,
 // fachadas mediterráneas, piezas pintadas y arbolado instanciado (cipreses, pinos piñoneros, arbustos en flor).
 import * as THREE from 'three';

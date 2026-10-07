@@ -1,5 +1,5 @@
-// CASSINI-7: sobre los anillos de Saturno, junto a la división de Cassini. Trazado inspirado en Fuji Speedway
-// 1965/74. El tablero descansa en columnas clavadas en fragmentos de hielo y roca de los anillos; bajo la pista,
+// CASSINI-7: sobre los anillos de Saturno, junto a la división de Cassini. Trazado de archivo (años setenta).
+// El tablero descansa en columnas clavadas en fragmentos de hielo y roca de los anillos; bajo la pista,
 // el enjambre de fragmentos; hasta el horizonte, la lámina de anillos con sus bandas; al fondo, Saturno
 // (colores naturales: beige dorado apagado, bandas suaves; anillos crema, tostado y gris azulado).
 import * as THREE from 'three';
@@ -8,7 +8,7 @@ import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 const RAW = [[390, 385], [560, 282], [750, 172], [900, 84], [1000, 40], [1070, 25], [1122, 42], [1140, 100], [1145, 200], [1135, 300], [1110, 370], [1070, 430], [1010, 470], [950, 470], [915, 440], [905, 390], [930, 330], [965, 280], [960, 230], [920, 200], [860, 205], [800, 240], [760, 290], [730, 350], [715, 420], [700, 480], [670, 540], [620, 550], [570, 520], [545, 450], [535, 420], [510, 420], [495, 450], [495, 520], [495, 600], [485, 680], [440, 740], [370, 780], [270, 795], [170, 790], [100, 760], [70, 700], [90, 620], [150, 560], [250, 480], [330, 420]];
-const IDX = { daiichi: 7, suntory: 18, r100: 27, hairpin: 30, r300: 37, last: 41 };
+const IDX = { c1: 7, c2: 18, c3: 27, hairpin: 30, c4: 37, last: 41 };
 const K = 1.6;                    // ≈ 5,8 km
 const RING_Y = -150;              // plano medio del enjambre de fragmentos, bajo la pista
 const SAT_R = 12000;              // radio de Saturno (escala artística: lejano y velado)
@@ -113,9 +113,9 @@ export function buildCassini(def, { world, own, srcMat }) {
   const centroid = S.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / N);
   let rMax = 0; for (const p of S) rMax = Math.max(rMax, Math.hypot(p.x - centroid.x, p.z - centroid.z));
 
-  // ── Cotas: Fuji baja por la recta y sube por la 300R; aquí se acentúa sobre el vacío ──
+  // ── Cotas: el trazado baja por la recta y sube por la curva larga; aquí se acentúa sobre el vacío ──
   const g = (f, c, w) => { let d = Math.abs(f - c); d = Math.min(d, 1 - d); return Math.exp(-((d * total / w) ** 2)); };
-  let y = S.map((_, i) => { const f = cum[i] / total; return 4 - 14 * g(f, corner.daiichi, 420) + 10 * g(f, corner.suntory, 300) - 8 * g(f, corner.hairpin, 220) + 22 * g(f, corner.r300, 520) + 8 * g(f, corner.last, 260); });
+  let y = S.map((_, i) => { const f = cum[i] / total; return 4 - 14 * g(f, corner.c1, 420) + 10 * g(f, corner.c2, 300) - 8 * g(f, corner.hairpin, 220) + 22 * g(f, corner.c4, 520) + 8 * g(f, corner.last, 260); });
   for (let pass = 0; pass < 4; pass++) y = y.map((_, i) => { let a = 0; for (let k = -4; k <= 4; k++) a += y[(i + k + N) % N]; return a / 9; });
   const ground = () => RING_Y;
 

@@ -59,6 +59,7 @@ THREE.Material.prototype.customProgramCacheKey = function () { return baseKey.ca
 
 // Cambia la atmósfera en caliente: parámetros → chunks → shaders propios → recompilación.
 export function applyAtmosphere(params, ...scenes) {
+  A.stars = 0;                         // las claves opcionales no se heredan del circuito anterior
   Object.assign(A, params);
   atmosVersion++;
   installFogChunks();
@@ -130,7 +131,20 @@ const skyFrag = () => {
         lit = mix(lit, SKY_HORIZON, smoothstep(0.3, 0.02, d.y) * 0.55);
         return mix(c, lit, cov * ${f(C.opacity)});
       }` : 'vec3 clouds(vec3 c, vec3 d) { return c; }'}
-      void main() { vec3 d = normalize(vDir); gl_FragColor = vec4(clouds(skyColor(d), d), 1.0); }`;
+      ${A.stars ? /* glsl */`
+      float starAt(vec3 d, float k) {
+        vec3 p = d * k; vec3 i = floor(p); vec3 q = fract(p) - 0.5;
+        float h = fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+        vec3 o = vec3(fract(h * 13.7), fract(h * 71.3), fract(h * 37.9)) - 0.5;
+        float r = length(q - o * 0.5);
+        return step(0.982, h) * smoothstep(0.22, 0.0, r) * (0.35 + (h - 0.982) * 36.0);
+      }
+      vec3 stars(vec3 c, vec3 d) {
+        float m = smoothstep(-0.02, 0.12, d.y);
+        float s = starAt(d, 260.0) + starAt(d.yzx, 140.0) * 1.4;
+        return c + vec3(0.92, 0.95, 1.0) * s * m * ${f(A.stars)};
+      }` : 'vec3 stars(vec3 c, vec3 d) { return c; }'}
+      void main() { vec3 d = normalize(vDir); gl_FragColor = vec4(stars(clouds(skyColor(d), d), d), 1.0); }`;
 };
 export function createSky() {
   const mat = new THREE.ShaderMaterial({
@@ -189,6 +203,58 @@ export function createMoonMaterial(haze = 0.5, tint = new THREE.Color(0.56, 0.57
         vec3 sky = skyColor(d);
         vec3 c = mix(lit, sky, clamp(uHaze + rim * 0.45, 0.0, 1.0));
         gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+}
+
+// ── La Tierra vista desde la Luna: océanos, continentes, casquetes y nubes; borde de atmósfera azul ──
+export function earthMaterial() {
+  return new THREE.ShaderMaterial({
+    fog: false,
+    vertexShader: /* glsl */`
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+      varying vec3 vW; varying vec3 vN; varying vec3 vO;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vW = w.xyz; vO = normalize(position);
+        vN = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * w;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: /* glsl */`
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
+      varying vec3 vW; varying vec3 vN; varying vec3 vO;
+      ${skyGLSL()}
+      float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float n3(vec3 x){ vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
+        return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x), mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x), f.y),
+                   mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x), mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x), f.y), f.z); }
+      float fbm(vec3 p){ float a = 0.0, w = 0.5; for (int i = 0; i < 6; i++) { a += n3(p) * w; p = p * 2.07 + 3.1; w *= 0.5; } return a; }
+      void main() {
+        #include <logdepthbuf_fragment>
+        vec3 d = normalize(vW - cameraPosition);
+        vec3 n = normalize(vN);
+        vec3 o = vO;
+        float lat = abs(o.y);
+        float land = fbm(o * 2.2 + 7.0) + 0.12 * fbm(o * 9.0);
+        float isLand = smoothstep(0.53, 0.56, land);
+        float dry = smoothstep(0.25, 0.0, abs(lat - 0.38) - 0.05) * fbm(o * 5.0 + 2.0);
+        vec3 ocean = mix(vec3(0.02, 0.08, 0.22), vec3(0.04, 0.18, 0.36), smoothstep(0.56, 0.45, land));
+        vec3 ground = mix(vec3(0.12, 0.22, 0.08), vec3(0.42, 0.33, 0.2), smoothstep(0.35, 0.7, dry));
+        vec3 c = mix(ocean, ground, isLand);
+        c = mix(c, vec3(0.9, 0.93, 0.96), smoothstep(0.78, 0.86, lat + 0.06 * fbm(o * 6.0)));
+        float cl = fbm(o * 3.4 + vec3(0.0, 0.0, 11.0)) + 0.35 * fbm(o * vec3(14.0, 4.0, 14.0));
+        float cloud = smoothstep(0.62, 0.86, cl);
+        c = mix(c, vec3(0.96), cloud * 0.92);
+        float l = dot(n, SUN_DIR);
+        float day = smoothstep(-0.12, 0.35, l);
+        float spec = pow(max(dot(reflect(-SUN_DIR, n), -d), 0.0), 40.0) * (1.0 - isLand) * (1.0 - cloud) * 0.6;
+        vec3 lit = c * day * 1.25 + vec3(1.0, 0.95, 0.85) * spec * day;
+        float rim = pow(1.0 - abs(dot(n, -d)), 2.5);
+        lit += vec3(0.25, 0.5, 1.0) * rim * smoothstep(-0.3, 0.4, l) * 0.9;
+        gl_FragColor = vec4(lit, 1.0);
       }`,
   });
 }
