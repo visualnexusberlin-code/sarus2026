@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
+import { QUALITY } from './quality.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 // Trazado (px del recorte del plano), recta de meta hacia +x
@@ -372,7 +373,7 @@ export function buildTiphares(def, { world, own, srcMat }) {
   const uni = { uTime: { value: 0 } };
   const cm = cloudSeaMaterial(uni, tipharesSunDir()); own.push(cm);
   {
-    const gg = new THREE.PlaneGeometry(90000, 90000, 360, 360); gg.rotateX(-Math.PI / 2); gg.translate(centroid.x, CLOUD_Y, centroid.z);
+    const gg = new THREE.PlaneGeometry(90000, 90000, Math.round(360 * QUALITY.segs), Math.round(360 * QUALITY.segs)); gg.rotateX(-Math.PI / 2); gg.translate(centroid.x, CLOUD_Y, centroid.z);
     const sea = new THREE.Mesh(gg, cm); sea.frustumCulled = false; sea.receiveShadow = false; world.add(sea); own.push(gg);
   }
   // cúmulos sueltos que asoman (bolas suaves instanciadas)

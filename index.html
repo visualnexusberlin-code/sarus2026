@@ -291,6 +291,39 @@
   .standings li.me { background: rgba(228, 57, 31, .14); }
   .standings li.me b { color: var(--vermilion); }
   @media (max-height: 430px) { .standings { font-size: 11px; } .standings li { padding: 3px 8px; } .panel .inner { gap: 12px; } }
+
+  /* ---------- Pantalla completa, impactos, móvil ---------- */
+  .fs-btn { font-family: var(--mono); font-size: 16px; line-height: 1; }
+  #fsBtn { position: fixed; z-index: 20; top: calc(var(--gutter) * 0.6 + env(safe-area-inset-top, 0px)); right: calc(var(--gutter) * 0.6 + env(safe-area-inset-right, 0px));
+    width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--fog-dim); background: rgba(20,22,23,.45); color: var(--fog); cursor: pointer; pointer-events: auto; padding: 0; }
+  #fsBtn:hover { background: var(--fog); color: var(--graphite); }
+  .fs-btn svg { display: block; margin: auto; }
+  body:not(.touch).racing #fsBtn { top: auto; bottom: 10px; right: 50%; transform: translateX(50%); }
+  body.touch.racing #fsBtn, body.cine #fsBtn { display: none; }
+  body:not(.touch).racing #fsBtn { opacity: .4; }
+  .hits { display: flex; align-items: baseline; gap: 8px; } .hits b { font-size: 15px; color: #ffb070; font-weight: 500; }
+  .standings li em i.cb { font-style: normal; color: #ffb070; margin-right: 6px; font-size: 11px; }
+  /* resultados: siempre caben; dos columnas con muchas naves; los botones fijos abajo */
+  #results .inner, #pause .inner { max-height: calc(100dvh - 2 * var(--gutter)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  #results .inner { max-width: min(900px, 96vw); }
+  .standings.two { grid-template-columns: 1fr 1fr; grid-auto-flow: column; column-gap: 18px; min-width: min(720px, 92vw); }
+  .row.actions { position: sticky; bottom: 0; padding: 10px 0 2px; background: linear-gradient(rgba(12,13,14,0), rgba(12,13,14,.92) 30%); width: 100%; }
+  /* hangar: el panel se desplaza si no cabe y el botón de correr queda siempre a la vista */
+  .sel-panel { max-height: calc(100dvh - 2 * var(--gutter)); overflow-y: auto; overscroll-behavior: contain; }
+  .sel-row { position: sticky; bottom: 0; z-index: 1; }
+  @media (max-height: 500px) {
+    .standings { font-size: 11px; } .standings li { padding: 3px 8px; } .standings li b { font-size: 10px; } .res-head h2 { font-size: 18px; }
+    .res-pos { font-size: 40px; } .panel .inner { gap: 10px; }
+    .btn { padding: 11px 16px; }
+    .sel-tag { display: none; } .stats { gap: 3px 12px; } .sel-panel h2 { font-size: 26px; }
+    .diff .chip { padding: 6px 9px; }
+  }
+  /* avisos en móvil: una franja discreta arriba, nunca sobre la nave */
+  body.touch #banner { top: auto; bottom: calc(var(--gutter) * 0.6 + env(safe-area-inset-bottom, 0px)); font-size: 10px; letter-spacing: .22em; background: rgba(12,13,14,.45); padding: 6px 14px; border-radius: 3px; }
+  body.touch #banner .split { font-size: 13px; margin-top: 3px; }
+  body.touch #count { top: 30%; font-size: clamp(48px, 9vw, 96px); }
+  body.touch #warn { top: calc(var(--gutter) + 90px); }
+  @media (orientation: portrait) { body.touch #banner { bottom: calc(var(--gutter) + 200px); } }
   @media (prefers-reduced-motion: reduce) {
     .bar, #card, #title { transition: none; }
     #warn.show { animation: none; }
@@ -310,6 +343,7 @@
     <div class="lap num"><span id="posNum">–</span><small> / <span id="posTot">12</span></small></div>
     <span class="label">Blindaje</span>
     <div class="hull" id="hull"></div>
+    <div class="hits num" id="hits" hidden><span class="label">Impactos</span> <b id="hitsN">0</b></div>
     <div class="rule"></div>
     <span class="label">Vuelta</span>
     <div class="lap num"><span id="lapNum">1</span><small> / <span id="lapTot">3</span></small></div>
@@ -349,6 +383,7 @@
     <button class="tb" type="button" data-key="KeyP" aria-label="Pausa">II</button>
     <button class="tb" type="button" data-key="KeyC" aria-label="Cambiar cámara">Cám</button>
     <button class="tb" type="button" data-auto aria-label="Aceleración automática">Auto</button>
+    <button class="tb fs-btn" type="button" aria-label="Pantalla completa"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
   </div>
   <div class="pad">
     <button class="tb sm b-abl" type="button" data-hold="abL" aria-label="Aerofreno izquierdo">◁ AF</button>
@@ -420,6 +455,11 @@
       <button class="chip" type="button" data-diff="normal" aria-pressed="true">Normal</button>
       <button class="chip" type="button" data-diff="hard" aria-pressed="false">Difícil</button>
     </div>
+    <div class="diff" role="group" aria-label="Calidad gráfica">
+      <span class="label">Gráficos</span>
+      <button class="chip" type="button" data-quality="full" aria-pressed="false">Completos</button>
+      <button class="chip" type="button" data-quality="lite" aria-pressed="false">Ligeros</button>
+    </div>
     <div class="diff" role="group" aria-label="Circuito">
       <span class="label">Circuito</span>
       <button class="chip" type="button" data-circ="saturn" aria-pressed="true">SATURN-6</button>
@@ -447,6 +487,7 @@
       <button class="btn" type="button" data-key="KeyI">Repetir intro</button>
       <button class="btn" type="button" data-key="KeyV">Cambiar nave</button>
       <button class="btn" type="button" data-key="KeyH" id="assistBtn">Asistencia · sí</button>
+      <button class="btn" type="button" id="qualityBtn">Calidad · completa</button>
     </div>
     <span class="label desk-only">P · continuar  ·  R · reiniciar  ·  I · repetir intro</span>
   </div>
@@ -458,10 +499,11 @@
     <span class="res-unlock" id="resUnlock" hidden></span>
     <div class="res-head"><span class="res-pos" id="resPos">–</span><div><h2 id="resTotal">0:00.00</h2><span class="sub num" id="resBest"></span></div></div>
     <ol class="standings num" id="standings"></ol>
-    <div class="row"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden>Siguiente</button><button class="btn" type="button" data-key="KeyR">Repetir carrera</button><button class="btn" type="button" data-key="KeyV">Cambiar nave</button></div>
+    <div class="row actions"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden>Siguiente</button><button class="btn" type="button" data-key="KeyR">Repetir carrera</button><button class="btn" type="button" data-key="KeyV">Cambiar nave</button></div>
     <span class="label desk-only">N · siguiente  ·  R · repetir  ·  V · hangar</span>
   </div>
 </div>
+<button id="fsBtn" class="fs-btn" type="button" aria-label="Pantalla completa" hidden><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
 <div id="travel" class="panel" hidden>
   <div class="inner">
     <span class="label">Rumbo al siguiente circuito</span>

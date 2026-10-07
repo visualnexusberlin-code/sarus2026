@@ -15,7 +15,7 @@ export class HUD {
       speed: $('speed'), speedBar: $('speedBar'), boost: $('boostBar'), sector: $('sectorLbl'), cam: $('camLbl'),
       banner: $('banner'), bannerTxt: $('bannerTxt'), bannerSplit: $('bannerSplit'), count: $('count'), warn: $('warn'),
       card: $('card'), cardBig: $('cardBig'), cardSmall: $('cardSmall'),
-      pos: $('posNum'), posTot: $('posTot'), hull: $('hull'), draft: $('draft'), weapon: $('weapon'), weaponN: $('weaponN'), fire: $('touchFire'),
+      pos: $('posNum'), hits: $('hits'), hitsN: $('hitsN'), posTot: $('posTot'), hull: $('hull'), draft: $('draft'), weapon: $('weapon'), weaponN: $('weaponN'), fire: $('touchFire'),
     };
     this.map = $('minimap');
     this.ctx = this.map.getContext('2d');
@@ -84,6 +84,8 @@ export class HUD {
       e.hull.innerHTML = Array.from({ length: ship.maxHull }, (_, i) => `<i class="${i < ship.hull && !(ship.dead > 0) ? 'on' : ''}"></i>`).join('');
       e.hull.classList.toggle('low', ship.hull === 1);
     }
+    const h = ship.race?.hits || 0;
+    if (h !== this.hitsK) { this.hitsK = h; e.hits.hidden = !h; e.hitsN.textContent = ship.race.kills ? `${h} · ✕${ship.race.kills}` : h; }
     e.draft.classList.toggle('on', ship.draft > 0.45);
     const armed = ship.ammo > 0;
     e.weapon.classList.toggle('on', armed); e.weaponN.textContent = armed ? `× ${ship.ammo}` : '—';
@@ -100,8 +102,10 @@ export class HUD {
     if (this.bannerTimer > 0) { this.bannerTimer -= dt; if (this.bannerTimer <= 0) e.banner.classList.remove('show'); }
   }
 
-  banner(text, split = '', plus = false, time = 2.2) {
+  // minor: avisos secundarios; en pantallas táctiles no se muestran (el HUD ya lo indica y taparían la nave)
+  banner(text, split = '', plus = false, time = 2.2, minor = false) {
     const e = this.el;
+    if (minor && document.body.classList.contains('touch')) return;
     e.bannerTxt.textContent = text;
     e.bannerSplit.textContent = split;
     e.bannerSplit.classList.toggle('plus', plus);

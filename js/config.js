@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import { CIRCUITS } from './circuits.js';
+import { LITE } from './quality.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -11,7 +12,7 @@ export const CONFIG = {
   // Modelos: incrustados (gzip + base64) en la versión publicada; en local se leen los .glb.
   models: {
     circuit: { inline: 'model-data', url: 'saturn6.glb' },
-    fleet: { inline: 'model-fleet', url: 'ships41.glb' },   // flota v11: 15 escuderías, acabado con desgaste y pilotos
+    fleet: { inline: 'model-fleet', url: LITE ? 'ships41_lite.glb' : 'ships41.glb' },   // flota v11: 15 escuderías, acabado con desgaste y pilotos
   },
 
   // Sentido de carrera. true = orden de los sectores 01→06 (numerales legibles en pista).

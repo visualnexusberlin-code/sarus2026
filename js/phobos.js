@@ -11,6 +11,7 @@ import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 import { buildRaceRings } from './rings.js';
 import { TILE, BAKE, gpuBake } from './miranda.js';
+import { QUALITY } from './quality.js';
 
 // Trazado (px del plano). Salida hacia el noreste: Sainte Dévote, Beau Rivage, Massenet (fondo del cráter),
 // boca A, Cassino, caverna (Mirabeau, horquilla, Portier), Le Tunnel, boca B, Chicane du Port, Tabac, Gazomètre
@@ -363,7 +364,7 @@ export function buildPhobos(def, { world, own, srcMat, renderer }) {
   }
   // ── El cuerpo entero de Phobos (para la intro y el horizonte): elipsoide grumoso, con hueco bajo la malla fina ──
   {
-    const sg = new THREE.SphereGeometry(1, 320, 160);
+    const sg = new THREE.SphereGeometry(1, Math.round(320 * QUALITY.segs), Math.round(160 * QUALITY.segs));
     const p = sg.attributes.position, v = new THREE.Vector3();
     const big = []; for (let k = 0; k < 40; k++) { const d = new THREE.Vector3(rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1).normalize(); big.push([d, 0.04 + Math.pow(rnd(), 2) * 0.22]); }
     for (let i = 0; i < p.count; i++) {

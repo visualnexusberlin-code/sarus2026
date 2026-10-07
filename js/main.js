@@ -40,6 +40,7 @@ import { buildEuropa, europaSunDir } from './europa.js';
 import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildDeckDetail } from './deckdetail.js';
+import { QUALITY, LITE, setQuality } from './quality.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 installFogChunks();
@@ -53,9 +54,9 @@ try {
   window.__srsFail?.('Este visor no permite gráficos 3D (WebGL). Ábrelo en Chrome, Safari o Firefox, desde una web o el enlace del juego.');
   throw e;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.25 : 1.5));   // arranca prudente; la resolución adaptativa sube a 2 si sobra
+renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.prStart));   // arranca prudente; la resolución adaptativa sube a 2 si sobra
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = QUALITY.shadows;
 renderer.info.autoReset = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -69,7 +70,7 @@ scene.environmentIntensity = 0.85;
 
 const sun = new THREE.DirectionalLight(0xffdcb4, 2.5);
 sun.position.copy(CONFIG.atmosphere.sunDir).multiplyScalar(300);
-sun.castShadow = true;
+sun.castShadow = QUALITY.shadows;
 sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 900 });
 sun.shadow.bias = -0.0004;
@@ -89,7 +90,7 @@ Object.assign(aoPass.configuration, { aoRadius: 4, distanceFalloff: 1.2, intensi
 aoPass.setQualityMode(IS_TOUCH ? 'Performance' : 'Low');
 Object.assign(aoPass.configuration, { halfRes: true });
 composer.addPass(aoPass);
-let aoOn = !IS_TOUCH;
+let aoOn = QUALITY.ao && !IS_TOUCH;
 // qué escena va al compositor (circuito con AO, o el hangar sin ella)
 function setView(sc, cam) {
   renderPass.scene = aoPass.scene = sc; renderPass.camera = aoPass.camera = cam;
@@ -97,7 +98,8 @@ function setView(sc, cam) {
 }
 setView(scene, camera);
 const B = CONFIG.atmosphere.bloom;
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), B.strength, B.radius, B.threshold);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth * QUALITY.bloomScale, innerHeight * QUALITY.bloomScale), B.strength, B.radius, B.threshold);
+if (LITE) bloom.setSize = function (w, h) { UnrealBloomPass.prototype.setSize.call(this, Math.round(w * 0.5), Math.round(h * 0.5)); };
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const grade = new ShaderPass({
@@ -140,7 +142,7 @@ const grade = new ShaderPass({
 composer.addPass(grade);
 // suavizado de bordes al final (el lienzo va sin antialias nativo por el posproceso)
 const smaa = new SMAAPass(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio());
-composer.addPass(smaa);
+if (QUALITY.smaa) composer.addPass(smaa);
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
@@ -155,6 +157,33 @@ resize();
 const input = new Input();
 input.touch = new TouchControls(input);
 document.querySelectorAll('.panel [data-key]').forEach((b) => b.addEventListener('click', () => input.pressed.add(b.dataset.key)));
+// ── Pantalla completa (si el navegador la permite: Android y escritorio; en iPhone no existe para páginas) ──
+{
+  const de = document.documentElement;
+  const can = !!(de.requestFullscreen || de.webkitRequestFullscreen);
+  const isFS = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const toggle = () => {
+    if (isFS()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else {
+      const p = (de.requestFullscreen || de.webkitRequestFullscreen).call(de, { navigationUI: 'hide' });
+      p?.then?.(() => { try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch (e) { /* sin bloqueo */ } }).catch(() => {});
+    }
+  };
+  document.querySelectorAll('.fs-btn').forEach((b) => { b.hidden = !can; b.addEventListener('click', (e) => { e.stopPropagation(); toggle(); }); });
+  if (!can) document.querySelectorAll('.topbtns .fs-btn').forEach((b) => b.remove());
+  const sync = () => document.querySelectorAll('.fs-btn').forEach((b) => { b.classList.toggle('on', isFS()); b.setAttribute('aria-label', isFS() ? 'Salir de pantalla completa' : 'Pantalla completa'); });
+  document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
+}
+// ── Calidad gráfica: completa / ligera (recarga la página) ──
+{
+  const sync = () => {
+    document.querySelectorAll('[data-quality]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.quality === 'lite') === LITE)));
+    const qb = document.getElementById('qualityBtn'); if (qb) qb.textContent = `Gráficos · ${LITE ? 'ligeros' : 'completos'}`;
+  };
+  document.querySelectorAll('[data-quality]').forEach((b) => b.addEventListener('click', () => { if ((b.dataset.quality === 'lite') !== LITE) setQuality(b.dataset.quality === 'lite'); }));
+  document.getElementById('qualityBtn')?.addEventListener('click', () => setQuality(!LITE));
+  sync();
+}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && ['countdown', 'race'].includes(G.state) && !G.paused) input.pressed.add('KeyP');
 });
@@ -164,6 +193,10 @@ window.__srs = G; // gancho de depuración
 
 // ── Circuitos y campeonato: ARCADIA-2 se desbloquea al terminar SATURN-6 ──
 const POINTS = [15, 12, 10, 8, 6, 5, 4, 3, 2, 1];
+// combate: puntúa aunque la nave acabe eliminada (impacto de cohete +2, eliminación +5)
+const HIT_PTS = 2, KILL_PTS = 5;
+const combatPts = (sh) => (sh.race?.hits || 0) * HIT_PTS + (sh.race?.kills || 0) * KILL_PTS;
+const racePts = (sh, i) => (sh.out ? 0 : POINTS[i] || 0) + combatPts(sh);
 {
   const url = new URLSearchParams(location.search).get('circuit');
   G.unlocked = new Set(['saturn']);
@@ -302,6 +335,7 @@ function onLoaded(gltf, fleetGltf) {
     sh.trails = new Trails(scene, 2);
     return sh;
   }).filter(Boolean);
+  G.fleet = G.ships;
   console.info(`[SRS] flota: ${G.ships.map((s) => s.name).join(', ')}`);
   G.choice = Math.min(G.choice, G.ships.length - 1);
 
@@ -666,9 +700,16 @@ function finishCircuit(def, world, track, t0) {
 
 // ── Jugador y parrilla ──
 function setPlayer(i) {
-  G.ships.forEach((s) => { s.player = false; s.removeEngineLight(); });
-  G.ships.forEach((s) => { s.assist = 0; });
-  G.ship = G.ships[i];
+  G.fleet.forEach((s) => { s.player = false; s.removeEngineLight(); s.assist = 0; });
+  G.ship = G.fleet[i];
+  // versión ligera: corre una parrilla reducida (la nave elegida + rivales que rotan de carrera en carrera)
+  if (QUALITY.rivals < G.fleet.length - 1) {
+    const others = G.fleet.filter((s) => s !== G.ship);
+    const k0 = (G.raceSeed = ((G.raceSeed ?? Math.floor(Math.random() * others.length)) + QUALITY.rivals) % others.length);
+    const pick = [...others.slice(k0), ...others.slice(0, k0)].slice(0, QUALITY.rivals);
+    G.ships = [G.ship, ...pick];
+    for (const s of G.fleet) s.root.visible = G.ships.includes(s);
+  } else G.ships = G.fleet;
   G.ship.player = true;
   G.ship.assist = G.assistOn ? 1 : 0;
   G.ship.addEngineLight();
@@ -680,6 +721,7 @@ function gridSlot(k) {
 }
 
 function resetRace() {
+  G.slow = null; G.spectOn = null;
   const { ship: player, track } = G;
   const rivals = G.ships.filter((s) => s !== player);
   const slots = [...Array(G.ships.length).keys()].filter((k) => k !== CONFIG.playerSlot);
@@ -691,7 +733,7 @@ function resetRace() {
     const g = gridSlot(slot);
     sh.reset(g.s, g.x);
     sh.trails.reset();
-    sh.race = { lap: 1, halfway: false, prevS: sh.s, finished: false, finishTime: null, lapStart: 0, progress: 0, slot };
+    sh.race = { lap: 1, halfway: false, prevS: sh.s, finished: false, finishTime: null, lapStart: 0, progress: 0, slot, hits: 0, kills: 0 };
     if (sh !== player) {
       const D = diff();
       const skill = D.skillTop - slot * D.skillStep * 7 / Math.max(1, G.ships.length - 1);   // mismo abanico con 8 o 12 naves
@@ -741,15 +783,15 @@ function goSelect() {
   G.hud.show(false);
   $('select').hidden = false;
   G.pick = G.circuitId;
-  for (const sh of G.ships) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); }   // el hangar las muestra reparadas
+  for (const sh of G.fleet) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); }   // el hangar las muestra reparadas
   setView(G.showroom.scene, G.showroom.camera);
   showChoice(G.choice);
 }
 
 function showChoice(i) {
-  const n = G.ships.length;
+  const n = G.fleet.length;
   G.choice = (i + n) % n;
-  const sh = G.ships[G.choice], d = sh.def;
+  const sh = G.fleet[G.choice], d = sh.def;
   G.showroom.show(G.choice);
   renderCircuitChips();
   $('selNum').textContent = d.num;
@@ -947,7 +989,7 @@ function updateRace(dt) {
     if (race.countdown < 0.9 && race.countdown > 0.6 && inp.throttle) race.perfect = true;
     if (race.countdown <= 0.6) {
       G.state = 'race';
-      if (race.perfect) { ship.boostKick = 1.4; hud.banner('Salida perfecta', '', false, 1.4); }
+      if (race.perfect) { ship.boostKick = 1.4; hud.banner('Salida perfecta', '', false, 1.4, true); }
       // los rivales también tienen reflejos (unos mejores que otros)
       for (const [sh, ai] of G.ai) if (Math.random() < ai.skill - 0.5) sh.boostKick = 0.6 + Math.random() * 0.6;
     }
@@ -990,19 +1032,19 @@ function updateRace(dt) {
       if (it.type === 'G') sh.boostPad(); else sh.ammo = Math.min(2, sh.ammo + 1);
       if (sh === ship) {
         audio.chime(it.type === 'R');
-        hud.banner(it.type === 'G' ? 'Boost' : 'Cohete listo', it.type === 'R' ? (IS_TOUCH ? 'Pulsa COHETE' : 'F · disparar') : '', false, 1.2);
+        hud.banner(it.type === 'G' ? 'Boost' : 'Cohete listo', it.type === 'R' ? (IS_TOUCH ? 'Pulsa COHETE' : 'F · disparar') : '', false, 1.2, true);
       }
     });
     // anillos de carrera (EUROPA): reparan el blindaje, recargan dos cohetes y dan un empujón
     G.circuitFx?.passRings?.(G.ships, (sh, gate) => {
       if (gate?.kind === 'rockets') {                    // anillo de cohetes (PHOBOS): solo recarga
         sh.ammo = 2;
-        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner('Anillo de cohetes', IS_TOUCH ? 'Cohetes × 2 · pulsa COHETE' : 'Cohetes × 2 · F disparar', false, 1.6); }
+        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner('Anillo de cohetes', IS_TOUCH ? 'Cohetes × 2 · pulsa COHETE' : 'Cohetes × 2 · F disparar', false, 1.6, true); }
         return;
       }
       sh.hull = sh.maxHull; sh.setDamage(); sh.ammo = 2;
       sh.boostPad(); sh.boost = 1; sh.boostKick = Math.max(sh.boostKick, 1.5 * (sh.C.kick || 1));
-      if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner('Anillo', 'Blindaje restaurado · cohetes × 2 · boost', false, 1.6); }
+      if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner('Anillo', 'Blindaje restaurado · cohetes × 2 · boost', false, 1.6, true); }
     });
     for (const sh of G.ships) {
       const wants = sh === ship ? (inp.fire && !G.playerAI) : G.ai.get(sh)?.inp.fire;
@@ -1010,6 +1052,7 @@ function updateRace(dt) {
     }
   }
   G.missiles.update(dt, G.ships, (shooter, victim, result, pos) => {
+    if (shooter && shooter !== victim && shooter.race) { shooter.race.hits++; if (result === 'destroyed') shooter.race.kills++; }
     const d = victim.root.position.distanceTo(ship.root.position);
     const destroyed = result === 'destroyed';
     if (d < 700) audio.boom(Math.max(0.25, 1 - d / 700) * (destroyed ? 1.4 : 1));
@@ -1023,10 +1066,14 @@ function updateRace(dt) {
       if (destroyed) hud.banner('Eliminado', `Fuera de carrera · ${shooter.name}`, true, 3.2);
       else hud.banner(ship.hull === 1 ? 'Blindaje crítico' : 'Impacto', `Blindaje ${ship.hull}/${ship.maxHull} · ${shooter.name}`, true, 1.6);
     } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} eliminada` : `Impacto · ${victim.name}`, destroyed ? 'Fuera de carrera' : `Blindaje ${victim.hull}/${victim.maxHull}`, false, 1.6);
-    else if (destroyed && d < 900) hud.banner(`${victim.name} eliminada`, `por ${shooter.name}`, false, 1.4);
+    else if (destroyed && d < 900) hud.banner(`${victim.name} eliminada`, `por ${shooter.name}`, false, 1.4, true);
   });
   // jugador eliminado: unos segundos viendo los restos y a la clasificación
-  if (ship.out && G.state === 'race') { race.outTimer = (race.outTimer ?? 3.5) - dt; if (race.outTimer <= 0) finish(); }
+  // jugador eliminado: cámara lenta, la cámara se aleja de los restos y enseguida la clasificación en vivo
+  if (ship.out && G.state === 'race') {
+    if (!G.slow) G.slow = { t: 0 };
+    if (G.slow.t > 1.1) finish();
+  }
   resolveCollisions(G.ships, track, (a, b, impact) => {
     if (a === ship || b === ship) {
       G.chase.addShake(Math.min(0.9, impact / 25));
@@ -1058,7 +1105,7 @@ function updateRace(dt) {
       const prevBest = race.bestSplits[key];
       const delta = prevBest !== undefined ? split - prevBest : null;
       if (prevBest === undefined || split < prevBest) race.bestSplits[key] = split;
-      hud.banner(`Sector ${String(race.sector).padStart(2, '0')} · P${race.pos}`, delta === null ? fmt(split) : `${delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(2)}`, delta !== null && delta > 0);
+      hud.banner(`Sector ${String(race.sector).padStart(2, '0')} · P${race.pos}`, delta === null ? fmt(split) : `${delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(2)}`, delta !== null && delta > 0, 2.2, true);
     }
     race.wrongWay = Math.cos(ship.psi) < -0.2 && ship.v > 5;
   }
@@ -1082,10 +1129,27 @@ function updateRace(dt) {
   if (input.hit('KeyC', 'PadY')) hud.el.cam.textContent = G.chase.cycle().label;
   if (ship.quickEvent) { audio.whoosh(); G.chase.addShake(0.12); }
   for (const sh of G.ships) sh.quickEvent = false;
-  G.chase.update(ship, dt);
+  const spect = spectateTarget();
+  if (spect !== G.spectOn) { G.spectOn = spect; if (spect !== ship) G.chase.snap(spect); }
+  G.chase.update(spect, dt);
+  if (ship.out && G.slow && G.slow.t < 2.6) orbitWreck(ship);
   hud.update(race, ship, dt, G.ships);
   input.touch.setBoost(ship.boost);
   audio.engine(Math.min(1.3, ship.v / ship.C.vmax), ship.throttle, ship.boosting || ship.boostKick > 0 ? 1 : 0);
+}
+
+// tras la eliminación: primero los restos vistos desde lejos (sin humo en la cara de la cámara), luego la nave en cabeza
+function spectateTarget() {
+  const ship = G.ship;
+  if (!ship.out || !G.slow || G.slow.t < 2.6) return ship;
+  return G.order.find((s) => !s.out && !s.race.finished) || G.order.find((s) => !s.out) || ship;
+}
+const _ow = new THREE.Vector3(), _or = new THREE.Vector3();
+function orbitWreck(sh) {
+  const t = G.slow.t, a = 0.8 + t * 0.35, d = 26 + t * 9, h = 9 + t * 5;
+  _ow.copy(sh.root.position);
+  camera.position.copy(_ow).addScaledVector(sh.fwd, -Math.cos(a) * d).addScaledVector(_or.crossVectors(sh.fwd, sh.upv).normalize(), Math.sin(a) * d).addScaledVector(sh.upv, h);
+  camera.lookAt(_ow.addScaledVector(sh.upv, 1.5));
 }
 
 function playerLap() {
@@ -1116,7 +1180,8 @@ function finish() {
   $('resLabel').textContent = last ? 'Campeonato · clasificación final' : `${G.circuit.name} · ${dnf ? 'Eliminado' : 'Carrera terminada'}`;
   $('resPos').textContent = dnf ? 'DNF' : `${r.pos}º`;
   $('resTotal').textContent = dnf ? `Vuelta ${Math.min(G.ship.race.lap, r.laps)} de ${r.laps}` : fmt(r.finishedAt);
-  $('resBest').textContent = `Mejor vuelta ${r.best < Infinity ? fmt(r.best) : '—'}` + (G.cup ? ` · +${dnf ? 0 : POINTS[r.pos - 1] || 0} pts` : '');
+  const me = G.ship.race, cp = combatPts(G.ship), pp = dnf ? 0 : POINTS[r.pos - 1] || 0;
+  $('resBest').textContent = `Mejor vuelta ${r.best < Infinity ? fmt(r.best) : '—'} · +${pp + cp} pts` + (me.hits ? ` (${me.hits} impactos${me.kills ? ` · ${me.kills} eliminadas` : ''})` : '');
   const nb = $('nextBtn');
   nb.hidden = !(nx && G.unlocked.has(nx.id));
   if (nx) nb.textContent = `${G.cup ? 'Siguiente carrera' : 'Siguiente circuito'} · ${nx.name}`;
@@ -1124,13 +1189,13 @@ function finish() {
   if (unlocking) $('resUnlock').textContent = `Desbloqueado · ${nx.name}`;
   r.resultsTimer = 0;
   if (!dnf) G.hud.banner(r.pos === 1 ? 'Victoria' : `Meta · ${r.pos}º`, fmt(r.finishedAt), false, 3);
-  setTimeout(() => { if (G.state === 'finished') { renderStandings(); $('results').hidden = false; } }, 1600);
+  setTimeout(() => { if (G.state === 'finished') { renderStandings(); $('results').hidden = false; } }, dnf ? 500 : 1600);
   audio.beep(true);
 }
 
 // puntos de la ronda: las eliminadas no puntúan (se recalcula mientras el resto termina)
 function cupPoints() {
-  if (G.cup) G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, sh.out ? 0 : POINTS[i] || 0]));
+  if (G.cup) G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, racePts(sh, i)]));
 }
 
 function cupTotals() {
@@ -1139,14 +1204,22 @@ function cupTotals() {
   return tot;
 }
 
+function setTwoCols(n) {
+  const el = $('standings'), two = n > 8;
+  el.classList.toggle('two', two);
+  el.style.gridTemplateRows = two ? `repeat(${Math.ceil(n / 2)}, auto)` : '';
+}
+
 function renderStandings() {
   if (G.cup && G.cup.round === CIRCUITS.length - 1 && G.cup.results[G.cup.round]) {
     const tot = cupTotals(), race = G.cup.results[G.cup.round];
     const rows = [...G.ships].sort((a, b) => tot.get(b.name) - tot.get(a.name) || race.get(b.name) - race.get(a.name));
+    setTwoCols(rows.length);
     $('standings').innerHTML = rows.map((sh, i) => `<li class="${sh === G.ship ? 'me' : ''}"><span>${i + 1}</span><b>${sh.name}</b><em>${tot.get(sh.name)} pts <small>+${race.get(sh.name)}</small></em></li>`).join('');
     return;
   }
   const L = G.track.length, lead = G.order[0];
+  setTwoCols(G.order.length);
   $('standings').innerHTML = G.order.map((sh, i) => {
     const r = sh.race;
     let t;
@@ -1156,12 +1229,14 @@ function renderStandings() {
       const gap = (lead.race.finished ? G.race.laps * L : lead.race.progress) - r.progress;
       t = gap > L ? `+${Math.floor(gap / L)} v` : 'en pista';
     }
-    const pts = G.cup ? ` <small>+${sh.out ? 0 : POINTS[i] || 0}</small>` : '';
+    const c = sh.race.hits ? ` <i class="cb">✶${sh.race.hits}${sh.race.kills ? ' ✕' + sh.race.kills : ''}</i>` : '';
+    const pts = `${c} <small>+${racePts(sh, i)}</small>`;
     return `<li class="${sh === G.ship ? 'me' : ''}"><span>${i + 1}</span><b>${sh.name}</b><em>${t}${pts}</em></li>`;
   }).join('');
 }
 
 function restart(withIntro = false) {
+  G.slow = null; G.spectOn = null;
   $('results').hidden = true;
   $('pause').hidden = true;
   G.paused = false;
@@ -1205,7 +1280,7 @@ function emitDamage(dt) {
     }
     if (lvl <= 0) continue;
     sh._dmgAcc = (sh._dmgAcc || 0) + dt;
-    const step = sh.out ? 1 / 22 : 1 / (6 + lvl * 22);
+    const step = sh.out ? (QUALITY.lite ? 1 / 9 : 1 / 22) : 1 / (6 + lvl * 22) * (QUALITY.lite ? 1.6 : 1);
     if (sh._dmgAcc < step) continue;
     const n = Math.min(4, Math.floor(sh._dmgAcc / step)); sh._dmgAcc -= n * step;
     for (let k = 0; k < n; k++) {
@@ -1279,7 +1354,7 @@ let fpsAcc = 0, fpsN = 0;
 let selPrevSteer = 0;
 
 // Resolución adaptativa: si el equipo no llega a ~50 fps baja la densidad de píxeles, y la recupera si sobra
-const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2), PR_MIN = Math.min(PR_MAX, 1);
+const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? Math.min(1.5, QUALITY.prMax) : QUALITY.prMax), PR_MIN = Math.min(PR_MAX, QUALITY.prMin);
 const perf = { pr: renderer.getPixelRatio(), acc: 0, n: 0, last: 0, good: 0 };
 function adaptRes() {
   const now = performance.now(), d = now - perf.last; perf.last = now;
@@ -1335,9 +1410,14 @@ function tick(dt) {
 
   if (G.state === 'select') {
     G.time += dt;
-    G.showroom.update(dt, innerWidth / innerHeight, G.ships);
+    G.showroom.update(dt, innerWidth / innerHeight, G.fleet);
     audio.engine(0, 0, 0, false);
   } else if (!G.paused) {
+    if (G.slow) {                                          // cámara lenta tras la eliminación del jugador
+      const t = (G.slow.t += dt);
+      G.slow.k = t < 0.35 ? 1 - 0.82 * (t / 0.35) : t < 2.4 ? 0.18 : t < 3.6 ? 0.18 + 0.82 * ((t - 2.4) / 1.2) : 1;
+      dt *= G.slow.k;
+    }
     G.time += dt;
     lavaUniforms.uTime.value = G.time;
     skyUniforms.uTime.value = G.time;
