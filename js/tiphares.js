@@ -3,6 +3,7 @@
 // en el gran espacio interior del trazado (donde estaría el lago) flota la ciudadela Tiphares: un loto metálico
 // de pétalos curvos, con una cúpula de cristal llena de agujas y un tallo de discos que se hunde en las nubes.
 import * as THREE from 'three';
+import { reshapeLoop } from './reshape.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { QUALITY } from './quality.js';
@@ -29,6 +30,7 @@ function layout() {
   const L = curve.getLength(), N = Math.round(L / 8);
   let S = curve.getSpacedPoints(N).slice(0, N);
   for (let pass = 0; pass < 4; pass++) S = S.map((_, i) => { const a = new THREE.Vector3(); for (let k = -4; k <= 4; k++) a.add(S[(i + k + N) % N]); return a.multiplyScalar(1 / 9); });
+  S = reshapeLoop(S, 'tiphares');               // tramos redibujados (reshape.js)
   const cum = [0]; for (let i = 1; i <= N; i++) cum.push(cum[i - 1] + S[i % N].distanceTo(S[i - 1]));
   const total = cum[N];
   const fOf = (p) => { let b = 0, bd = Infinity; S.forEach((q, i) => { const d = q.distanceToSquared(p); if (d < bd) { bd = d; b = i; } }); return cum[b] / total; };

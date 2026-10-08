@@ -4,6 +4,7 @@
 // van al borde de Verona Rupes: un corte de varios kilómetros con Urano gigante al fondo. Las eses se encajan en
 // una garganta a anchura de carrera.
 import * as THREE from 'three';
+import { reshapeLoop } from './reshape.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { buildRaceRings } from './rings.js';
@@ -39,6 +40,7 @@ function layout() {
   const L = curve.getLength(), N = Math.round(L / 8);
   let S = curve.getSpacedPoints(N).slice(0, N);
   for (let pass = 0; pass < 4; pass++) S = S.map((_, i) => { const a = new THREE.Vector3(); for (let k = -4; k <= 4; k++) a.add(S[(i + k + N) % N]); return a.multiplyScalar(1 / 9); });
+  S = reshapeLoop(S, 'miranda');               // tramos redibujados (reshape.js)
   const cum = [0]; for (let i = 1; i <= N; i++) cum.push(cum[i - 1] + S[i % N].distanceTo(S[i - 1]));
   const total = cum[N];
   const fOf = (p) => { let b = 0, bd = Infinity; S.forEach((q, i) => { const d = q.distanceToSquared(p); if (d < bd) { bd = d; b = i; } }); return cum[b] / total; };
