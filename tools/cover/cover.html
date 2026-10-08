@@ -13,20 +13,35 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 const Q = new URLSearchParams(location.search);
 const W = +Q.get('w') || 2048, H = +Q.get('h') || 1000, SHOT = Q.get('shot') || 'feature', ROLL = Q.get('roll');
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(W, H);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x010204);
 const pm = new THREE.PMREMGenerator(renderer);
-scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.35;
+{
+  // entorno para reflejos: cielo negro arriba, la Tierra azul abajo (más clara en el limbo), el sol como punto caliente
+  const env = new THREE.Scene();
+  const sunDir = new THREE.Vector3(0.9, 0.3, -0.12).normalize();
+  env.add(new THREE.Mesh(new THREE.SphereGeometry(100, 64, 32), new THREE.ShaderMaterial({ side: THREE.BackSide, uniforms: { uS: { value: sunDir } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `uniform vec3 uS; varying vec3 vD; void main(){
+      float y = vD.y; vec3 c = mix(vec3(0.004, 0.006, 0.012), vec3(0.02, 0.05, 0.1), smoothstep(0.5, 0.0, y));
+      c = mix(c, vec3(0.06, 0.2, 0.5), smoothstep(0.02, -0.12, y)); c = mix(c, vec3(0.03, 0.09, 0.22), smoothstep(-0.3, -0.9, y));
+      c += vec3(0.35, 0.65, 1.0) * exp(-abs(y + 0.03) * 22.0) * 0.8;
+      float s = max(dot(vD, uS), 0.0); c += vec3(1.0, 0.92, 0.8) * (pow(s, 600.0) * 40.0 + pow(s, 24.0) * 0.6);
+      gl_FragColor = vec4(c, 1.0); }` })));
+  scene.environment = pm.fromScene(env, 0).texture; scene.environmentIntensity = 1.0;
+}
 const camera = new THREE.PerspectiveCamera(26, W / H, 0.5, 200000);
 
 // ── Sol: detrás del limbo, a la izquierda (amanecer orbital) ──
-const SUN = new THREE.Vector3(-0.78, 0.05, -0.62).normalize();
+const SUN = new THREE.Vector3(0.9, 0.3, -0.12).normalize();   // sol a la derecha, detrás: noche a la izquierda, bajo la estela
 
 // ── Estrellas ──
 {
@@ -65,8 +80,8 @@ const earth = new THREE.Mesh(new THREE.SphereGeometry(ER, 256, 192), new THREE.S
       c = mix(c, vec3(0.95), cl * 0.9);
       float d = dot(n, uSun);
       float day = smoothstep(-0.08, 0.3, d);
-      float city = isL * (1.0 - cl) * smoothstep(0.62, 0.8, fbm(o * 22.0)) * smoothstep(0.05, -0.2, d);
-      vec3 col = c * day * 1.2 + vec3(1.0, 0.68, 0.32) * city * 0.9;
+      float city = isL * (1.0 - cl) * pow(smoothstep(0.55, 0.85, fbm(o * 70.0)), 2.0) * smoothstep(0.62, 0.7, fbm(o * 8.0 + 4.0)) * smoothstep(0.02, -0.25, d);
+      vec3 col = c * day * 1.2 + vec3(1.0, 0.7, 0.36) * city * 1.4;
       float spec = pow(max(dot(reflect(-uSun, n), v), 0.0), 60.0) * (1.0 - isL) * (1.0 - cl) * day;
       col += vec3(1.0, 0.9, 0.75) * spec * 0.8;
       float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
@@ -100,9 +115,12 @@ const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blen
 scene.add(sunSprite);
 
 // ── Luces ──
-const key = new THREE.DirectionalLight(0xfff2e2, 3.4); key.position.copy(SUN).multiplyScalar(100); scene.add(key);
-const earthFill = new THREE.DirectionalLight(0x5f9cff, 1.3); earthFill.position.set(0.2, -1, 0.3); scene.add(earthFill);
-const rim = new THREE.DirectionalLight(0xbfe0ff, 2.2); rim.position.set(0.6, 0.4, -1); scene.add(rim);
+const key = new THREE.DirectionalLight(0xfff0dc, 4.2); key.position.copy(SUN).multiplyScalar(40); key.castShadow = true;
+key.shadow.mapSize.set(4096, 4096); Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 120 }); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+scene.add(key, key.target);
+const front = new THREE.DirectionalLight(0xd8e2f0, 3.6); front.position.set(-0.3, 0.7, 1); scene.add(front);   // relleno suave desde cámara
+const earthFill = new THREE.DirectionalLight(0x5a96ff, 2.6); earthFill.position.set(0.4, -1, 0.5); scene.add(earthFill);
+const rim = new THREE.DirectionalLight(0xdcecff, 3.2); rim.position.set(0.3, 0.6, -1); scene.add(rim);   // contraluz: filo de luz en la silueta
 
 // ── VEGA ──
 const ION = new THREE.Color(0.45, 0.7, 1.0);
@@ -118,9 +136,12 @@ model.traverse((o) => {
     if (/_Ion/.test(m.name)) { m.emissive?.copy(ION); m.color?.copy(ION); m.emissiveIntensity = 9; m.toneMapped = false;
       const p = o.geometry.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); ionPts.push(v.clone()); } }
     if (/_Hover/.test(m.name)) { m.emissive?.copy(ION); m.emissiveIntensity = 3; }
-    if (m.envMapIntensity !== undefined) m.envMapIntensity = 1.2;
+    if (m.envMapIntensity !== undefined) m.envMapIntensity = 1.6;
+    if (m.isMeshStandardMaterial && !/_Ion|_Hover|light|Light|HUD/.test(m.name)) { m.roughness = Math.max(0.12, m.roughness * 0.72); }
+    if (m.isMeshPhysicalMaterial) { m.clearcoat = Math.max(m.clearcoat, 0.6); m.clearcoatRoughness = 0.08; }
   }
 });
+model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 ship.add(model);
 const box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3());
 // toberas: agrupar los vértices de los discos de ion en tres centros (k-medias)
@@ -163,26 +184,109 @@ for (const c of cs) {
 
 // ── Encuadre: la nave en diagonal ascendente (eco del logo), espacio libre para el logotipo ──
 const cfg = {
-  feature: { dir: [0.93, 0.22, 0.12], roll: 0.18, cam: [2.5, 5.2, 16.5], look: [-0.6, 0.4, 0], shipPos: [2.2, 0, 0] },
-  wide:    { dir: [0.93, 0.22, 0.12], roll: 0.18, cam: [2.5, 5.4, 18], look: [-0.4, 0.6, 0], shipPos: [2.6, 0, 0] },
+  feature: { dir: [0.84, 0.18, 0.42], roll: 0.22, cam: [4.5, 8.5, 40], look: [-4.4, 0.9, 0], shipPos: [2.0, 0, 0], fov: 16 },
+  wide:    { dir: [0.84, 0.18, 0.42], roll: 0.22, cam: [4.5, 8.5, 42], look: [-4.0, 1.1, 0], shipPos: [2.4, 0, 0], fov: 17 },
   diagA:   { dir: [1, 0, 0], roll: 0, cam: [6, 7, 12], look: [0, 0, 0], shipPos: [0, 0, 0] },
   diagB:   { dir: [1, 0, 0], roll: 0, cam: [0, 1, 14], look: [0, 0, 0], shipPos: [0, 0, 0] },
-  square:  { dir: [0.9, 0.3, 0.2], roll: 0.18, cam: [2.0, 5.0, 14], look: [0.2, 0.8, 0], shipPos: [0.2, 0, 0] },
+  square:  { dir: [0.8, 0.24, 0.46], roll: 0.22, cam: [5, 9.5, 44], look: [-3.6, 1.0, 0], shipPos: [0.2, 0, 0], fov: 20 },
 }[SHOT];
 // el morro de la nave apunta a cfg.dir (sube hacia la derecha, como el trazo del logo); estela abajo a la izquierda
 if (back > 0) { model.rotation.y = Math.PI; for (const c of ship.children) if (c !== model) { c.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); c.rotateY(Math.PI); } }
 ship.position.set(...cfg.shipPos);
 const D = new THREE.Vector3(...cfg.dir).normalize();
 ship.up.set(0, 1, 0); ship.lookAt(ship.position.clone().add(D)); ship.rotateZ(ROLL !== null ? +ROLL : cfg.roll);
-camera.position.set(...cfg.cam); camera.lookAt(...cfg.look); camera.updateProjectionMatrix();
+camera.fov = cfg.fov || 26; camera.position.set(...cfg.cam); camera.lookAt(...cfg.look); camera.updateProjectionMatrix();
+
+// ── Tramo de pista flotante bajo la nave y anillo de restauración recién cruzado ──
+if (Q.get('track') !== '0') {
+  const U = new THREE.Vector3(0, 1, 0).applyQuaternion(ship.quaternion).normalize();
+  const F = D.clone().sub(U.clone().multiplyScalar(D.dot(U))).normalize();
+  const Rt = new THREE.Vector3().crossVectors(F, U).normalize();
+  const HW = 4.2, HOVER = 1.3;
+  const base = ship.position.clone().addScaledVector(U, -HOVER - (box.min.y < 0 ? -box.min.y * 0.2 : 0));
+  const at = (t) => base.clone().addScaledVector(F, t).addScaledVector(Rt, 0.0016 * t * t * Math.sign(t)).addScaledVector(U, -0.0006 * t * t);
+  const N = 220, T0 = -170, T1 = 60;
+  const ribbon = (x0, x1, y0, y1) => {
+    const pos = [], uv = [], idx = [];
+    for (let i = 0; i <= N; i++) {
+      const t = T0 + (T1 - T0) * i / N, p = at(t), q = at(t + 0.5), f = q.clone().sub(p).normalize(), r = new THREE.Vector3().crossVectors(f, U).normalize();
+      for (const [x, y, u] of [[x0, y0, 0], [x1, y1, 1]]) { const v = p.clone().addScaledVector(r, x).addScaledVector(U, y); pos.push(v.x, v.y, v.z); uv.push(u, t); }
+      if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  };
+  // tablero: grafito con juntas, carriles y chevrones tenues
+  const deckMat = new THREE.MeshStandardMaterial({ color: 0x1a1d21, roughness: 0.42, metalness: 0.55, side: THREE.DoubleSide });
+  deckMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vTu;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvTu = uv;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vTu;')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float jt = smoothstep(0.47, 0.495, abs(fract(vTu.y / 6.0) - 0.5));
+        float lane = smoothstep(0.004, 0.0, abs(abs(vTu.x - 0.5) - 0.17)) * step(0.5, fract(vTu.y / 8.0));
+        float edge = smoothstep(0.02, 0.0, min(vTu.x, 1.0 - vTu.x) - 0.012);
+        float chev = smoothstep(0.455, 0.475, abs(fract((vTu.y + abs(vTu.x - 0.5) * 9.0) / 24.0) - 0.5)) * step(abs(vTu.x - 0.5), 0.12);
+        diffuseColor.rgb *= 1.0 - jt * 0.45;
+        totalEmissiveRadiance += vec3(0.85, 0.9, 0.95) * lane * 0.25 + vec3(0.5, 0.85, 1.0) * edge * 0.9 + vec3(1.0, 0.25, 0.08) * chev * 0.45;`);
+  };
+  const deck = new THREE.Mesh(ribbon(-HW, HW, 0, 0), deckMat); deck.receiveShadow = true; scene.add(deck);
+  const under = new THREE.Mesh(ribbon(-HW * 0.92, HW * 0.92, -1.6, -1.6), new THREE.MeshStandardMaterial({ color: 0x101214, roughness: 0.6, metalness: 0.4, side: THREE.DoubleSide })); scene.add(under);
+  // muros bajos con filo luminoso
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide });
+  const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.8, 1.3, 1.7), side: THREE.DoubleSide, toneMapped: false });
+  for (const sd of [-1, 1]) {
+    scene.add(new THREE.Mesh(ribbon(sd * HW, sd * (HW + 0.5), 0, 1.1), wallMat));
+    scene.add(new THREE.Mesh(ribbon(sd * (HW + 0.18), sd * (HW + 0.36), 1.13, 1.17), glowMat));
+  }
+  // anillo de restauración (como en EUROPA): aro metálico, filo azul encendido y película de luz; la nave acaba de cruzarlo
+  const tR = -24, ringR = 5.6, rp = at(tR).addScaledVector(U, ringR - 1.6), rf = at(tR + 0.5).sub(at(tR)).normalize();
+  const ring = new THREE.Group(); ring.position.copy(rp); ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), rf); scene.add(ring);
+  const hull = new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.75, 24, 160), new THREE.MeshStandardMaterial({ color: 0x5d646c, roughness: 0.45, metalness: 0.9 }));
+  hull.castShadow = true; ring.add(hull);
+  for (const [r, w] of [[ringR - 0.78, 0.12], [ringR + 0.78, 0.08]]) ring.add(new THREE.Mesh(new THREE.TorusGeometry(r, w, 8, 200), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.8, 1.15), toneMapped: false })));
+  for (let k = 0; k < 6; k++) {   // nodos de anclaje
+    const a = k / 6 * Math.PI * 2 + 0.26, n = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 2.2), new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.3, metalness: 0.9 }));
+    n.position.set(Math.cos(a) * ringR, Math.sin(a) * ringR, 0); n.rotation.z = a; ring.add(n);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.6, 2.3), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.8, 1.15), toneMapped: false })); l.position.copy(n.position).multiplyScalar(0.985); l.rotation.z = a; ring.add(l);
+  }
+  const film = new THREE.Mesh(new THREE.CircleGeometry(ringR - 0.7, 96), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `varying vec2 vP; void main(){ float r = length(vP) / ${(ringR - 0.7).toFixed(2)};
+      float a = 0.012 + 0.16 * pow(r, 8.0) + 0.015 * sin(r * 40.0) * r; gl_FragColor = vec4(vec3(0.35, 0.75, 1.0) * a, 1.0); }`,
+  }));
+  ring.add(film);
+}
+
 // sol justo sobre el limbo, a la izquierda del encuadre
-sunSprite.position.copy(EC).addScaledVector(new THREE.Vector3(-0.42, 0.9, 0.12).normalize(), ER * 1.02);
+sunSprite.position.copy(EC).addScaledVector(new THREE.Vector3(0.62, 0.78, 0.0).normalize(), ER * 1.02);
+key.target.position.copy(ship.position); key.position.copy(ship.position).addScaledVector(SUN, 40);
 sunSprite.scale.setScalar(ER * 0.15);
 
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: 4 }));
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(W / 2, H / 2), 0.85, 0.6, 0.82));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(W / 2, H / 2), 0.7, 0.55, 0.85));
 composer.addPass(new OutputPass());
+// grading de portada: contraste en S, sombras frías, luces cálidas, viñeta, aberración en los bordes y grano fino
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(W, H) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uRes; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec2 dc = vUv - 0.5; float r2 = dot(dc, dc);
+      vec2 off = dc * r2 * 0.012;
+      vec3 c = vec3(texture2D(tDiffuse, vUv - off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv + off).b);
+      float L = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(c, c * c * (3.0 - 2.0 * c), 0.35);
+      c += vec3(-0.006, 0.0, 0.018) * (1.0 - smoothstep(0.0, 0.35, L));
+      c *= mix(vec3(1.0), vec3(1.04, 1.0, 0.95), smoothstep(0.55, 1.0, L));
+      c = mix(c, vec3(L), -0.08);
+      c *= mix(1.0, smoothstep(0.95, 0.2, length(dc * vec2(1.0, 0.8))), 0.55);
+      c += (hash(vUv * uRes) - 0.5) * 0.018;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+}));
 composer.render();
 window.__done = true;
 </script></body></html>

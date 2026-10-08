@@ -50,13 +50,14 @@ export class Audio {
   }
 
   // Música (Obsidian Perimeter): incrustada en base64 en la versión publicada, archivo aparte en la web
-  // name: 'perimeter' (Obsidian Perimeter, tema principal) | 'pursuit' (Obsidian Pursuit, fases de Marte)
+  // name: 'perimeter' (Obsidian Perimeter, tema principal) | 'pursuit' (Obsidian Pursuit, Marte) | 'horizon' (Black Glass Horizon, Phobos y Europa) | 'observatory' (Glass Observatory, Tiphares y Miranda)
   music(fromStart = false, name) {
     const want = name || this.trackName || 'perimeter';
     if (this.track && this.trackName !== want) { this.track.pause(); this.track = null; }
     if (!this.track) {
       const el = want === 'perimeter' ? document.getElementById('music-data') : null;
-      const src = el ? 'data:audio/mpeg;base64,' + el.textContent.trim() : `music-obsidian-${want}.mp3`;
+      const FILES = { perimeter: 'music-obsidian-perimeter.mp3', pursuit: 'music-obsidian-pursuit.mp3', horizon: 'music-black-glass-horizon.mp3', observatory: 'music-glass-observatory.mp3' };
+      const src = el ? 'data:audio/mpeg;base64,' + el.textContent.trim() : (FILES[want] || FILES.perimeter);
       this.track = new window.Audio(src); this.track.loop = true; this.track.volume = 0.5;
       this.trackName = want; fromStart = true;
     }

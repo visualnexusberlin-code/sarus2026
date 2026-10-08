@@ -334,6 +334,8 @@
 
   /* ---------- SARUS: cabecera y menú principal ---------- */
   .title-block h1.logo { font-size: clamp(44px, 9vw, 112px); letter-spacing: .32em; margin-right: -.32em; line-height: 1; }
+  .title-block h1.logo { display: flex; align-items: center; justify-content: center; }
+  .title-block h1.logo .mark { height: 1.35em; width: auto; margin-right: .35em; filter: drop-shadow(0 4px 18px rgba(0,0,0,.5)); }
   .logo-sub { letter-spacing: .42em; color: var(--fog); margin-top: -12px; text-shadow: 0 1px 8px rgba(0,0,0,.7); }
   .title-block h1.logo { text-shadow: 0 2px 30px rgba(0,0,0,.35); }
   .menu { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; pointer-events: auto; }
@@ -520,7 +522,7 @@
 
 <div id="title" class="layer">
   <div class="title-block">
-    <h1 class="logo">SARUS<span>.</span></h1>
+    <h1 class="logo"><img class="mark" src="sarus-mark.svg" alt="" aria-hidden="true">SARUS<span>.</span></h1>
     <span class="label logo-sub">Solar Advanced Racing Union Series</span>
     <div class="progress"><i id="prog"></i></div>
     <button id="startBtn" type="button" disabled>Cargando…</button>
