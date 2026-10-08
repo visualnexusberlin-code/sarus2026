@@ -5,7 +5,8 @@
 //  de rejilla hexagonal sobre toda la isla. Fondo: espacio, con la Tierra y la Luna.
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('itaka');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
@@ -23,7 +24,7 @@ function fbm(x, z, o = 4) { let a = 0, w = 0.5, t = 0; for (let i = 0; i < o; i+
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const P = RAW.map(([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K));
+  const P = RAW.map(([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K));
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
   let S = curve.getSpacedPoints(N).slice(0, N);
@@ -503,7 +504,7 @@ class Space {
     this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, fog: false, depthWrite: false }));
     this.stars.frustumCulled = false; this.stars.renderOrder = -900; this.group.add(this.stars);
     // Tierra (grande, abajo a un lado) y Luna
-    this.earthDir = new THREE.Vector3(0.62, -0.3, 0.72).normalize();
+    this.earthDir = new THREE.Vector3(0.62 * MX, -0.3, 0.72).normalize();
     const sun = sunDir.clone().normalize();
     const earthM = new THREE.ShaderMaterial({
       fog: false, uniforms: { uSun: { value: sun }, uTime: { value: 0 } },
@@ -536,7 +537,7 @@ class Space {
       fragmentShader: 'uniform vec3 uSun; varying vec3 vN; varying vec3 vW; void main(){ vec3 V = normalize(cameraPosition - vW); float r = pow(1.0 - abs(dot(normalize(vN), V)), 5.0); float d = smoothstep(-0.3, 0.5, dot(normalize(vN), uSun)); gl_FragColor = vec4(vec3(0.35, 0.65, 1.0) * r * (0.2 + d), 1.0); }',
     }));
     halo.position.copy(this.earth.position); halo.frustumCulled = false; this.group.add(halo);
-    this.moonDir = new THREE.Vector3(-0.7, 0.25, 0.66).normalize();
+    this.moonDir = new THREE.Vector3(-0.7 * MX, 0.25, 0.66).normalize();
     const moonM = new THREE.ShaderMaterial({
       fog: false, uniforms: { uSun: { value: sun } },
       vertexShader: 'varying vec3 vN; varying vec3 vO; void main(){ vO = normalize(position); vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',

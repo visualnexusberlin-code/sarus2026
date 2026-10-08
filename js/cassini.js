@@ -3,7 +3,8 @@
 // el enjambre de fragmentos; hasta el horizonte, la lámina de anillos con sus bandas; al fondo, Saturno
 // (colores naturales: beige dorado apagado, bandas suaves; anillos crema, tostado y gris azulado).
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('cassini');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
@@ -25,7 +26,7 @@ const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const P = RAW.map(([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K));
+  const P = RAW.map(([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K));
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
   let S = curve.getSpacedPoints(N).slice(0, N);
@@ -39,8 +40,8 @@ function layout() {
 }
 
 // Saturno hacia −x (a la izquierda al salir por la recta); sol bajo, de lado, rozando el plano de los anillos
-const SAT_DIR = new THREE.Vector3(-0.82, 0, -0.57).normalize();
-export function cassiniSunDir() { return new THREE.Vector3(0.45, 0.2, -0.87).normalize(); }
+const SAT_DIR = new THREE.Vector3(-0.82 * MX, 0, -0.57).normalize();
+export function cassiniSunDir() { return new THREE.Vector3(0.45 * MX, 0.2, -0.87).normalize(); }
 
 // ── Bandas de los anillos (perfil radial, colores naturales) ──
 function ringTexture() {
@@ -330,7 +331,7 @@ export function buildCassini(def, { world, own, srcMat }) {
 
   // Intro: muy alto sobre el plano de los anillos (se ven las bandas curvándose hacia Saturno), picado hasta la parrilla
   track.sample(0, F); const grid = F.pos.clone();
-  const side = new THREE.Vector3(-SAT_DIR.z, 0, SAT_DIR.x);
+  const side = new THREE.Vector3(-SAT_DIR.z, 0, SAT_DIR.x).multiplyScalar(MX);
   const introKeys = () => [
     [0.0, centroid.clone().addScaledVector(SAT_DIR, -9000).addScaledVector(side, -4000).setY(5200), satC.clone().setY(RING_Y + 2500), 44],
     [4.2, centroid.clone().addScaledVector(SAT_DIR, -2600).addScaledVector(side, -1200).setY(1300), centroid.clone().addScaledVector(SAT_DIR, 3000).setY(RING_Y), 50],

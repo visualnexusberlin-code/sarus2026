@@ -3,7 +3,8 @@
 // la sierra cercana. Estadio con tribunas cubiertas y público animado, plataformas flotantes de espectadores,
 // una nave-palco suspendida sobre la recta y una ciudad de arquitectura escalonada con ventanales y franjas de luz.
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('tharsis');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { cofferPatch, cofferKey } from './facades.js';
@@ -24,7 +25,7 @@ const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const P = RAW.map(([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K));
+  const P = RAW.map(([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K));
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
   let S = curve.getSpacedPoints(N).slice(0, N);
@@ -41,7 +42,7 @@ function layout() {
 export function tharsisSunDir(elev = 0.1) {
   const { P } = layout();
   const d = P[IDX.straightEnd].clone().sub(P[0]).setY(0).normalize();
-  d.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.22);
+  d.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.22 * MX);
   return d.multiplyScalar(Math.cos(elev)).setY(Math.sin(elev)).normalize();
 }
 

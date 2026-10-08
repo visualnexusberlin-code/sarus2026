@@ -5,7 +5,8 @@
 // por la llanura, cúpulas de cristal hexagonal y torres-faro. Anillos de carrera: atravesarlos repara el blindaje,
 // recarga dos cohetes y da un empujón de velocidad (con una película de luz azul).
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('europa');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
@@ -23,7 +24,7 @@ const K = 2.0;                        // ≈ 6,6 km
 const FLOOR = -380;                   // fondo de las simas
 
 // Júpiter: delante y a la izquierda al salir por la recta. Luz principal = brillo de Júpiter.
-const JUP_DIR = new THREE.Vector3(0.8, 0, -0.6).normalize();
+const JUP_DIR = new THREE.Vector3(0.8 * MX, 0, -0.6).normalize();
 const JUP_D = 170000, JUP_R = 78000, JUP_EL = Math.tan(14 * Math.PI / 180);
 export function europaSunDir() { return new THREE.Vector3(JUP_DIR.x, 0.32, JUP_DIR.z).normalize(); }
 
@@ -36,7 +37,7 @@ const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const toW = ([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K);
+  const toW = ([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K);
   const P = RAW.map(toW);
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
@@ -47,7 +48,7 @@ function layout() {
   const total = cum[N];
   const fOf = (p) => { let b = 0, bd = Infinity; S.forEach((q, i) => { const d = q.distanceToSquared(p); if (d < bd) { bd = d; b = i; } }); return cum[b] / total; };
   const corner = {}; for (const [k, i] of Object.entries(IDX)) corner[k] = fOf(P[i]);
-  const chasms = CHASMS.map(([x, y, a, b, r]) => { const c = toW([x, y]); return { x: c.x, z: c.z, a: a * K, b: b * K, cs: Math.cos(r * Math.PI / 180), sn: Math.sin(r * Math.PI / 180) }; });
+  const chasms = CHASMS.map(([x, y, a, b, r]) => { const c = toW([x, y]); return { x: c.x, z: c.z, a: a * K, b: b * K, cs: Math.cos(MX * r * Math.PI / 180), sn: Math.sin(MX * r * Math.PI / 180) }; });
   return { S, cum, total, corner, P, chasms, citadel: toW(CITADEL_PX), rings: RINGS.map((i) => fOf(P[i])) };
 }
 
@@ -256,7 +257,7 @@ function iceMaterial(tex) {
 
 // Júpiter (mapa horneado) e Io (procedural, pequeña): luz del Sol real por detrás
 function planetMaterial(center, sunDir, kind, tex) {
-  const toV = JUP_DIR.clone().negate().setY(0).normalize(), east = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toV).normalize();
+  const toV = JUP_DIR.clone().negate().setY(0).normalize(), east = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toV).normalize().multiplyScalar(MX);
   return new THREE.ShaderMaterial({
     fog: false,
     uniforms: { uC: { value: center }, uSun: { value: sunDir }, uV: { value: toV }, uE: { value: east }, uT: { value: 0 }, uMap: { value: tex || null } },
@@ -718,12 +719,12 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
 
   // ── Júpiter, Io y estrellas ──
-  const realSun = JUP_DIR.clone().negate().add(new THREE.Vector3(0, 0.18, 0)).add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(-0.42)).normalize();
+  const realSun = JUP_DIR.clone().negate().add(new THREE.Vector3(0, 0.18, 0)).add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(MX).multiplyScalar(-0.42)).normalize();
   const jc = centroid.clone().addScaledVector(JUP_DIR, JUP_D).setY(JUP_D * JUP_EL);
   const jupRT = gpuBake(renderer, 2048, 1024, JUP_BAKE, false); own.push(jupRT);
   const jm = planetMaterial(jc, realSun, 0, jupRT.texture); jm.userData.tag = 'jup'; own.push(jm);
   const jup = new THREE.Mesh(new THREE.SphereGeometry(JUP_R, 128, 96), jm); jup.position.copy(jc); jup.scale.y = 0.935; jup.frustumCulled = false; world.add(jup); own.push(jup.geometry);
-  const ioC = centroid.clone().add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(-90000)).addScaledVector(JUP_DIR, 140000).setY(60000);
+  const ioC = centroid.clone().add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(MX).multiplyScalar(-90000)).addScaledVector(JUP_DIR, 140000).setY(60000);
   const im2 = planetMaterial(ioC, realSun, 1); own.push(im2);
   const io = new THREE.Mesh(new THREE.SphereGeometry(2300, 48, 32), im2); io.position.copy(ioC); io.frustumCulled = false; world.add(io); own.push(io.geometry);
   {
@@ -759,7 +760,7 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
 
   // Intro: Júpiter sobre la llanura y la ciudadela, vuelo rasante sobre la primera sima y bajada a la parrilla
   track.sample(0, F); const grid = F.pos.clone(); const gridTan = F.tan.clone();
-  const side = new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x);
+  const side = new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(MX);
   const chasmA = new THREE.Vector3(chasms[0].x, 0, chasms[0].z);
   const introKeys = () => [
     [0.0, centroid.clone().addScaledVector(JUP_DIR, -1500).addScaledVector(side, 500).setY(260), centroid.clone().addScaledVector(JUP_DIR, 4000).setY(1300), 52],

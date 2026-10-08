@@ -4,7 +4,8 @@
 //  cotas que siguen la montaña, dos saltos sobre grietas y un túnel dentro de una lengua de lava.
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('olympus');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
@@ -26,7 +27,7 @@ function fbm(x, z, o = 4) { let a = 0, w = 0.5, t = 0; for (let i = 0; i < o; i+
 // ── Trazado: píxeles → metros, curva cerrada, suavizado (radio mínimo) ──
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const P = RAW.map(([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K));
+  const P = RAW.map(([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K));
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
   let S = curve.getSpacedPoints(N).slice(0, N);
@@ -379,7 +380,7 @@ function marsTerrainMaterial() {
 // ── Polvo en suspensión arrastrado por el viento (velos grandes cerca de la cámara) + remolinos lejanos ──
 export class MarsDust {
   constructor(parent, track, ground, windDir) {
-    this.wind = new THREE.Vector3(windDir.z, 0, -windDir.x).multiplyScalar(26).add(new THREE.Vector3(0, 1.5, 0));
+    this.wind = new THREE.Vector3(windDir.z, 0, -windDir.x).multiplyScalar(MX).multiplyScalar(26).add(new THREE.Vector3(0, 1.5, 0));
     const tex = (() => {
       const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
       const img = g.createImageData(128, 128);

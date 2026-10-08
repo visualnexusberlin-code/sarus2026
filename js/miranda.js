@@ -4,7 +4,8 @@
 // van al borde de Verona Rupes: un corte de varios kilómetros con Urano gigante al fondo. Las eses se encajan en
 // una garganta a anchura de carrera.
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('miranda');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { buildRaceRings } from './rings.js';
@@ -19,10 +20,10 @@ const RIM = [[-1800, 1150], [-700, 780], [-150, 690], [-10, 656], [60, 640], [20
 const K = 2.5;
 const FLOOR = -4200;                 // fondo del corte
 const FAR = 900;                     // meseta del otro lado
-const URA_DIR = new THREE.Vector3(-0.6, 0, 0.8).normalize();
+const URA_DIR = new THREE.Vector3(-0.6 * MX, 0, 0.8).normalize();
 const URA_D = 190000, URA_R = 70000, URA_EL = Math.tan(13 * Math.PI / 180);
 // Sol detrás y a la izquierda de Urano (visto desde la pista): Urano en creciente ancho y el terreno a contraluz, con filos brillantes
-export function mirandaSunDir() { const left = new THREE.Vector3(URA_DIR.z, 0, -URA_DIR.x); return URA_DIR.clone().multiplyScalar(0.6).add(new THREE.Vector3(0, 0.42, 0)).addScaledVector(left, 0.68).normalize(); }
+export function mirandaSunDir() { const left = new THREE.Vector3(URA_DIR.z, 0, -URA_DIR.x).multiplyScalar(MX); return URA_DIR.clone().multiplyScalar(0.6).add(new THREE.Vector3(0, 0.42, 0)).addScaledVector(left, 0.68).normalize(); }
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -34,7 +35,7 @@ const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const toW = ([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K);
+  const toW = ([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K);
   const P = RAW.map(toW);
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
@@ -694,7 +695,7 @@ export function buildMiranda(def, { world, own, renderer }) {
   // ── Urano, anillos, estrellas ──
   const sun = mirandaSunDir();
   const uc = centroid.clone().addScaledVector(URA_DIR, URA_D).setY(URA_D * URA_EL);
-  const side = new THREE.Vector3(-URA_DIR.z, 0, URA_DIR.x);
+  const side = new THREE.Vector3(-URA_DIR.z, 0, URA_DIR.x).multiplyScalar(MX);
   const axis = new THREE.Vector3(0, 1, 0).multiplyScalar(0.94).addScaledVector(side, 0.33).addScaledVector(URA_DIR, -0.08).normalize();
   const um = uranusMaterial(uc, sun, axis); own.push(um);
   const ura = new THREE.Mesh(new THREE.SphereGeometry(URA_R, 96, 64), um); ura.position.copy(uc); ura.frustumCulled = false; world.add(ura); own.push(ura.geometry);
@@ -768,7 +769,7 @@ export function buildMiranda(def, { world, own, renderer }) {
   // subida por encima del borde junto a la recta y la parrilla
   track.sample(0, F); const grid = F.pos.clone(), gridTan = F.tan.clone();
   const r0 = rimQ(grid.x, grid.z), rimP = new THREE.Vector3(r0.x, grid.y, r0.z), toVoid = new THREE.Vector3(r0.x - grid.x, 0, r0.z - grid.z).normalize();
-  const along = new THREE.Vector3(-toVoid.z, 0, toVoid.x);
+  const along = new THREE.Vector3(-toVoid.z, 0, toVoid.x).multiplyScalar(MX);
   const introKeys = () => [
     [0.0, rimP.clone().addScaledVector(URA_DIR, -1700).addScaledVector(toVoid, 700).setY(380), rimP.clone().addScaledVector(URA_DIR, 6000).setY(700), 54],
     [3.2, rimP.clone().addScaledVector(URA_DIR, -1300).addScaledVector(toVoid, 900).setY(240), rimP.clone().addScaledVector(URA_DIR, 6000).setY(500), 54],

@@ -3,7 +3,8 @@
 // en el gran espacio interior del trazado (donde estaría el lago) flota la ciudadela Tiphares: un loto metálico
 // de pétalos curvos, con una cúpula de cristal llena de agujas y un tallo de discos que se hunde en las nubes.
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('tiphares');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { QUALITY } from './quality.js';
@@ -24,7 +25,7 @@ const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const toW = ([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K);
+  const toW = ([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K);
   const P = RAW.map(toW);
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
@@ -39,7 +40,7 @@ function layout() {
 }
 
 // Sol bajo, detrás de la ciudadela vista desde la recta de meta
-export function tipharesSunDir() { return new THREE.Vector3(0.62, 0.11, 0.78).normalize(); }
+export function tipharesSunDir() { return new THREE.Vector3(0.62 * MX, 0.11, 0.78).normalize(); }
 
 const MAT = () => ({
   pearl: new THREE.MeshStandardMaterial({ color: 0xf2e9df, roughness: 0.22, metalness: 0.55, side: THREE.DoubleSide }),
@@ -405,7 +406,7 @@ export function buildTiphares(def, { world, own, srcMat }) {
   const cTop = new THREE.Vector3(citadel.x, 240, citadel.z);
   const introKeys = () => [
     [0.0, cTop.clone().addScaledVector(sunH, -2100).setY(330), cTop.clone().setY(260), 40],
-    [4.2, cTop.clone().addScaledVector(sunH, -700).add(new THREE.Vector3(-sunH.z, 0, sunH.x).multiplyScalar(-500)).setY(200), cTop.clone().setY(120), 50],
+    [4.2, cTop.clone().addScaledVector(sunH, -700).add(new THREE.Vector3(-sunH.z, 0, sunH.x).multiplyScalar(-500 * MX)).setY(200), cTop.clone().setY(120), 50],
     [7.4, grid.clone().addScaledVector(sunH, -400).setY(grid.y + 160), grid.clone().setY(grid.y + 10), 56],
     [9.5, grid.clone().addScaledVector(F.tan, -180).setY(grid.y + 55), grid.clone(), 60],
   ];

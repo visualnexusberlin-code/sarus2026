@@ -6,7 +6,8 @@
 // Túneles octogonales: caras planas (pocos vértices, paneles y tiras de luz en las aristas, lectura clara a
 // velocidad) frente al tubo redondo (más vértices para la misma silueta) o el rectangular (demasiado plano).
 import * as THREE from 'three';
-import { reshapeLoop } from './reshape.js';
+import { reshapeLoop, mx } from './reshape.js';
+const MX = mx('phobos');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
@@ -24,9 +25,9 @@ const HALL = [770, 412], HALL_R = [310, 245], HALL_H = 64;
 const Y_TUN = -150, Y_HALL = -160;
 const TW = 24, TH = 20;                        // túnel: semiancho y alto (m)
 // Marte y Sol
-const MARS_DIR = new THREE.Vector3(0.52, 0, -0.85).normalize();
+const MARS_DIR = new THREE.Vector3(0.52 * MX, 0, -0.85).normalize();
 const MARS_D = 160000, MARS_R = 56000, MARS_EL = Math.tan(4 * Math.PI / 180);
-export function phobosSunDir() { const side = new THREE.Vector3(-MARS_DIR.z, 0, MARS_DIR.x); return MARS_DIR.clone().multiplyScalar(0.25).addScaledVector(side, -0.88).add(new THREE.Vector3(0, 0.42, 0)).normalize(); }
+export function phobosSunDir() { const side = new THREE.Vector3(-MARS_DIR.z, 0, MARS_DIR.x).multiplyScalar(MX); return MARS_DIR.clone().multiplyScalar(0.25).addScaledVector(side, -0.88).add(new THREE.Vector3(0, 0.42, 0)).normalize(); }
 // cuerpo de Phobos: elipsoide (escala de juego, la mitad del real), con la pista en lo alto
 const MB = 7000, MA = MB * 1.25, MC = MB * 1.08;
 
@@ -41,7 +42,7 @@ const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2
 
 function layout() {
   let cx = 0, cy = 0; for (const [x, y] of RAW) { cx += x; cy += y; } cx /= RAW.length; cy /= RAW.length;
-  const toW = ([x, y]) => new THREE.Vector3((x - cx) * K, 0, (y - cy) * K);
+  const toW = ([x, y]) => new THREE.Vector3(MX * (x - cx) * K, 0, (y - cy) * K);
   const P = RAW.map(toW);
   const curve = new THREE.CatmullRomCurve3(P, true, 'centripetal');
   const L = curve.getLength(), N = Math.round(L / 8);
@@ -611,7 +612,7 @@ export function buildPhobos(def, { world, own, srcMat, renderer }) {
 
   // Intro: Phobos entero contra Marte, descenso sobre Stickney y la boca, y a la parrilla
   track.sample(0, F); const grid = F.pos.clone(), gridTan = F.tan.clone();
-  const side = new THREE.Vector3(-MARS_DIR.z, 0, MARS_DIR.x);
+  const side = new THREE.Vector3(-MARS_DIR.z, 0, MARS_DIR.x).multiplyScalar(MX);
   const introKeys = () => [
     [0.0, MC0.clone().addScaledVector(MARS_DIR, -36000).addScaledVector(side, 15000).setY(MC0.y + 7000), MC0.clone().addScaledVector(MARS_DIR, 6000).addScaledVector(side, 2500).setY(MC0.y + 1500), 42],
     [4.2, st.clone().addScaledVector(MARS_DIR, -1500).addScaledVector(side, 600).setY(900), st.clone().setY(-120).addScaledVector(MARS_DIR, 300), 52],
