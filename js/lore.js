@@ -136,10 +136,14 @@ export const SHIP_LORE = {
     sector: 'Escort & Armored Platforms', origin: 'Orbital escort fleets',
     doctrine: 'Blindaje, masa y combate.',
     lore: 'KYBEROS convirtió plataformas de escolta y protección en máquinas capaces de sobrevivir a impactos que retirarían a cualquier otra.' },
+  PHANTOM_19: { house: 'PHANTOM ENTERPRISES', model: 'SHADOW', family: 'experimental', lineage: 'lab', cls: 'EXPERIMENTAL / STEALTH',
+    sector: 'Signature Reduction Systems', origin: 'Classified reconnaissance programs',
+    doctrine: 'Llegar sin ser vista.',
+    lore: 'PHANTOM ENTERPRISES nunca ha publicado un organigrama. Su casco de obsidiana absorbe radar y luz; en SARUS compite para demostrar que lo que no se puede fijar tampoco se puede alcanzar.' },
   ORION_18: { house: 'ORION AERONAUTICS', model: 'HUNTER', family: 'balanced', lineage: 'outer', cls: 'BALANCED / EXPLORATION',
     sector: 'Deep Space Systems', origin: 'Long-range exploration and search',
     doctrine: 'Persecución y equilibrio ofensivo.',
     lore: 'ORION desarrolla vehículos capaces de operar mucho tiempo lejos de cualquier infraestructura humana: en carrera, equilibrio y fiabilidad.' },
 };
 
-export const MOTTO = 'SARUS no enfrenta dieciocho naves. Enfrenta dieciocho filosofías tecnológicas.';
+export const MOTTO = 'SARUS no enfrenta diecinueve naves. Enfrenta diecinueve filosofías tecnológicas.';

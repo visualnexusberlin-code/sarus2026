@@ -1,4 +1,4 @@
-// Flota SARUS (ships41.glb): 18 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
+// Flota SARUS (ships42.glb): 19 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
 import { SHIP_LORE } from './lore.js';
@@ -58,6 +58,9 @@ export const FLEET = [
   { num: '18', node: 'ORION_18', hull: 5, flame: [1.0, 0.66, 0.3], name: 'ORION', tag: 'El cazador. Cromo afilado en láminas, cuatro toberas y letras de bronce: la más estable a fondo y la más dura de derribar, pero pesada al salir.',
     V: 5, A: 3, M: 4,
     style: { response: 7.8, grip: 6.6, gripAB: 8.6, ab: 1.0, mass: 1.24, lean: 0.3, bob: 0.04, bobHz: 1.8, drift: 0.2, pitch: 0.75 } },
+  { num: '19', node: 'PHANTOM_19', hull: 3, flame: [0.62, 0.42, 1.0], name: 'PHANTOM', tag: 'La sombra. Obsidiana de firma mínima: los cohetes rivales la fijan tarde y de cerca. Rápida y fina, pero un golpe directo le duele.',
+    V: 5, A: 4, M: 4,
+    style: { response: 8.6, grip: 6.2, gripAB: 8.4, ab: 1.0, mass: 0.96, lean: 0.34, bob: 0.03, bobHz: 2.0, drift: 0.22, pitch: 0.8, wallLoss: 1.1, stealth: 1 } },
 ];
 
 // capa creativa: escudería, modelo, clase, familia, linaje, procedencia y lore (lore.js)
@@ -95,5 +98,6 @@ export function statsFor(d) {
     boostDrain: 0.34 * (s.boostDrain ?? 1),
     boostRegen: 0.055 * (s.boostRegen ?? 1),
     kick: s.kick ?? 1,
+    stealth: s.stealth ?? 0,
   };
 }

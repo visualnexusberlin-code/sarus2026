@@ -183,7 +183,9 @@ export class Missiles {
     for (const o of ships) {
       if (o === owner || o.dead > 0 || o.invuln > 0) continue;
       const d = this.track.delta(owner.s, o.s);
-      if (d > 4 && d < 450) { const sc = d + Math.abs(o.x - owner.x) * 6; if (sc < bd) { bd = sc; target = o; } }
+      // firma mínima (PHANTOM): solo se fija a corta distancia y cuesta más elegirla como blanco
+      const st = o.C?.stealth ? 1 : 0;
+      if (d > 4 && d < (st ? 240 : 450)) { const sc = d + Math.abs(o.x - owner.x) * 6 + st * 140; if (sc < bd) { bd = sc; target = o; } }
     }
     const obj = new THREE.Group();
     obj.add(new THREE.Mesh(this.bodyGeo, this.bodyMat));

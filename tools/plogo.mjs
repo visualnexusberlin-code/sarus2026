@@ -1,0 +1,22 @@
+// Logo PHANTOM: dos hojas de obsidiana en cuña que dejan entre ellas una rendija (la «sombra»), con una chispa violeta
+import * as THREE from '/home/claude/game/node_modules/three/build/three.module.js';
+import { NodeIO } from '@gltf-transform/core'; import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS); const doc = await io.read(process.env.IN);
+const root = doc.getRoot(), buf = root.listBuffers()[0], LOGOS = root.listScenes()[0].listChildren().find(n => n.getName() === 'LOGOS');
+const V = (x, y) => new THREE.Vector2(x, y);
+const blade = (s) => new THREE.Shape([V(s * 0.04, 0.42), V(s * 0.46, 0.06), V(s * 0.3, -0.02), V(s * 0.1, 0.12), V(s * 0.06, -0.4), V(s * 0.02, -0.18)]);
+const spark = new THREE.Shape([V(0, 0.1), V(0.03, 0), V(0, -0.1), V(-0.03, 0)]);
+const ext = (sh, d) => { const g = new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.008, bevelSegments: 2 }); g.translate(0, 0, -d / 2); return g.toNonIndexed(); };
+const F = { p: [], n: [] }, E = { p: [], n: [] }, S = { p: [], n: [] };
+const add = (g, faceDst, edgeDst) => { g.computeVertexNormals(); const P = g.attributes.position.array, N = g.attributes.normal.array;
+  for (let t = 0; t < P.length / 9; t++) { const nz = Math.abs(N[t * 9 + 2] + N[t * 9 + 5] + N[t * 9 + 8]) / 3; const d = nz > 0.9 ? faceDst : edgeDst; for (let k = 0; k < 9; k++) { d.p.push(P[t * 9 + k]); d.n.push(N[t * 9 + k]); } } };
+add(ext([blade(1), blade(-1)], 0.09), F, E);
+const sg = ext(spark, 0.11); sg.translate(0, 0.05, 0); add(sg, S, S);
+const A = (arr, ty) => doc.createAccessor().setArray(arr).setType(ty).setBuffer(buf);
+const mk = (o, m) => doc.createPrimitive().setMaterial(m).setAttribute('POSITION', A(new Float32Array(o.p), 'VEC3')).setAttribute('NORMAL', A(new Float32Array(o.n), 'VEC3'));
+const mFace = doc.createMaterial('LOGO_PHANTOM_Face').setBaseColorFactor([0.06, 0.06, 0.07, 1]).setMetallicFactor(0.9).setRoughnessFactor(0.12).setDoubleSided(true);
+const mEdge = doc.createMaterial('LOGO_PHANTOM_Edge').setBaseColorFactor([0.78, 0.76, 0.86, 1]).setMetallicFactor(1).setRoughnessFactor(0.22).setDoubleSided(true);
+const mSpark = doc.createMaterial('LOGO_PHANTOM_Spark').setBaseColorFactor([0.62, 0.42, 1, 1]).setEmissiveFactor([0.62, 0.42, 1]).setMetallicFactor(0).setRoughnessFactor(0.4);
+const old = LOGOS.listChildren().find(n => n.getName() === 'LOGO_PHANTOM'); if (old) old.dispose();
+LOGOS.addChild(doc.createNode('LOGO_PHANTOM').setMesh(doc.createMesh('LOGO_PHANTOM').addPrimitive(mk(F, mFace)).addPrimitive(mk(E, mEdge)).addPrimitive(mk(S, mSpark))));
+await io.write(process.env.OUT, doc); console.log('ok');
