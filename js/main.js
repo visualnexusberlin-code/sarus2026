@@ -906,6 +906,22 @@ function renderFamilies() {
   row.querySelectorAll('[data-fam]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.fam || null) === G.family)));
 }
 
+// Canon de maquetación: cada frase es un bloque indivisible; si no cabe en la línea, pasa entera a la siguiente
+// (nunca «Classified re- / programs»). bold = índice de la frase que va en negrita (o -1).
+function phrases(el, parts, sep = ' · ', bold = -1) {
+  const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  el.innerHTML = parts.filter(Boolean).map((t, i, a) => {
+    const txt = esc(t) + (i < a.length - 1 ? `<span class="sep">${sep.trimEnd()}</span>` : '');
+    return `<span class="ph">${i === bold ? `<b>${txt}</b>` : txt}</span>`;
+  }).join(' ');
+}
+// Nombre de nave a la medida del panel: reduce el cuerpo hasta que la palabra entera quepa
+function fitText(el, min = 20) {
+  el.style.fontSize = '';
+  let fs = parseFloat(getComputedStyle(el).fontSize);
+  while (el.scrollWidth > el.clientWidth + 1 && fs > min) { fs -= 2; el.style.fontSize = fs + 'px'; }
+}
+
 function showChoice(i) {
   const n = G.fleet.length;
   G.choice = (i + n) % n;
@@ -916,10 +932,10 @@ function showChoice(i) {
   $('selNum').textContent = G.family ? String(L.indexOf(G.choice) + 1).padStart(2, '0') : d.num;
   $('selTot').textContent = String(G.family ? L.length : n).padStart(2, '0');
   $('selName').textContent = d.name;
-  $('selHouse').textContent = d.house || d.name;
-  $('selModel').textContent = d.model || '';
-  $('selClass').textContent = d.cls || '';
-  $('selOrigin').textContent = [d.sector, d.origin].filter(Boolean).join(' · ');
+  fitText($('selName'));
+  phrases($('selHouseRow'), [d.house || d.name, d.model], ' · ', 0);
+  phrases($('selClass'), (d.cls || '').split(/\s*\/\s*/), ' / ');
+  phrases($('selOrigin'), [d.sector, d.origin], ' · ');
   $('selTag').textContent = d.doctrine || d.tag;
   $('selRec').hidden = !d.recommended;
   const pips = (el, v) => { el.innerHTML = [1, 2, 3, 4, 5].map((k) => `<i class="${k <= v ? 'on' : ''}"></i>`).join(''); };

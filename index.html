@@ -233,8 +233,9 @@
   .sel-panel {
     position: fixed; left: calc(var(--gutter) + env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-50%);
     display: grid; gap: 14px; width: min(380px, 44vw);
+    grid-template-columns: minmax(0, 1fr);   /* ningún hijo puede ensanchar el panel (antes el nombre largo lo desbordaba y recortaba todo) */
   }
-  .sel-panel h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(30px, 4.6vw, 58px); letter-spacing: .08em; line-height: 1; }
+  .sel-panel h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(30px, 4.6vw, 58px); letter-spacing: .08em; line-height: 1; white-space: nowrap; overflow: hidden; }
   .sel-num { font-size: 12px; color: var(--fog-dim); letter-spacing: .1em; }
   .sel-tag { margin: 0; font-size: 13px; line-height: 1.55; color: var(--fog); max-width: 36ch; }
   .stats { display: grid; grid-template-columns: auto 1fr; gap: 9px 18px; align-items: center; margin-top: 4px; }
@@ -372,7 +373,10 @@
   .rec { font-family: var(--display); font-size: 8px; letter-spacing: .24em; color: var(--graphite); background: #19e0cc; padding: 3px 7px; margin-left: 8px; vertical-align: 1px; }
   .sel-house { font-size: 12px; letter-spacing: .12em; color: var(--fog-dim); margin-top: -6px; }
   .sel-house b { font-family: var(--display); font-weight: 400; font-size: 10px; letter-spacing: .22em; color: var(--fog); }
-  .sel-meta { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: 11px; }
+  .sel-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: 11px; }
+  /* frases indivisibles: si no caben, saltan enteras a la línea siguiente */
+  .ph { display: inline-block; max-width: 100%; }
+  .ph .sep { margin-left: .35em; opacity: .6; }
   .sel-meta dt { font-family: var(--display); font-size: 8px; letter-spacing: .26em; color: var(--fog-dim); text-transform: uppercase; padding-top: 2px; }
   .sel-meta dd { margin: 0; letter-spacing: .06em; }
   .more { justify-self: start; background: none; border: 0; padding: 2px 0; color: var(--fog-dim); cursor: pointer;
@@ -613,7 +617,7 @@
     <div class="fam" role="group" aria-label="Familia de vehículo" id="famRow"></div>
     <div class="sel-num num"><span id="selNum">05</span> / <span id="selTot">18</span> · <span id="selLen">5,5 m</span> <span class="rec" id="selRec" hidden>Recommended</span></div>
     <h2 id="selName">PRIME-EX</h2>
-    <div class="sel-house"><b id="selHouse">PRIME-EX</b> · <span id="selModel">PX-01</span></div>
+    <div class="sel-house" id="selHouseRow"></div>
     <dl class="sel-meta">
       <dt>Class</dt><dd id="selClass">BALANCED / STANDARD</dd>
       <dt>Origin</dt><dd id="selOrigin"></dd>
@@ -633,7 +637,7 @@
       <button class="btn" type="button" id="selNext" aria-label="Nave siguiente">▷</button>
     </div>
     <div class="sel-circ-row"><span class="label">Circuit</span><b id="selCirc">01 · ARCADIA</b><button class="chip" type="button" id="selMap">Solar Map</button></div>
-    <span class="label desk-only">← → nave · ↑ ↓ familia · M mapa · Enter correr</span>
+    <span class="label desk-only"><span class="ph">← → nave ·</span> <span class="ph">↑ ↓ familia ·</span> <span class="ph">M mapa ·</span> <span class="ph">Enter correr</span></span>
   </div>
   <div class="lineage" id="lineage" hidden></div>
 </div>

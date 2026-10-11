@@ -12,7 +12,7 @@ export const CONFIG = {
   // Modelos: incrustados (gzip + base64) en la versión publicada; en local se leen los .glb.
   models: {
     circuit: { inline: 'model-data', url: 'saturn6.glb' },
-    fleet: { inline: 'model-fleet', url: LITE ? 'ships44_lite.glb' : 'ships44.glb' },   // flota: 20 escuderías
+    fleet: { inline: 'model-fleet', url: LITE ? 'ships45_lite.glb' : 'ships45.glb' },   // flota: 20 escuderías
   },
 
   // Sentido de carrera. true = orden de los sectores 01→06 (numerales legibles en pista).
