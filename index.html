@@ -467,20 +467,20 @@
 <div class="bar top"></div>
 <div class="bar bottom"></div>
 <div id="card"><div class="small" id="cardSmall"></div><div class="big" id="cardBig"></div></div>
-<div id="skip" class="label"><span class="desk-only">Enter · saltar</span><span class="touch-only">Toca para saltar</span></div>
+<div id="skip" class="label"><span class="desk-only" data-en="Enter · skip">Enter · saltar</span><span class="touch-only" data-en="Tap to skip">Toca para saltar</span></div>
 
 <div id="hud" class="layer">
   <div class="corner tl">
-    <span class="label">Posición</span>
+    <span class="label" data-en="Position">Posición</span>
     <div class="lap num"><span id="posNum">–</span><small> / <span id="posTot">12</span></small></div>
-    <span class="label">Blindaje</span>
+    <span class="label" data-en="Armor">Blindaje</span>
     <div class="hull" id="hull"></div>
-    <div class="hits num" id="hits" hidden><span class="label">Impactos</span> <b id="hitsN">0</b></div>
+    <div class="hits num" id="hits" hidden><span class="label" data-en="Hits">Impactos</span> <b id="hitsN">0</b></div>
     <div class="rule"></div>
-    <span class="label">Vuelta</span>
+    <span class="label" data-en="Lap">Vuelta</span>
     <div class="lap num"><span id="lapNum">1</span><small> / <span id="lapTot">3</span></small></div>
     <div class="rule"></div>
-    <span class="label">Tiempo</span>
+    <span class="label" data-en="Time">Tiempo</span>
     <div class="time num" id="lapTime">0:00.00</div>
     <div class="sub num" id="bestTime">Mejor —</div>
   </div>
@@ -489,189 +489,194 @@
     <span class="label" id="sectorLbl">Sector 01</span>
   </div>
   <div class="corner bl">
-    <div id="weapon" class="weapon"><i></i><span class="label">Cohete</span><b class="num" id="weaponN">—</b><span class="label desk-only">F</span></div>
-    <span class="label">Energía boost</span>
+    <div id="weapon" class="weapon"><i></i><span class="label" data-en="Rocket">Cohete</span><b class="num" id="weaponN">—</b><span class="label desk-only">F</span></div>
+    <span class="label" data-en="Boost energy">Energía boost</span>
     <div class="meter boost"><i id="boostBar"></i></div>
-    <span class="label" id="camLbl">Cámara · persecución</span>
+    <span class="label" id="camLbl" data-en="Camera · chase">Cámara · persecución</span>
   </div>
   <div class="corner br">
-    <span class="draft label" id="draft">Rebufo</span>
+    <span class="draft label" id="draft" data-en="Slipstream">Rebufo</span>
     <div class="speed num" id="speed">0</div>
     <span class="speed-unit">KM/H</span>
     <div class="meter"><i id="speedBar"></i></div>
   </div>
   <div id="banner"><span id="bannerTxt"></span><span class="split num" id="bannerSplit"></span></div>
   <div id="count"></div>
-  <div id="warn">Sentido contrario</div>
+  <div id="warn" data-en="Wrong way">Sentido contrario</div>
 </div>
 
 
 <div id="touch" class="layer">
   <div class="steer-zone">
-    <div class="steer-hint"><span class="label">Desliza para girar</span><div class="rail"></div></div>
+    <div class="steer-hint"><span class="label" data-en="Swipe to steer">Desliza para girar</span><div class="rail"></div></div>
     <div class="steer-track"></div><div class="steer-knob"></div>
   </div>
   <div class="topbtns">
-    <button class="tb" type="button" data-key="KeyP" aria-label="Pausa">II</button>
-    <button class="tb" type="button" data-key="KeyC" aria-label="Cambiar cámara">Cám</button>
-    <button class="tb" type="button" data-auto aria-label="Aceleración automática">Auto</button>
-    <button class="tb fs-btn" type="button" aria-label="Pantalla completa"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+    <button class="tb" type="button" data-key="KeyP" aria-label="Pausa" data-en-aria="Pause">II</button>
+    <button class="tb" type="button" data-key="KeyC" aria-label="Cambiar cámara" data-en-aria="Change camera" data-en="Cam">Cám</button>
+    <button class="tb" type="button" data-auto aria-label="Aceleración automática" data-en-aria="Auto throttle">Auto</button>
+    <button class="tb fs-btn" type="button" aria-label="Pantalla completa" data-en-aria="Fullscreen"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
   </div>
   <div class="pad">
-    <button class="tb sm b-abl" type="button" data-hold="abL" aria-label="Aerofreno izquierdo">◁ AF</button>
-    <button class="tb sm b-abr" type="button" data-hold="abR" aria-label="Aerofreno derecho">AF ▷</button>
-    <button class="tb b-brake" type="button" data-hold="brake" aria-label="Frenar">Freno</button>
-    <button class="tb b-thr" type="button" data-hold="throttle" aria-label="Acelerar" hidden>Acel</button>
+    <button class="tb sm b-abl" type="button" data-hold="abL" aria-label="Aerofreno izquierdo" data-en-aria="Left air brake" data-en="◁ AB">◁ AF</button>
+    <button class="tb sm b-abr" type="button" data-hold="abR" aria-label="Aerofreno derecho" data-en-aria="Right air brake" data-en="AB ▷">AF ▷</button>
+    <button class="tb b-brake" type="button" data-hold="brake" aria-label="Frenar" data-en-aria="Brake" data-en="Brake">Freno</button>
+    <button class="tb b-thr" type="button" data-hold="throttle" aria-label="Acelerar" data-en-aria="Accelerate" data-en="Thr" hidden>Acel</button>
     <button class="tb big b-boost boost-ring" type="button" data-hold="boost" aria-label="Boost">Boost</button>
-    <button class="tb b-fire" id="touchFire" type="button" aria-label="Disparar cohete">Cohete</button>
+    <button class="tb b-fire" id="touchFire" type="button" aria-label="Disparar cohete" data-en-aria="Fire rocket" data-en="Rocket">Cohete</button>
   </div>
 </div>
-<div id="rotate" class="label">Gira el móvil en horizontal</div>
+<div id="rotate" class="label" data-en="Turn your phone sideways">Gira el móvil en horizontal</div>
 
 <div id="title" class="layer">
   <div class="title-block">
     <h1 class="logo"><img class="mark" src="sarus-mark.svg" alt="" aria-hidden="true">SARUS<span>.</span></h1>
     <span class="label logo-sub">Solar Advanced Racing Union Series</span>
     <div class="progress"><i id="prog"></i></div>
-    <button id="startBtn" type="button" disabled>Cargando…</button>
+    <button id="startBtn" type="button" disabled data-en="Loading…">Cargando…</button>
     <p id="bootErr" class="num" hidden></p>
-    <nav id="menu" class="menu" hidden aria-label="Menú principal">
-      <button type="button" class="mbtn primary" data-menu="race"><b>Race</b><small id="menuRaceSub">01 · Arcadia</small></button>
-      <button type="button" class="mbtn" data-menu="hangar"><b>Hangar</b><small>20 escuderías</small></button>
-      <button type="button" class="mbtn" data-menu="map"><b>Solar Map</b><small id="menuMapSub">Ruta del campeonato</small></button>
-      <button type="button" class="mbtn" data-menu="training"><b>Training</b><small>Pilot test · PRIME-EX</small></button>
-      <button type="button" class="mbtn" data-menu="settings"><b>Settings</b><small>Sonido · gráficos · controles</small></button>
+    <nav id="menu" class="menu" hidden aria-label="Menú principal" data-en-aria="Main menu">
+      <button type="button" class="mbtn primary" data-menu="race"><b data-en="Race">Carrera</b><small id="menuRaceSub">01 · Arcadia</small></button>
+      <button type="button" class="mbtn" data-menu="hangar"><b>Hangar</b><small data-en="20 racing houses">20 escuderías</small></button>
+      <button type="button" class="mbtn" data-menu="map"><b data-en="Solar Map">Mapa solar</b><small id="menuMapSub" data-en="Championship route">Ruta del campeonato</small></button>
+      <button type="button" class="mbtn" data-menu="training"><b data-en="Training">Entrenamiento</b><small data-en="Pilot test · PRIME-EX">Prueba de piloto · PRIME-EX</small></button>
+      <button type="button" class="mbtn" data-menu="settings"><b data-en="Settings">Ajustes</b><small data-en="Sound · graphics · language">Sonido · gráficos · idioma</small></button>
     </nav>
   </div>
 </div>
 
 <div id="settings" class="panel" hidden>
   <div class="inner set-inner">
-    <span class="label">SARUS · Settings</span>
+    <span class="label" data-en="SARUS · Settings">SARUS · Ajustes</span>
     <div class="set-grid">
-      <span class="label">Sound</span>
-      <div class="diff"><button class="chip" type="button" data-set="music" aria-pressed="true">Música</button><button class="chip" type="button" data-set="sfx" aria-pressed="true">Efectos</button></div>
-      <span class="label">Graphics</span>
-      <div class="diff" role="group" aria-label="Calidad gráfica">
-        <button class="chip" type="button" data-quality="full" aria-pressed="false">Completos</button>
-        <button class="chip" type="button" data-quality="lite" aria-pressed="false">Ligeros</button>
+      <span class="label" data-en="Sound">Sonido</span>
+      <div class="diff"><button class="chip" type="button" data-set="music" aria-pressed="true" data-en="Music">Música</button><button class="chip" type="button" data-set="sfx" aria-pressed="true" data-en="Effects">Efectos</button></div>
+      <span class="label" data-en="Graphics">Gráficos</span>
+      <div class="diff" role="group" aria-label="Calidad gráfica" data-en-aria="Graphics quality">
+        <button class="chip" type="button" data-quality="full" aria-pressed="false" data-en="Full">Completos</button>
+        <button class="chip" type="button" data-quality="lite" aria-pressed="false" data-en="Light">Ligeros</button>
       </div>
-      <span class="label">Rivals</span>
-      <div class="diff" role="group" aria-label="Dificultad">
-        <button class="chip" type="button" data-diff="easy" aria-pressed="false">Fácil</button>
+      <span class="label" data-en="Rivals">Rivales</span>
+      <div class="diff" role="group" aria-label="Dificultad" data-en-aria="Difficulty">
+        <button class="chip" type="button" data-diff="easy" aria-pressed="false" data-en="Easy">Fácil</button>
         <button class="chip" type="button" data-diff="normal" aria-pressed="true">Normal</button>
-        <button class="chip" type="button" data-diff="hard" aria-pressed="false">Difícil</button>
+        <button class="chip" type="button" data-diff="hard" aria-pressed="false" data-en="Hard">Difícil</button>
       </div>
-      <span class="label">Controls</span>
-      <div class="diff"><button class="chip" type="button" data-set="assist" aria-pressed="true">Asistencia de trazada</button></div>
+      <span class="label" data-en="Controls">Controles</span>
+      <div class="diff"><button class="chip" type="button" data-set="assist" aria-pressed="true" data-en="Steering assist">Asistencia de trazada</button></div>
+      <span class="label">Idioma · Language</span>
+      <div class="diff" role="group" aria-label="Idioma · Language">
+        <button class="chip" type="button" data-lang="es" aria-pressed="false">Español</button>
+        <button class="chip" type="button" data-lang="en" aria-pressed="false">English</button>
+      </div>
     </div>
     <div class="keys desk-only">
-      <span><b>W / ↑</b>Acelerar</span>
-      <span><b>S / ↓</b>Frenar</span>
-      <span><b>A D / ← →</b>Girar</span>
-      <span><b>A A / D D</b>Giro brusco</span>
-      <span><b>Q / E</b>Aerofrenos</span>
-      <span><b>Espacio</b>Boost</span>
-      <span><b>F</b>Cohete</span>
-      <span><b>C</b>Cámara</span>
-      <span><b>P / Esc</b>Pausa</span>
-      <span><b>R</b>Reiniciar</span>
-      <span><b>M</b>Sonido</span>
-      <span><b>H</b>Asistencia</span>
+      <span><b>W / ↑</b><span data-en="Accelerate">Acelerar</span></span>
+      <span><b>S / ↓</b><span data-en="Brake">Frenar</span></span>
+      <span><b>A D / ← →</b><span data-en="Steer">Girar</span></span>
+      <span><b>A A / D D</b><span data-en="Hard turn">Giro brusco</span></span>
+      <span><b>Q / E</b><span data-en="Air brakes">Aerofrenos</span></span>
+      <span><b data-en="Space">Espacio</b>Boost</span>
+      <span><b>F</b><span data-en="Rocket">Cohete</span></span>
+      <span><b>C</b><span data-en="Camera">Cámara</span></span>
+      <span><b>P / Esc</b><span data-en="Pause">Pausa</span></span>
+      <span><b>R</b><span data-en="Restart">Reiniciar</span></span>
+      <span><b>M</b><span data-en="Sound">Sonido</span></span>
+      <span><b>H</b><span data-en="Assist">Asistencia</span></span>
     </div>
-    <span class="label desk-only">Mando: RT acelerar · LT frenar · LB/RB aerofrenos (doble toque: giro brusco) · A boost · X cohete</span>
+    <span class="label desk-only" data-en="Gamepad: RT accelerate · LT brake · LB/RB air brakes (double tap: hard turn) · A boost · X rocket">Mando: RT acelerar · LT frenar · LB/RB aerofrenos (doble toque: giro brusco) · A boost · X cohete</span>
     <div class="keys touch-only" style="grid-template-columns: repeat(2, auto)">
-      <span><b>Izquierda</b>Desliza para girar</span>
-      <span><b>Desliz rápido</b>Giro brusco</span>
-      <span><b>Auto</b>Acelera solo</span>
-      <span><b>Freno</b>Mantén para frenar</span>
-      <span><b>◁ AF ▷</b>Aerofrenos en horquillas</span>
-      <span><b>Esferas</b>Verde boost · roja cohete</span>
+      <span><b data-en="Left">Izquierda</b><span data-en="Swipe to steer">Desliza para girar</span></span>
+      <span><b data-en="Quick swipe">Desliz rápido</b><span data-en="Hard turn">Giro brusco</span></span>
+      <span><b>Auto</b><span data-en="Accelerates by itself">Acelera solo</span></span>
+      <span><b data-en="Brake">Freno</b><span data-en="Hold to brake">Mantén para frenar</span></span>
+      <span><b data-en="◁ AB ▷">◁ AF ▷</b><span data-en="Air brakes for hairpins">Aerofrenos en horquillas</span></span>
+      <span><b data-en="Spheres">Esferas</b><span data-en="Green boost · red rocket">Verde boost · roja cohete</span></span>
     </div>
-    <div class="row"><button class="btn primary" type="button" id="setBack">Back</button><button class="btn" type="button" id="setReset">Reiniciar progreso</button></div>
+    <div class="row"><button class="btn primary" type="button" id="setBack" data-en="Back">Volver</button><button class="btn" type="button" id="setReset" data-en="Reset progress">Reiniciar progreso</button></div>
   </div>
 </div>
 
 <div id="map" class="layer" hidden>
   <div class="map-top">
-    <button class="btn" type="button" id="mapBack">Menu</button>
-    <div><span class="label">SARUS · Solar Map</span><p class="map-sub" id="mapProg">Championship route</p></div>
-    <button class="btn" type="button" id="mapAll">Overview</button>
+    <button class="btn" type="button" id="mapBack" data-en="Menu">Menú</button>
+    <div><span class="label" data-en="SARUS · Solar Map">SARUS · Mapa solar</span><p class="map-sub" id="mapProg" data-en="Championship route">Ruta del campeonato</p></div>
+    <button class="btn" type="button" id="mapAll" data-en="Overview">Vista general</button>
   </div>
   <div id="mapLabels"></div>
   <aside id="mapCard" class="map-card" hidden></aside>
-  <span class="label map-hint desk-only">Arrastra para girar · rueda para acercar · pulsa un nodo</span>
-  <span class="label map-hint touch-only">Arrastra para girar · pellizca para acercar · toca un nodo</span>
+  <span class="label map-hint desk-only" data-en="Drag to rotate · wheel to zoom · click a node">Arrastra para girar · rueda para acercar · pulsa un nodo</span>
+  <span class="label map-hint touch-only" data-en="Drag to rotate · pinch to zoom · tap a node">Arrastra para girar · pellizca para acercar · toca un nodo</span>
 </div>
 
 <div id="train" hidden>
   <div class="tr-head"><span class="tr-num num" id="trNum">01</span><b id="trTitle">THROTTLE</b></div>
   <p id="trText"></p>
   <span class="label" id="trHint"></span>
-  <button class="btn tr-skip" type="button" id="trSkip">Skip</button>
+  <button class="btn tr-skip" type="button" id="trSkip" data-en="Skip">Saltar</button>
 </div>
 
 <div id="select" class="layer" hidden>
   <div class="sel-panel">
-    <div class="sel-top"><button class="btn sm" type="button" id="selMenu">Menu</button><span class="label">Hangar</span></div>
-    <div class="fam" role="group" aria-label="Familia de vehículo" id="famRow"></div>
-    <div class="sel-num num"><span id="selNum">05</span> / <span id="selTot">18</span> · <span id="selLen">5,5 m</span> <span class="rec" id="selRec" hidden>Recommended</span></div>
+    <div class="sel-top"><button class="btn sm" type="button" id="selMenu" data-en="Menu">Menú</button><span class="label">Hangar</span></div>
+    <div class="fam" role="group" aria-label="Familia de vehículo" data-en-aria="Vehicle family" id="famRow"></div>
+    <div class="sel-num num"><span id="selNum">05</span> / <span id="selTot">18</span> · <span id="selLen">5,5 m</span> <span class="rec" id="selRec" hidden data-en="Recommended">Recomendada</span></div>
     <h2 id="selName">PRIME-EX</h2>
     <div class="sel-house" id="selHouseRow"></div>
     <dl class="sel-meta">
-      <dt>Class</dt><dd id="selClass">BALANCED / STANDARD</dd>
-      <dt>Origin</dt><dd id="selOrigin"></dd>
+      <dt data-en="Class">Clase</dt><dd id="selClass">BALANCED / STANDARD</dd>
+      <dt data-en="Origin">Origen</dt><dd id="selOrigin"></dd>
     </dl>
     <p id="selTag" class="sel-tag"></p>
     <div class="stats">
-      <span class="label">Speed</span><div class="pips" id="stV"></div>
-      <span class="label">Acceleration</span><div class="pips" id="stA"></div>
-      <span class="label">Handling</span><div class="pips" id="stM"></div>
-      <span class="label">Armor</span><div class="pips hullp" id="stH"></div>
+      <span class="label" data-en="Speed">Velocidad</span><div class="pips" id="stV"></div>
+      <span class="label" data-en="Acceleration">Aceleración</span><div class="pips" id="stA"></div>
+      <span class="label" data-en="Handling">Manejo</span><div class="pips" id="stM"></div>
+      <span class="label" data-en="Armor">Blindaje</span><div class="pips hullp" id="stH"></div>
     </div>
-    <button class="more" type="button" id="selMore" aria-expanded="false">More data</button>
+    <button class="more" type="button" id="selMore" aria-expanded="false" data-en="More data">Más datos</button>
     <div class="sel-lore" id="selLore" hidden></div>
     <div class="row sel-row">
-      <button class="btn" type="button" id="selPrev" aria-label="Nave anterior">◁</button>
-      <button class="btn primary" type="button" id="selGo">Race</button>
-      <button class="btn" type="button" id="selNext" aria-label="Nave siguiente">▷</button>
+      <button class="btn" type="button" id="selPrev" aria-label="Nave anterior" data-en-aria="Previous ship">◁</button>
+      <button class="btn primary" type="button" id="selGo" data-en="Race">Correr</button>
+      <button class="btn" type="button" id="selNext" aria-label="Nave siguiente" data-en-aria="Next ship">▷</button>
     </div>
-    <div class="sel-circ-row"><span class="label">Circuit</span><b id="selCirc">01 · ARCADIA</b><button class="chip" type="button" id="selMap">Solar Map</button></div>
-    <span class="label desk-only"><span class="ph">← → nave ·</span> <span class="ph">↑ ↓ familia ·</span> <span class="ph">M mapa ·</span> <span class="ph">Enter correr</span></span>
+    <div class="sel-circ-row"><span class="label" data-en="Circuit">Circuito</span><b id="selCirc">01 · ARCADIA</b><button class="chip" type="button" id="selMap" data-en="Solar Map">Mapa solar</button></div>
+    <span class="label desk-only"><span class="ph" data-en="← → ship ·">← → nave ·</span> <span class="ph" data-en="↑ ↓ family ·">↑ ↓ familia ·</span> <span class="ph" data-en="M map ·">M mapa ·</span> <span class="ph" data-en="Enter race">Enter correr</span></span>
   </div>
   <div class="lineage" id="lineage" hidden></div>
 </div>
 
 <div id="pause" class="panel" hidden>
   <div class="inner">
-    <h2>Pausa</h2>
+    <h2 data-en="Paused">Pausa</h2>
     <div class="row">
-      <button class="btn" type="button" data-key="KeyP">Continuar</button>
-      <button class="btn" type="button" data-key="KeyR">Reiniciar</button>
-      <button class="btn" type="button" data-key="KeyI">Repetir intro</button>
-      <button class="btn" type="button" data-key="KeyV">Cambiar nave</button>
+      <button class="btn" type="button" data-key="KeyP" data-en="Resume">Continuar</button>
+      <button class="btn" type="button" data-key="KeyR" data-en="Restart">Reiniciar</button>
+      <button class="btn" type="button" data-key="KeyI" data-en="Replay intro">Repetir intro</button>
+      <button class="btn" type="button" data-key="KeyV" data-en="Change ship">Cambiar nave</button>
       <button class="btn" type="button" data-key="KeyH" id="assistBtn">Asistencia · sí</button>
       <button class="btn" type="button" id="qualityBtn">Calidad · completa</button>
-      <button class="btn" type="button" data-go="menu">Menu</button>
+      <button class="btn" type="button" data-go="menu" data-en="Menu">Menú</button>
     </div>
-    <span class="label desk-only">P · continuar  ·  R · reiniciar  ·  I · repetir intro</span>
+    <span class="label desk-only" data-en="P · resume  ·  R · restart  ·  I · replay intro">P · continuar  ·  R · reiniciar  ·  I · repetir intro</span>
   </div>
 </div>
 
 <div id="results" class="panel" hidden>
   <div class="inner">
-    <span class="label" id="resLabel">Carrera terminada</span>
+    <span class="label" id="resLabel">—</span>
     <span class="res-unlock" id="resUnlock" hidden></span>
     <div class="res-head"><span class="res-pos" id="resPos">–</span><div><h2 id="resTotal">0:00.00</h2><span class="sub num" id="resBest"></span></div></div>
     <ol class="standings num" id="standings"></ol>
-    <div class="row actions"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden>Siguiente</button><button class="btn" type="button" data-key="KeyR">Repetir carrera</button><button class="btn" type="button" data-key="KeyV">Cambiar nave</button><button class="btn" type="button" data-go="map">Solar Map</button><button class="btn" type="button" data-go="menu">Menu</button></div>
-    <span class="label desk-only">N · siguiente  ·  R · repetir  ·  V · hangar</span>
+    <div class="row actions"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden data-en="Next">Siguiente</button><button class="btn" type="button" data-key="KeyR" data-en="Race again">Repetir carrera</button><button class="btn" type="button" data-key="KeyV" data-en="Change ship">Cambiar nave</button><button class="btn" type="button" data-go="map" data-en="Solar Map">Mapa solar</button><button class="btn" type="button" data-go="menu" data-en="Menu">Menú</button></div>
+    <span class="label desk-only" data-en="N · next  ·  R · race again  ·  V · hangar">N · siguiente  ·  R · repetir  ·  V · hangar</span>
   </div>
 </div>
-<button id="fsBtn" class="fs-btn" type="button" aria-label="Pantalla completa" hidden><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+<button id="fsBtn" class="fs-btn" type="button" aria-label="Pantalla completa" data-en-aria="Fullscreen" hidden><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
 <div id="travel" class="panel" hidden>
   <div class="inner">
-    <span class="label" id="travelLbl">Rumbo al siguiente circuito</span>
+    <span class="label" id="travelLbl"></span>
     <h2 id="travelName">ARCADIA</h2>
     <span class="sub" id="travelSub"></span>
     <div class="tvbar" aria-hidden="true"><i></i></div>
@@ -686,7 +691,7 @@
     window.__srsFail = function (msg) {
       if (shown) return; shown = true;
       var b = document.getElementById('startBtn'), e = document.getElementById('bootErr');
-      if (b) { b.textContent = 'Error al cargar'; b.disabled = true; }
+      if (b) { b.textContent = /^es/i.test(navigator.language || '') ? 'Error al cargar' : 'Loading error'; b.disabled = true; }
       if (e) { e.textContent = String(msg).slice(0, 240); e.hidden = false; }
     };
     window.addEventListener('error', function (ev) {
@@ -696,7 +701,7 @@
       if (!window.__srs || window.__srs.state === 'loading') window.__srsFail(ev.reason && ev.reason.message || ev.reason);
     });
     setTimeout(function () {
-      if (!window.__srs) window.__srsFail('El motor 3D no llegó a arrancar. Prueba a recargar la página.');
+      if (!window.__srs) window.__srsFail(/^es/i.test(navigator.language || '') ? 'El motor 3D no llegó a arrancar. Prueba a recargar la página.' : 'The 3D engine did not start. Try reloading the page.');
     }, 30000);
   })();
 </script>

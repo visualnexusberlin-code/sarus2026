@@ -1,5 +1,6 @@
 // Cámaras: persecución con muelle, morro, lejana. El offset se suaviza en el marco de la nave,
 // así la cámara no se queda atrás a 500 km/h pero sí "respira" en las curvas.
+import { L } from './i18n.js';
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
@@ -8,10 +9,10 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0), _t2 = new THREE.Vector3();
 const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 
 export const CAM_MODES = [
-  { id: 'chase', label: 'Cámara · persecución' },
-  { id: 'close', label: 'Cámara · cercana' },
-  { id: 'far', label: 'Cámara · lejana' },
-  { id: 'nose', label: 'Cámara · morro' },
+  { id: 'chase', label: L('Cámara · persecución', 'Camera · chase') },
+  { id: 'close', label: L('Cámara · cercana', 'Camera · close') },
+  { id: 'far', label: L('Cámara · lejana', 'Camera · far') },
+  { id: 'nose', label: L('Cámara · morro', 'Camera · nose') },
 ];
 
 export class ChaseCamera {

@@ -42,10 +42,14 @@ import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
+import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
 import { NODES, FAMILIES, LINEAGES, MOTTO } from './lore.js';
 import { SolarMap } from './solarmap.js';
 import { Training } from './training.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
+
+const DEC = tr(',', '.');   // separador decimal
+applyDom();   // textos fijos del HTML en el idioma elegido (antes de que el código escriba los dinámicos)
 
 installFogChunks();
 
@@ -55,7 +59,7 @@ let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
 } catch (e) {
-  window.__srsFail?.('Este visor no permite gráficos 3D (WebGL). Ábrelo en Chrome, Safari o Firefox, desde una web o el enlace del juego.');
+  window.__srsFail?.(tr('Este visor no permite gráficos 3D (WebGL). Ábrelo en Chrome, Safari o Firefox, desde una web o el enlace del juego.', 'This viewer does not support 3D graphics (WebGL). Open it in Chrome, Safari or Firefox, from a website or the game link.'));
   throw e;
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY.prStart));   // arranca prudente; la resolución adaptativa sube a 2 si sobra
@@ -178,11 +182,18 @@ document.querySelectorAll('.panel [data-key]').forEach((b) => b.addEventListener
   const sync = () => document.querySelectorAll('.fs-btn').forEach((b) => { b.classList.toggle('on', isFS()); b.setAttribute('aria-label', isFS() ? 'Salir de pantalla completa' : 'Pantalla completa'); });
   document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
 }
+// ── Idioma: español / inglés (recarga la página) ──
+{
+  document.querySelectorAll('[data-lang]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.lang === LANG));
+    b.addEventListener('click', () => { if (b.dataset.lang !== LANG) setLang(b.dataset.lang); });
+  });
+}
 // ── Calidad gráfica: completa / ligera (recarga la página) ──
 {
   const sync = () => {
     document.querySelectorAll('[data-quality]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.quality === 'lite') === LITE)));
-    const qb = document.getElementById('qualityBtn'); if (qb) qb.textContent = `Gráficos · ${LITE ? 'ligeros' : 'completos'}`;
+    const qb = document.getElementById('qualityBtn'); if (qb) qb.textContent = `${tr('Gráficos', 'Graphics')} · ${LITE ? tr('ligeros', 'light') : tr('completos', 'full')}`;
   };
   document.querySelectorAll('[data-quality]').forEach((b) => b.addEventListener('click', () => { if ((b.dataset.quality === 'lite') !== LITE) setQuality(b.dataset.quality === 'lite'); }));
   document.getElementById('qualityBtn')?.addEventListener('click', () => setQuality(!LITE));
@@ -244,7 +255,7 @@ function b64ToBytes(b64) {
 }
 
 async function gunzip(bytes) {
-  if (typeof DecompressionStream === 'undefined') throw new Error('Este navegador no puede descomprimir el modelo (actualízalo)');
+  if (typeof DecompressionStream === 'undefined') throw new Error(tr('Este navegador no puede descomprimir el modelo (actualízalo)', 'This browser cannot decompress the model (please update it)'));
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
@@ -304,15 +315,15 @@ async function loadModel(src, label, p0, p1) {
 }
 
 (async () => {
-  const circuit = await loadModel(CONFIG.models.circuit, 'Cargando circuito', 10, 45);
-  const fleet = await loadModel(CONFIG.models.fleet, 'Cargando flota', 50, 70);
-  status('Construyendo circuito…'); await nextFrame();
+  const circuit = await loadModel(CONFIG.models.circuit, tr('Cargando circuito', 'Loading circuit'), 10, 45);
+  const fleet = await loadModel(CONFIG.models.fleet, tr('Cargando flota', 'Loading fleet'), 50, 70);
+  status(tr('Construyendo circuito…', 'Building circuit…')); await nextFrame();
   onLoaded(circuit, fleet);
 })().catch((err) => {
   console.error(err);
   window.__srsFail?.(`No se pudo cargar: ${err?.message || err}`);
 });
-setTimeout(() => { if (G.state === 'loading') window.__srsFail?.('La carga del modelo no termina. Recarga la página.'); }, 90000);
+setTimeout(() => { if (G.state === 'loading') window.__srsFail?.(tr('La carga del modelo no termina. Recarga la página.', 'The model is taking too long to load. Reload the page.')); }, 90000);
 
 function findScene(gltf, re) { return gltf.scenes.find((s) => re.test(normName(s))); }
 function findNode(gltf, name) {
@@ -813,7 +824,7 @@ function showMenu() {
   const c = lastUnlocked();
   $('menuRaceSub').textContent = `${c.num} · ${c.name}`;
   const open = NODES.filter((n) => n.circuits.some((id) => G.unlocked.has(id))).length;
-  $('menuMapSub').textContent = `${open} / ${NODES.length} nodos abiertos`;
+  $('menuMapSub').textContent = `${open} / ${NODES.length} ${tr('nodos abiertos', 'nodes open')}`;
   if (!IS_TOUCH) document.querySelector('.mbtn.primary')?.focus();
 }
 
@@ -850,7 +861,7 @@ document.querySelectorAll('[data-set]').forEach((b) => b.addEventListener('click
 }));
 $('setBack').addEventListener('click', () => { $('settings').hidden = true; audio.beep(false); });
 $('setReset').addEventListener('click', () => {
-  if (!confirm('¿Borrar el progreso del campeonato (circuitos abiertos, récords, training)?')) return;
+  if (!confirm(tr('¿Borrar el progreso del campeonato (circuitos abiertos, récords, entrenamiento)?', 'Erase championship progress (open circuits, records, training)?'))) return;
   for (const k of ['sarus-unlocked', 'sarus-done', 'sarus-best', 'sarus-trained', 'sarus-lineage']) { try { localStorage.removeItem(k); } catch (e) { /* sin almacenamiento */ } }
   location.reload();
 });
@@ -900,7 +911,7 @@ function setFamily(f) {
 function renderFamilies() {
   const row = $('famRow');
   if (!row.children.length) {
-    row.innerHTML = [`<button class="chip" type="button" data-fam="">All</button>`, ...FAMILIES.map((f) => `<button class="chip" type="button" data-fam="${f.id}" title="${f.sub}">${f.label}</button>`)].join('');
+    row.innerHTML = [`<button class="chip" type="button" data-fam="">${tr('Todas', 'All')}</button>`, ...FAMILIES.map((f) => `<button class="chip" type="button" data-fam="${f.id}" title="${f.sub}">${f.label}</button>`)].join('');
     row.querySelectorAll('[data-fam]').forEach((b) => b.addEventListener('click', () => { setFamily(b.dataset.fam || null); audio.beep(false); }));
   }
   row.querySelectorAll('[data-fam]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.fam || null) === G.family)));
@@ -941,9 +952,9 @@ function showChoice(i) {
   const pips = (el, v) => { el.innerHTML = [1, 2, 3, 4, 5].map((k) => `<i class="${k <= v ? 'on' : ''}"></i>`).join(''); };
   const t = traits(d);
   pips($('stV'), t.V); pips($('stA'), t.A); pips($('stM'), t.M); pips($('stH'), t.H);
-  $('selLen').textContent = `${(sh.length / (CONFIG.shipScale || 1)).toFixed(1).replace('.', ',')} m`;
+  $('selLen').textContent = `${(sh.length / (CONFIG.shipScale || 1)).toFixed(1).replace('.', DEC)} m`;
   const lin = LINEAGES[d.lineage];
-  $('selLore').innerHTML = `<span class="label">${lin ? lin.label : ''}</span><p>${d.lore || ''}</p><span class="label">En pista</span><p>${d.tag}</p>`;
+  $('selLore').innerHTML = `<span class="label">${lin ? lin.label : ''}</span><p>${d.lore || ''}</p><span class="label">${tr('En pista', 'On track')}</span><p>${d.tag}</p>`;
 }
 $('selPrev').addEventListener('click', () => stepChoice(-1));
 $('selNext').addEventListener('click', () => stepChoice(1));
@@ -969,7 +980,7 @@ $('selMore').addEventListener('click', () => {
 function showLineage() {
   const el = $('lineage');
   const byLin = (k) => G.fleet.filter((s) => s.def.lineage === k).map((s) => s.def.house).join(' · ');
-  el.innerHTML = `<span class="label">SARUS · Racing houses</span><h3>${MOTTO}</h3><dl>${Object.entries(LINEAGES).map(([k, l]) => `<div><dt>${l.label}</dt><dd>${l.text}<br><em>${byLin(k)}</em></dd></div>`).join('')}</dl><div class="row" style="justify-content:flex-start"><button class="btn primary" type="button" id="linOk">Enter hangar</button></div>`;
+  el.innerHTML = `<span class="label">${tr('SARUS · Escuderías', 'SARUS · Racing houses')}</span><h3>${MOTTO}</h3><dl>${Object.entries(LINEAGES).map(([k, l]) => `<div><dt>${l.label}</dt><dd>${l.text}<br><em>${byLin(k)}</em></dd></div>`).join('')}</dl><div class="row" style="justify-content:flex-start"><button class="btn primary" type="button" id="linOk">${tr('Entrar al hangar', 'Enter hangar')}</button></div>`;
   el.hidden = false;
   $('linOk').addEventListener('click', () => { el.hidden = true; store.set('sarus-lineage', true); audio.beep(false); });
 }
@@ -1001,7 +1012,7 @@ function nodeStatus(nd) {
   if (nd.circuits.some((id) => G.unlocked.has(id))) return 'active';
   return 'locked';
 }
-const STATUS_TXT = { done: 'COMPLETED', active: 'ACTIVE', locked: 'LOCKED', soon: 'IN CONSTRUCTION' };
+const STATUS_TXT = { done: tr('COMPLETADO', 'COMPLETED'), active: tr('ACTIVO', 'ACTIVE'), locked: tr('BLOQUEADO', 'LOCKED'), soon: tr('EN CONSTRUCCIÓN', 'IN CONSTRUCTION') };
 let savedLook = null;
 function mapLook() {
   if (savedLook) return;
@@ -1042,7 +1053,7 @@ function goMap() {
   G.map.setState(st);
   G.map.nodes.forEach((nd, i) => { nd.el.className = `mnode ${st[i].status}`; });
   const done = G.map.nodes.filter((nd) => nodeStatus(nd) === 'done').length;
-  $('mapProg').textContent = `Championship route · ${done} / ${NODES.length - 1} completed`;
+  $('mapProg').textContent = `${tr('Ruta del campeonato', 'Championship route')} · ${done} / ${NODES.length - 1} ${tr('completados', 'completed')}`;
   G.map.controls.enabled = true;
   $('map').hidden = false;
   mapLook();
@@ -1063,29 +1074,29 @@ function selectNode(nd, circId) {
   const c = id ? circuitById(id) : null;
   const L = c?.lore || {};
   const cs = c ? (G.done.has(c.id) ? 'done' : G.unlocked.has(c.id) ? 'active' : 'locked') : status;
-  const len = c && G.lens[c.id] ? `${(G.lens[c.id] / 1000).toFixed(2).replace('.', ',')} KM` : '—';
+  const len = c && G.lens[c.id] ? `${(G.lens[c.id] / 1000).toFixed(2).replace('.', DEC)} KM` : '—';
   const best = c && G.best[c.id] ? fmt(G.best[c.id]) : '—';
   const diffPips = L.diff ? '●'.repeat(L.diff) + '○'.repeat(5 - L.diff) : '—';
   const prev = c ? CIRCUITS[CIRCUITS.indexOf(c) - 1] : null;
   const card = $('mapCard');
   card.innerHTML = `
-    <button class="mc-close" type="button" aria-label="Cerrar">×</button>
+    <button class="mc-close" type="button" aria-label="${tr('Cerrar', 'Close')}">×</button>
     <div class="mc-num"><span class="num">${c ? c.num : String(nd.n).padStart(2, '0')} / ${String(NODES.length).padStart(2, '0')}</span><span class="st ${cs}">${STATUS_TXT[cs]}</span></div>
     <h2>${c ? c.name : nd.title}</h2>
     <span class="mc-loc">${nd.system} · ${nd.place}</span>
     ${ids.length > 1 ? `<div class="mc-tabs">${ids.map((x) => { const k = circuitById(x); return `<button class="chip" type="button" data-tab="${x}" aria-pressed="${x === id}">${k.num} ${k.name}</button>`; }).join('')}</div>` : ''}
     <dl class="mc-data">
-      <dt>Gravity</dt><dd>${L.gravity || nd.gravity || '—'}</dd>
-      ${c ? `<dt>Surface</dt><dd>${L.surface}</dd>
-      <dt>Length</dt><dd>${len}</dd>
-      <dt>Laps</dt><dd>${CONFIG.laps}</dd>
-      <dt>Difficulty</dt><dd>${diffPips}</dd>
-      <dt>Local record</dt><dd>${best}</dd>
-      <dt>Rebuilt</dt><dd>${L.year}</dd>` : ''}
+      <dt>${tr('Gravedad', 'Gravity')}</dt><dd>${L.gravity || nd.gravity || '—'}</dd>
+      ${c ? `<dt>${tr('Superficie', 'Surface')}</dt><dd>${L.surface}</dd>
+      <dt>${tr('Longitud', 'Length')}</dt><dd>${len}</dd>
+      <dt>${tr('Vueltas', 'Laps')}</dt><dd>${CONFIG.laps}</dd>
+      <dt>${tr('Dificultad', 'Difficulty')}</dt><dd>${diffPips}</dd>
+      <dt>${tr('Récord local', 'Local record')}</dt><dd>${best}</dd>
+      <dt>${tr('Reconstruido', 'Rebuilt')}</dt><dd>${L.year}</dd>` : ''}
     </dl>
-    <div class="mc-arch"><span class="label">Archival DNA</span><p>${L.archive || nd.archive || ''}</p></div>
-    ${c ? (cs === 'locked' ? `<p class="mc-note">Termina ${prev.num} ${prev.name} para abrir este circuito.</p>` : '') : '<p class="mc-note">Próximamente: el cinturón de asteroides está en construcción.</p>'}
-    ${c ? `<div class="row"><button class="btn primary" type="button" id="mcGo" ${cs === 'locked' ? 'aria-disabled="true" style="opacity:.4"' : ''}>Race ▸</button></div>` : ''}`;
+    <div class="mc-arch"><span class="label">${tr('ADN de archivo', 'Archival DNA')}</span><p>${L.archive || nd.archive || ''}</p></div>
+    ${c ? (cs === 'locked' ? `<p class="mc-note">${tr(`Termina ${prev.num} ${prev.name} para abrir este circuito.`, `Finish ${prev.num} ${prev.name} to unlock this circuit.`)}</p>` : '') : `<p class="mc-note">${tr('Próximamente: el cinturón de asteroides está en construcción.', 'Coming soon: the asteroid belt is under construction.')}</p>`}
+    ${c ? `<div class="row"><button class="btn primary" type="button" id="mcGo" ${cs === 'locked' ? 'aria-disabled="true" style="opacity:.4"' : ''}>${tr('Correr', 'Race')} ▸</button></div>` : ''}`;
   card.hidden = false;
   mapShift();
   card.querySelector('.mc-close').addEventListener('click', () => { card.hidden = true; mapShift(); G.map.overview(innerWidth / innerHeight); G.map.nodes.forEach((n) => n.el.classList.remove('sel')); });
@@ -1144,7 +1155,7 @@ function startTraining(then) {
     G.chase.snap(G.ship);
     G.training = new Training({ G, el: trainEl, touch: IS_TOUCH });
     G.training.start(null);
-  }, G.circuitId !== id, 'Training · Pilot test');
+  }, G.circuitId !== id, tr('Entrenamiento · prueba de piloto', 'Training · Pilot test'));
 }
 // el objetivo de la prueba de tiro: una nave que entra en pista justo delante (sin disparar)
 G.trainAddTarget = () => {
@@ -1177,7 +1188,7 @@ $('trSkip').addEventListener('click', () => { audio.beep(false); endTraining(); 
 // Cambio de circuito con cortinilla (la reconstrucción tarda un par de segundos)
 function travel(id, then, rebuild = true, label) {
   const c = circuitById(id);
-  $('travelLbl').textContent = label || `Rumbo a ${c.num} · ${c.mapNode.system}`;
+  $('travelLbl').textContent = label || `${tr('Rumbo a', 'Heading to')} ${c.num} · ${c.mapNode.system}`;
   $('travelName').textContent = c.name;
   $('travelSub').textContent = c.blurb;
   $('travel').hidden = false;
@@ -1261,11 +1272,11 @@ function endIntro() {
 
 function introCards() {
   const c = G.circuit;
-  const round = G.cup ? `SARUS Championship · race ${G.cup.round + 1}/${CIRCUITS.length}` : c.cards[0];
+  const round = G.cup ? `${tr('Campeonato SARUS · carrera', 'SARUS Championship · race')} ${G.cup.round + 1}/${CIRCUITS.length}` : c.cards[0];
   return [
     [0.9, 4.6, round, c.cards[1]],
-    [6.6, 10.4, `${c.sub} · ${G.ships.length} naves · ${CONFIG.laps} vueltas`, `${(G.track.length / 1000).toFixed(2).replace('.', ',')} KM`],
-    [12.6, 16.4, `Piloto · sale ${CONFIG.playerSlot + 1}º`, G.ship.name],
+    [6.6, 10.4, `${c.sub} · ${G.ships.length} ${tr('naves', 'ships')} · ${CONFIG.laps} ${tr('vueltas', 'laps')}`, `${(G.track.length / 1000).toFixed(2).replace('.', DEC)} KM`],
+    [12.6, 16.4, `${tr('Piloto · sale', 'Pilot · starts')} ${ord(CONFIG.playerSlot + 1)}`, G.ship.name],
   ];
 }
 
@@ -1321,7 +1332,7 @@ function updateRace(dt) {
     if (race.countdown < 0.9 && race.countdown > 0.6 && inp.throttle) race.perfect = true;
     if (race.countdown <= 0.6) {
       G.state = 'race';
-      if (race.perfect) { ship.boostKick = 1.4; hud.banner('Salida perfecta', '', false, 1.4, true); }
+      if (race.perfect) { ship.boostKick = 1.4; hud.banner(tr('Salida perfecta', 'Perfect start'), '', false, 1.4, true); }
       // los rivales también tienen reflejos (unos mejores que otros)
       for (const [sh, ai] of G.ai) if (Math.random() < ai.skill - 0.5) sh.boostKick = 0.6 + Math.random() * 0.6;
     }
@@ -1365,19 +1376,19 @@ function updateRace(dt) {
       G.training?.onPick(sh, it);
       if (sh === ship) {
         audio.chime(it.type === 'R');
-        hud.banner(it.type === 'G' ? 'Boost' : 'Cohete listo', it.type === 'R' ? (IS_TOUCH ? 'Pulsa COHETE' : 'F · disparar') : '', false, 1.2, true);
+        hud.banner(it.type === 'G' ? 'Boost' : tr('Cohete listo', 'Rocket ready'), it.type === 'R' ? (IS_TOUCH ? tr('Pulsa COHETE', 'Tap ROCKET') : tr('F · disparar', 'F · fire')) : '', false, 1.2, true);
       }
     });
     // anillos de carrera (EUROPA): reparan el blindaje, recargan dos cohetes y dan un empujón
     G.circuitFx?.passRings?.(G.ships, (sh, gate) => {
       if (gate?.kind === 'rockets') {                    // anillo de cohetes (PHOBOS): solo recarga
         sh.ammo = 2;
-        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner('Anillo de cohetes', IS_TOUCH ? 'Cohetes × 2 · pulsa COHETE' : 'Cohetes × 2 · F disparar', false, 1.6, true); }
+        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner(tr('Anillo de cohetes', 'Rocket ring'), IS_TOUCH ? tr('Cohetes × 2 · pulsa COHETE', 'Rockets × 2 · tap ROCKET') : tr('Cohetes × 2 · F disparar', 'Rockets × 2 · F fire'), false, 1.6, true); }
         return;
       }
       sh.hull = sh.maxHull; sh.setDamage(); sh.ammo = 2;
       sh.boostPad(); sh.boost = 1; sh.boostKick = Math.max(sh.boostKick, 1.5 * (sh.C.kick || 1));
-      if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner('Anillo', 'Blindaje restaurado · cohetes × 2 · boost', false, 1.6, true); }
+      if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner(tr('Anillo', 'Ring'), tr('Blindaje restaurado · cohetes × 2 · boost', 'Armor restored · rockets × 2 · boost'), false, 1.6, true); }
     });
     for (const sh of G.ships) {
       const wants = sh === ship ? (inp.fire && !G.playerAI) : (!G.training && G.ai.get(sh)?.inp.fire);
@@ -1397,10 +1408,10 @@ function updateRace(dt) {
     }
     if (victim === ship) {
       G.chase.addShake(1.1);
-      if (destroyed) hud.banner('Eliminado', `Fuera de carrera · ${shooter.name}`, true, 3.2);
-      else hud.banner(ship.hull === 1 ? 'Blindaje crítico' : 'Impacto', `Blindaje ${ship.hull}/${ship.maxHull} · ${shooter.name}`, true, 1.6);
-    } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} eliminada` : `Impacto · ${victim.name}`, destroyed ? 'Fuera de carrera' : `Blindaje ${victim.hull}/${victim.maxHull}`, false, 1.6);
-    else if (destroyed && d < 900) hud.banner(`${victim.name} eliminada`, `por ${shooter.name}`, false, 1.4, true);
+      if (destroyed) hud.banner(tr('Eliminado', 'Eliminated'), `${tr('Fuera de carrera', 'Out of the race')} · ${shooter.name}`, true, 3.2);
+      else hud.banner(ship.hull === 1 ? tr('Blindaje crítico', 'Critical armor') : tr('Impacto', 'Hit'), `${tr('Blindaje', 'Armor')} ${ship.hull}/${ship.maxHull} · ${shooter.name}`, true, 1.6);
+    } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} ${tr('eliminada', 'eliminated')}` : `${tr('Impacto', 'Hit')} · ${victim.name}`, destroyed ? tr('Fuera de carrera', 'Out of the race') : `${tr('Blindaje', 'Armor')} ${victim.hull}/${victim.maxHull}`, false, 1.6);
+    else if (destroyed && d < 900) hud.banner(`${victim.name} ${tr('eliminada', 'eliminated')}`, `${tr('por', 'by')} ${shooter.name}`, false, 1.4, true);
   });
   // jugador eliminado: unos segundos viendo los restos y a la clasificación
   // jugador eliminado: cámara lenta, la cámara se aleja de los restos y enseguida la clasificación en vivo
@@ -1492,7 +1503,7 @@ function playerLap() {
   r.times.push(r.lapTime);
   if (r.lapTime < r.best) r.best = r.lapTime;
   if (G.ship.race.finished && !G.training) { finish(); return; }
-  G.hud.banner(G.ship.race.lap === r.laps ? `Última vuelta · P${r.pos}` : `Vuelta ${G.ship.race.lap} · P${r.pos}`, fmt(r.lapTime), false, 2.6);
+  G.hud.banner(G.ship.race.lap === r.laps ? `${tr('Última vuelta', 'Final lap')} · P${r.pos}` : `${tr('Vuelta', 'Lap')} ${G.ship.race.lap} · P${r.pos}`, fmt(r.lapTime), false, 2.6);
   r.lapTime = 0; r.sectorIdx = 0; r.sector = 1; G.ship.race._lastSector = 0;
   audio.beep(true);
 }
@@ -1514,18 +1525,18 @@ function finish() {
   if (r.best < (G.best[G.circuitId] ?? Infinity)) { G.best[G.circuitId] = r.best; store.set('sarus-best', G.best); }
   const last = G.cup && G.cup.round === CIRCUITS.length - 1;
   const dnf = G.ship.out;
-  $('resLabel').textContent = last ? 'Campeonato · clasificación final' : `${G.circuit.name} · ${dnf ? 'Eliminado' : 'Carrera terminada'}`;
-  $('resPos').textContent = dnf ? 'DNF' : `${r.pos}º`;
-  $('resTotal').textContent = dnf ? `Vuelta ${Math.min(G.ship.race.lap, r.laps)} de ${r.laps}` : fmt(r.finishedAt);
+  $('resLabel').textContent = last ? tr('Campeonato · clasificación final', 'Championship · final standings') : `${G.circuit.name} · ${dnf ? tr('Eliminado', 'Eliminated') : tr('Carrera terminada', 'Race finished')}`;
+  $('resPos').textContent = dnf ? 'DNF' : ord(r.pos);
+  $('resTotal').textContent = dnf ? `${tr('Vuelta', 'Lap')} ${Math.min(G.ship.race.lap, r.laps)} ${tr('de', 'of')} ${r.laps}` : fmt(r.finishedAt);
   const me = G.ship.race, cp = combatPts(G.ship), pp = dnf ? 0 : POINTS[r.pos - 1] || 0;
-  $('resBest').textContent = `Mejor vuelta ${r.best < Infinity ? fmt(r.best) : '—'} · +${pp + cp} pts` + (me.hits ? ` (${me.hits} impactos${me.kills ? ` · ${me.kills} eliminadas` : ''})` : '');
+  $('resBest').textContent = `${tr('Mejor vuelta', 'Best lap')} ${r.best < Infinity ? fmt(r.best) : '—'} · +${pp + cp} pts` + (me.hits ? ` (${me.hits} ${tr('impactos', 'hits')}${me.kills ? ` · ${me.kills} ${tr('eliminadas', 'eliminated')}` : ''})` : '');
   const nb = $('nextBtn');
   nb.hidden = !(nx && G.unlocked.has(nx.id));
-  if (nx) nb.textContent = `${G.cup ? 'Siguiente carrera' : 'Siguiente circuito'} · ${nx.name}`;
+  if (nx) nb.textContent = `${G.cup ? tr('Siguiente carrera', 'Next race') : tr('Siguiente circuito', 'Next circuit')} · ${nx.name}`;
   $('resUnlock').hidden = !unlocking;
-  if (unlocking) $('resUnlock').textContent = `Desbloqueado · ${nx.name}`;
+  if (unlocking) $('resUnlock').textContent = `${tr('Desbloqueado', 'Unlocked')} · ${nx.name}`;
   r.resultsTimer = 0;
-  if (!dnf) G.hud.banner(r.pos === 1 ? 'Victoria' : `Meta · ${r.pos}º`, fmt(r.finishedAt), false, 3);
+  if (!dnf) G.hud.banner(r.pos === 1 ? tr('Victoria', 'Victory') : `${tr('Meta', 'Finish')} · ${ord(r.pos)}`, fmt(r.finishedAt), false, 3);
   setTimeout(() => { if (G.state === 'finished') { renderStandings(); $('results').hidden = false; } }, dnf ? 500 : 1600);
   audio.beep(true);
 }
@@ -1560,11 +1571,11 @@ function renderStandings() {
   $('standings').innerHTML = G.order.map((sh, i) => {
     const r = sh.race;
     let t;
-    if (sh.out) t = 'Eliminada';
+    if (sh.out) t = tr('Eliminada', 'Eliminated');
     else if (r.finished) t = i === 0 ? fmt(r.finishTime) : `+${(r.finishTime - lead.race.finishTime).toFixed(2)}`;
     else {
       const gap = (lead.race.finished ? G.race.laps * L : lead.race.progress) - r.progress;
-      t = gap > L ? `+${Math.floor(gap / L)} v` : 'en pista';
+      t = gap > L ? `+${Math.floor(gap / L)} ${tr('v', 'lap')}` : tr('en pista', 'on track');
     }
     const c = sh.race.hits ? ` <i class="cb">✶${sh.race.hits}${sh.race.kills ? ' ✕' + sh.race.kills : ''}</i>` : '';
     const pts = `${c} <small>+${racePts(sh, i)}</small>`;
@@ -1679,8 +1690,8 @@ G.assistOn = true;
 function setAssist(on) {
   G.assistOn = on;
   if (G.ship) G.ship.assist = on ? 1 : 0;
-  const b = document.getElementById('assistBtn'); if (b) b.textContent = `Asistencia · ${on ? 'sí' : 'no'}`;
-  G.hud?.banner(`Asistencia de dirección · ${on ? 'activada' : 'desactivada'}`, '', false, 1.4);
+  const b = document.getElementById('assistBtn'); if (b) b.textContent = `${tr('Asistencia', 'Assist')} · ${on ? tr('sí', 'on') : 'no'}`;
+  G.hud?.banner(`${tr('Asistencia de dirección', 'Steering assist')} · ${on ? tr('activada', 'on') : tr('desactivada', 'off')}`, '', false, 1.4);
 }
 
 // ── Bucle ──

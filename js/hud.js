@@ -1,4 +1,6 @@
 // HUD tipográfico: vueltas, tiempos, velocidad, boost, minimapa y avisos.
+import { L } from './i18n.js';
+
 const $ = (id) => document.getElementById(id);
 
 export const fmt = (t) => {
@@ -92,7 +94,7 @@ export class HUD {
     e.fire?.classList.toggle('armed', armed);
     e.lapTot.textContent = race.laps;
     e.time.textContent = fmt(race.lapTime);
-    e.best.textContent = `Mejor ${fmt(race.best)}`;
+    e.best.textContent = `${L('Mejor', 'Best')} ${fmt(race.best)}`;
     e.speed.textContent = Math.round(ship.kmh);
     e.speedBar.style.width = `${Math.min(100, ship.v / ship.C.vmaxBoost * 100)}%`;
     e.boost.style.width = `${ship.boost * 100}%`;

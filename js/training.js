@@ -3,13 +3,21 @@
 //  Tramo guiado en ARCADIA con PRIME-EX: seis pasos que esperan a que el piloto haga cada cosa,
 //  con un instante de cámara lenta al presentar cada esfera. Obligatorio solo en el primer inicio.
 // ─────────────────────────────────────────────────────────────
+import { L } from './i18n.js';
+
 const STEPS = [
-  { id: 'throttle', title: 'THROTTLE', text: 'Accelerate down the straight.', desk: 'W / ↑ · acelerar', touch: 'La nave acelera sola · mantén FRENO para frenar' },
-  { id: 'boost', title: 'BOOST', text: 'BOOST PICKUP · Collect to recharge thrust.', desk: 'Pasa por la esfera verde · ESPACIO para usar el boost', touch: 'Desliza hacia la esfera verde · botón BOOST' },
-  { id: 'ordnance', title: 'ORDNANCE', text: 'Collect ammunition.', desk: 'Pasa por la esfera roja', touch: 'Desliza hacia la esfera roja' },
-  { id: 'fire', title: 'FIRE', text: 'Launch weapon.', desk: 'F · disparar al objetivo', touch: 'Botón COHETE' },
-  { id: 'hard', title: 'HARD TURN', text: 'Use for rapid trajectory correction.', desk: 'Doble toque A A / D D', touch: 'Desliz rápido a un lado' },
-  { id: 'brake', title: 'AIR BRAKE', text: 'Control lateral drift.', desk: 'Q / E · aerofreno izquierdo / derecho', touch: 'Botones ◁ AF ▷' },
+  { id: 'throttle', title: L('ACELERADOR', 'THROTTLE'), text: L('Acelera en la recta.', 'Accelerate down the straight.'),
+    desk: L('W / ↑ · acelerar', 'W / ↑ · accelerate'), touch: L('La nave acelera sola · mantén FRENO para frenar', 'The ship accelerates by itself · hold BRAKE to slow down') },
+  { id: 'boost', title: 'BOOST', text: L('ESFERA DE BOOST · Recógela para recargar el empuje.', 'BOOST PICKUP · Collect to recharge thrust.'),
+    desk: L('Pasa por la esfera verde · ESPACIO para usar el boost', 'Fly through the green sphere · SPACE to use boost'), touch: L('Desliza hacia la esfera verde · botón BOOST', 'Swipe toward the green sphere · BOOST button') },
+  { id: 'ordnance', title: L('MUNICIÓN', 'ORDNANCE'), text: L('Recoge munición.', 'Collect ammunition.'),
+    desk: L('Pasa por la esfera roja', 'Fly through the red sphere'), touch: L('Desliza hacia la esfera roja', 'Swipe toward the red sphere') },
+  { id: 'fire', title: L('DISPARO', 'FIRE'), text: L('Lanza el cohete.', 'Launch weapon.'),
+    desk: L('F · disparar al objetivo', 'F · fire at the target'), touch: L('Botón COHETE', 'ROCKET button') },
+  { id: 'hard', title: L('GIRO BRUSCO', 'HARD TURN'), text: L('Para corregir la trayectoria de golpe.', 'Use for rapid trajectory correction.'),
+    desk: L('Doble toque A A / D D', 'Double tap A A / D D'), touch: L('Desliz rápido a un lado', 'Quick swipe to one side') },
+  { id: 'brake', title: L('AEROFRENO', 'AIR BRAKE'), text: L('Controla la deriva lateral.', 'Control lateral drift.'),
+    desk: L('Q / E · aerofreno izquierdo / derecho', 'Q / E · left / right air brake'), touch: L('Botones ◁ AF ▷', '◁ AB ▷ buttons') },
 ];
 
 export class Training {
@@ -44,7 +52,7 @@ export class Training {
 
   clear() {
     this.done = true; this.endT = 0;
-    this.show('✓', 'PILOT CLEARANCE GRANTED', 'SARUS licence validated · Solar Advanced Racing Union Series', '');
+    this.show('✓', L('LICENCIA DE PILOTO CONCEDIDA', 'PILOT CLEARANCE GRANTED'), L('Licencia SARUS validada · Solar Advanced Racing Union Series', 'SARUS licence validated · Solar Advanced Racing Union Series'), '');
     this.el.box.classList.add('granted');
   }
 

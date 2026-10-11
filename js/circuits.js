@@ -1,5 +1,6 @@
 // Circuitos del campeonato SARUS. SELENE (Luna) y ARCADIA (Tierra) usan el mismo GLB: cambian sentido,
 // relieve, atmósfera, luz, grading y materiales. El resto son circuitos generados.
+import { L } from './i18n.js';
 import * as THREE from 'three';
 import { NODES, CIRCUIT_LORE } from './lore.js';
 
@@ -9,8 +10,8 @@ export const CIRCUITS = [
   {
     id: 'saturn',
     name: 'SELENE',
-    sub: 'Luna · órbita terrestre',
-    blurb: 'Luna · estación en el mar basáltico · la Tierra sobre la línea de salida',
+    sub: L('Luna · órbita terrestre', 'Moon · Earth orbit'),
+    blurb: L('Luna · estación en el mar basáltico · la Tierra sobre la línea de salida', 'Moon · station on the basalt mare · Earth above the start line'),
     earth: true,                     // la Tierra ocupa el lugar de la gran luna del GLB; sin lava ni satélite
     inSectorOrder: true,
     relief: { amplify: 1.45, hills: [[18, 6, 0.7], [9, 11, 2.1]] },
@@ -44,8 +45,8 @@ export const CIRCUITS = [
   {
     id: 'arcadia',
     name: 'ARCADIA',
-    sub: 'Tierra · costa de Arcadia',
-    blurb: 'Tierra · costa al sol · desniveles extremos',
+    sub: L('Tierra · costa de Arcadia', 'Earth · Arcadia coast'),
+    blurb: L('Tierra · costa al sol · desniveles extremos', 'Earth · sunlit coast · extreme elevation changes'),
     unlockAfter: 'saturn',
     inSectorOrder: false,            // al revés que SELENE
     // mucho más desnivel; 'clamp' mantiene holgura sobre el terreno y los edificios
@@ -109,8 +110,8 @@ CIRCUITS.push({
   id: 'olympus',
   music: 'pursuit',
   name: 'OLYMPUS',
-  sub: 'Marte · Olympus Mons',
-  blurb: 'Marte · borde de la caldera del Olympus Mons · saltos y túnel en la lava',
+  sub: L('Marte · Olympus Mons', 'Mars · Olympus Mons'),
+  blurb: L('Marte · borde de la caldera del Olympus Mons · saltos y túnel en la lava', 'Mars · rim of the Olympus Mons caldera · jumps and a lava tunnel'),
   unlockAfter: 'arcadia',
   generated: 'mars',
   inSectorOrder: false,
@@ -148,8 +149,8 @@ CIRCUITS.push({
 CIRCUITS.push({
   id: 'itaka',
   name: 'NUEVA ITAKA',
-  sub: 'Órbita cislunar · sede de SARUS',
-  blurb: 'Isla flotante en órbita · tubo de cristal continuo · túneles hexagonales y dos colinas',
+  sub: L('Órbita cislunar · sede de SARUS', 'Cislunar orbit · SARUS headquarters'),
+  blurb: L('Isla flotante en órbita · tubo de cristal continuo · túneles hexagonales y dos colinas', 'Floating island in orbit · continuous glass tube · hexagonal tunnels and two hills'),
   unlockAfter: 'olympus',
   generated: 'itaka',
   inSectorOrder: false,
@@ -185,8 +186,8 @@ CIRCUITS.push({
   id: 'tharsis',
   music: 'pursuit',
   name: 'THARSIS SIERRA',
-  sub: 'Marte · meseta de Tharsis',
-  blurb: 'Marte · estadio y ciudad en la meseta de Tharsis · la sierra y los tres volcanes al fondo',
+  sub: L('Marte · meseta de Tharsis', 'Mars · Tharsis plateau'),
+  blurb: L('Marte · estadio y ciudad en la meseta de Tharsis · la sierra y los tres volcanes al fondo', 'Mars · stadium and city on the Tharsis plateau · the sierra and three volcanoes beyond'),
   unlockAfter: 'itaka',
   generated: 'tharsis',
   inSectorOrder: false,
@@ -225,8 +226,8 @@ CIRCUITS.push({
 CIRCUITS.push({
   id: 'phobos',
   name: 'PHOBOS',
-  sub: 'Marte · luna interior',
-  blurb: 'Phobos · de la superficie al cráter Stickney y por dentro de la luna · Marte llena el horizonte',
+  sub: L('Marte · luna interior', 'Mars · inner moon'),
+  blurb: L('Phobos · de la superficie al cráter Stickney y por dentro de la luna · Marte llena el horizonte', 'Phobos · from the surface into Stickney crater and through the moon · Mars fills the horizon'),
   unlockAfter: 'tharsis',
   generated: 'phobos',
   music: 'horizon',
@@ -264,8 +265,8 @@ CIRCUITS.push({
 CIRCUITS.push({
   id: 'cassini',
   name: 'CASSINI',
-  sub: 'Saturno · anillos',
-  blurb: 'Saturno · sobre los anillos, junto a la división de Cassini · columnas clavadas en fragmentos de hielo',
+  sub: L('Saturno · anillos', 'Saturn · rings'),
+  blurb: L('Saturno · sobre los anillos, junto a la división de Cassini · columnas clavadas en fragmentos de hielo', 'Saturn · above the rings, by the Cassini Division · columns driven into ice fragments'),
   unlockAfter: 'phobos',
   generated: 'cassini',
   inSectorOrder: false,
@@ -301,8 +302,8 @@ CIRCUITS.push({
 CIRCUITS.push({
   id: 'tiphares',
   name: 'TIPHARES',
-  sub: 'Venus · ciudadela del loto',
-  blurb: 'Venus · plataformas flotantes sobre el mar de nubes · la ciudadela Tiphares en el corazón del trazado',
+  sub: L('Venus · ciudadela del loto', 'Venus · lotus citadel'),
+  blurb: L('Venus · plataformas flotantes sobre el mar de nubes · la ciudadela Tiphares en el corazón del trazado', 'Venus · floating platforms over the cloud sea · the Tiphares citadel at the heart of the course'),
   unlockAfter: 'cassini',
   generated: 'tiphares',
   music: 'observatory',
@@ -340,8 +341,8 @@ CIRCUITS.push({
 CIRCUITS.push({
   id: 'europa',
   name: 'EUROPA',
-  sub: 'Júpiter · luna de hielo',
-  blurb: 'Europa · noche sobre el hielo bajo Júpiter · simas azules y anillos que reparan, recargan y empujan',
+  sub: L('Júpiter · luna de hielo', 'Jupiter · ice moon'),
+  blurb: L('Europa · noche sobre el hielo bajo Júpiter · simas azules y anillos que reparan, recargan y empujan', 'Europa · night on the ice beneath Jupiter · blue chasms and rings that repair, recharge and push'),
   unlockAfter: 'tiphares',
   generated: 'europa',
   music: 'horizon',
@@ -378,8 +379,8 @@ CIRCUITS.push({
 CIRCUITS.push({
   id: 'miranda',
   name: 'MIRANDA',
-  sub: 'Urano · Verona Rupes',
-  blurb: 'Miranda · al borde de Verona Rupes, el acantilado más alto del sistema solar · Urano llena el cielo',
+  sub: L('Urano · Verona Rupes', 'Uranus · Verona Rupes'),
+  blurb: L('Miranda · al borde de Verona Rupes, el acantilado más alto del sistema solar · Urano llena el cielo', 'Miranda · on the edge of Verona Rupes, the highest cliff in the Solar System · Uranus fills the sky'),
   unlockAfter: 'europa',
   generated: 'miranda',
   music: 'observatory',
