@@ -3,6 +3,7 @@
 // la sierra cercana. Estadio con tribunas cubiertas y público animado, plataformas flotantes de espectadores,
 // una nave-palco suspendida sobre la recta y una ciudad de arquitectura escalonada con ventanales y franjas de luz.
 import * as THREE from 'three';
+import { QUALITY } from './quality.js';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('tharsis');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -436,7 +437,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
         const mg = new THREE.BoxGeometry(1.1, topY - gy, 1.1); mg.translate(base.x, (topY + gy) / 2, base.z); standParts.standDark.push(mg);
       }
       // público
-      for (let s = s0 + 1; s < s1 - 1; s += 0.6) {
+      for (let s = s0 + 1; s < s1 - 1; s += QUALITY.lite ? 1.0 : 0.6) {   // móvil: público algo menos denso
         const sw = s % L; track.sample(sw, F);
         const wv = track.wAt(sw);
         const toward = F.right.clone().multiplyScalar(-sd);

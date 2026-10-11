@@ -3,6 +3,7 @@
 // y las puntas de ala por los vértices más exteriores.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { LITE } from './quality.js';
 import { mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const _m = new THREE.Matrix4(), _e = new THREE.Euler();
@@ -51,18 +52,19 @@ function addCanopy(mat, cfg, glass) {
 
 function addWear(mat, k) {
   mat.userData.wear = k;
+  const uK = { value: k };
   mat.onBeforeCompile = (sh) => {
+    sh.uniforms.wearK = uK;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = position; vWN = normal;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec3 vWP; varying vec3 vWN;
+      varying vec3 vWP; varying vec3 vWN; uniform float wearK;
       float wh(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
       float wn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
         return mix(mix(mix(wh(i), wh(i+vec3(1,0,0)), f.x), mix(wh(i+vec3(0,1,0)), wh(i+vec3(1,1,0)), f.x), f.y),
                    mix(mix(wh(i+vec3(0,0,1)), wh(i+vec3(1,0,1)), f.x), mix(wh(i+vec3(0,1,1)), wh(i+vec3(1,1,1)), f.x), f.y), f.z); }
       float wf(vec3 p){ return wn(p) * 0.55 + wn(p * 2.3) * 0.3 + wn(p * 5.1) * 0.15; }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-      float wearK = ${k.toFixed(2)};
       vec3 P = vWP; vec3 Nw = normalize(vWN);
       float grime = smoothstep(0.32, 0.72, wf(P * 2.2)) * (0.55 + 0.45 * (1.0 - max(Nw.y, 0.0)));
       float streak = smoothstep(0.55, 0.85, wn(vec3(P.x * 11.0, P.y * 11.0, P.z * 0.55))) * smoothstep(2.5, -2.5, P.z);
@@ -79,12 +81,21 @@ function addWear(mat, k) {
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n      roughnessFactor = mix(roughnessFactor, 0.85, wearRough * 0.8);');
   };
   const baseKey = mat.customProgramCacheKey.bind(mat);
-  mat.customProgramCacheKey = () => baseKey() + '|wear' + k.toFixed(2);
+  mat.customProgramCacheKey = () => baseKey() + '|wear';   // intensidad por uniforme: un solo programa para toda la flota
 }            // duración del giro brusco asistido
+
+function toStandard(src) {
+  const m = new THREE.MeshStandardMaterial();
+  THREE.MeshStandardMaterial.prototype.copy.call(m, src);
+  m.name = src.name; m.userData = { ...src.userData };
+  if (src.transmission > 0) { m.transparent = true; m.opacity = Math.min(m.opacity, 0.82); m.depthWrite = true; }
+  return m;
+}
 
 export class Ship {
   // model: Object3D con la nave (morro +Z, escala real en metros). def: entrada de FLEET + stats.
-  constructor(model, track, def = {}, { player = false } = {}) {
+  constructor(model, track, def = {}, { player = false, lod = null } = {}) {
+    this.lodSrc = lod;
     this.track = track;
     this.def = def;
     this.name = def.name || 'NAVE';
@@ -96,6 +107,7 @@ export class Ship {
     this.root.add(this.body);
     this.model = new THREE.Group();
     this.model.add(model);
+    this.srcNode = model;
     this.model.scale.setScalar(CONFIG.shipScale || 1);
     this.body.add(this.model);
     this.model.updateMatrixWorld(true);
@@ -111,6 +123,7 @@ export class Ship {
     // daño progresivo: colores base del casco (se ennegrecen con cada impacto)
     this.dmgMats = this.meshes.map((m) => m.material).filter((m) => !this.reactorMats.includes(m) && m.color)
       .map((m) => ({ m, c: m.color.clone(), r: m.roughness ?? 0.5 }));
+    if (this.lodMesh) this.dmgMats.push({ m: this.lodMesh.material, c: this.lodMesh.material.color.clone(), r: this.lodMesh.material.roughness });
     this.frame = track.frame();
     this.fwd = new THREE.Vector3();
     this.upv = new THREE.Vector3();
@@ -141,8 +154,9 @@ export class Ship {
     this.reactorMats = [];
     this.ionGeos = [];
     this.ionColor = new THREE.Color(1, 0.2, 0.06);
-    for (const [mat, geos] of groups) {
+    for (let [mat, geos] of groups) {
       let geo = mergeGeometries(geos, false);
+      if (LITE && mat.isMeshPhysicalMaterial) mat = toStandard(mat);   // móvil: sin transmisión/clearcoat (la transmisión obliga a dibujar la escena dos veces)
       if (POLISH[this.name] && /Meshy/.test(mat.name)) { geo = toCreasedNormals(geo, POLISH[this.name] * Math.PI / 180); geo.setIndex([...Array(geo.attributes.position.count).keys()]); }
       const m = new THREE.Mesh(geo, mat.clone());
       if (WEAR[this.name] && !NO_WEAR.test(mat.name) && m.material.isMeshStandardMaterial) addWear(m.material, WEAR[this.name]);
@@ -164,6 +178,31 @@ export class Ship {
       model.add(m);
       this.meshes.push(m);
     }
+    this.buildLod(model);
+  }
+
+  // LOD: malla única con color en vértices (~1,8k triángulos, 1 draw call) para cuando la nave está lejos.
+  buildLod(model) {
+    this.lodMesh = null; this.far = false;
+    const src = this.lodSrc; if (!src?.geometry) return;
+    const n = this.srcNode; n.updateMatrix();
+    const geo = src.geometry.clone();
+    geo.applyMatrix4(n.matrix);
+    for (const k of Object.keys(geo.attributes)) if (!['position', 'color'].includes(k)) geo.deleteAttribute(k);
+    geo.computeVertexNormals(); geo.computeBoundingSphere();
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.35, roughness: 0.42, name: this.name + '_LOD', envMapIntensity: 1.0 });
+    const m = new THREE.Mesh(geo, mat);
+    m.name = this.name + '_lod'; m.userData.lod = true; m.visible = false; m.castShadow = true;
+    model.add(m);
+    this.lodMesh = m;
+  }
+
+  // lejos → proxy; cerca → modelo completo (con histéresis para que no parpadee en el umbral)
+  setFar(far) {
+    if (!this.lodMesh || far === this.far) return;
+    this.far = far;
+    this.lodMesh.visible = far;
+    for (const m of this.meshes) m.visible = !far;
   }
 
   analyse() {

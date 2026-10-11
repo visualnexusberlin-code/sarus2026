@@ -43,7 +43,8 @@ export class Showroom {
     this.displays = ships.map((sh, k) => {
       const g = new THREE.Group();
       const m = sh.model.clone(true);
-      m.traverse((o) => { if (o.isLight) o.parent.remove(o); if (o.isMesh) { o.castShadow = true; } });
+      const drop = []; m.traverse((o) => { if (o.isLight || o.userData.lod) drop.push(o); else if (o.isMesh) { o.castShadow = true; o.visible = true; } });
+      drop.forEach((o) => o.parent.remove(o));   // en el hangar siempre el modelo completo
       g.add(m);
       g.userData.bottom = sh.bottom / (CONFIG.shipScale || 1);
       g.visible = false;

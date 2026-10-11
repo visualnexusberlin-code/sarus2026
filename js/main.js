@@ -343,7 +343,7 @@ function onLoaded(gltf, fleetGltf) {
   G.ships = FLEET.map((def) => {
     const node = findNode(fleetGltf, def.node);
     if (!node) { console.warn('[SRS] falta la nave', def.node); return null; }
-    const sh = new Ship(node, track, { ...def, stats: statsFor(def) });
+    const sh = new Ship(node, track, { ...def, stats: statsFor(def) }, { lod: findNode(fleetGltf, def.node + '_lod') });
     scene.add(sh.root);
     sh.trails = new Trails(scene, 2);
     return sh;
@@ -375,6 +375,9 @@ function disposeWorld() {
     ms.forEach((m) => m.dispose());
   });
   for (const d of G.disposables || []) d.dispose?.();
+  // las naves sobreviven al cambio de circuito, pero sus programas de shader (con la atmósfera anterior) no:
+  // liberarlos evita que la GPU acumule cientos de programas tras varias carreras
+  for (const sh of G.ships || []) sh.model.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => m.dispose()); });
   G.world = null; G.disposables = [];
 }
 
@@ -854,6 +857,17 @@ $('setReset').addEventListener('click', () => {
 
 // ── Hangar ──
 G.family = null;
+// Hangar: si el navegador compila shaders en paralelo, se preparan las 20 naves de golpe sin bloquear;
+// así pasar de una nave a otra no da tirones. (Sin esa extensión se compilan una a una al mostrarlas.)
+function prewarmHangar() {
+  if (G.hangarWarm || !renderer.extensions.has('KHR_parallel_shader_compile') || !renderer.compileAsync) return;
+  G.hangarWarm = true;
+  const sr = G.showroom, prev = [];
+  sr.scene.traverse((o) => { if (!o.visible) { prev.push(o); o.visible = true; } });
+  try { renderer.compileAsync(sr.scene, sr.camera).catch(() => {}); } catch (e) { /* sin compilación asíncrona */ }
+  prev.forEach((o) => { o.visible = false; });
+}
+
 function goSelect() {
   if (G.training) stopTraining();
   hideLayers();
@@ -865,6 +879,7 @@ function goSelect() {
   if (!G.unlocked.has(G.pick)) G.pick = G.circuitId;
   for (const sh of G.fleet) { sh.out = false; sh.dead = 0; sh.hull = sh.maxHull; sh.setDamage(); sh.root.visible = true; }   // el hangar las muestra reparadas
   setView(G.showroom.scene, G.showroom.camera);
+  prewarmHangar();
   renderFamilies();
   showChoice(G.choice);
   if (!store.get('sarus-lineage', false)) showLineage();
@@ -1153,9 +1168,9 @@ function travel(id, then, rebuild = true, label) {
   G.state = 'travel';
   G.hud.show(false);
   audio.setEngines(false);                 // el hilo se bloquea al construir: que no quede un zumbido colgado
-  setTimeout(() => {
+  setTimeout(async () => {
     if (rebuild) buildCircuit(c);
-    warmup();
+    await warmup();
     then();
     tick(0.0001);          // primer plano de la intro ya pintado bajo la cortinilla: no se cuela la cámara de parrilla
     requestAnimationFrame(() => { $('travel').hidden = true; });
@@ -1165,7 +1180,7 @@ function travel(id, then, rebuild = true, label) {
 // Calentamiento tras la cortinilla: compila todos los shaders y sube a la GPU geometría y texturas
 // de todo el circuito (un fotograma sin recorte de frustum). Así la intro y la carrera no se atascan
 // la primera vez que la cámara descubre una zona, una explosión o una nave tocada.
-function warmup() {
+async function warmup() {
   const t0 = performance.now();
   if (!G.flyers && G.track && G.ships.length) G.flyers = new Flyers(scene, G.track, G.ships, G.circuitId === 'olympus' ? 8 : 6);
   resetRace();
@@ -1175,7 +1190,11 @@ function warmup() {
   });
   // las piezas en reserva (destellos de explosión) también, aunque estén ocultas
   G.missiles?.flashPool?.forEach((s) => { hidden.push(s); s.visible = true; });
+  // y las mallas LOD de las naves (se encienden en carrera al alejarse: sin esto, tirón la primera vez)
+  for (const sh of G.ships) if (sh.lodMesh && !sh.lodMesh.visible) { hidden.push(sh.lodMesh); sh.lodMesh.visible = true; }
   setView(scene, camera);
+  // compilación en paralelo si el navegador lo permite (KHR_parallel_shader_compile): la cortinilla no se congela
+  try { if (renderer.compileAsync && renderer.extensions.has('KHR_parallel_shader_compile')) await renderer.compileAsync(scene, camera); } catch (e) { console.warn('warmup async', e); }
   try { renderer.compile(scene, camera); composer.render(0.001); } catch (e) { console.warn('warmup', e); }
   culled.forEach((o) => { o.frustumCulled = true; });
   hidden.forEach((o) => { o.visible = false; });
@@ -1679,6 +1698,17 @@ function frame() {
   tick(dt);
 }
 
+// LOD de naves: a partir de cierta distancia de cámara, cada rival pasa a su malla ligera (1 draw call, ~1,8k triángulos).
+const LOD_D = LITE ? 42 : 85;
+function updateLods(inCircuit) {
+  const cp = camera.position, zoom = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(35));
+  for (const sh of G.ships) {
+    if (!inCircuit || sh === G.ship) { sh.setFar(false); continue; }
+    const d = sh.root.position.distanceTo(cp) / zoom;
+    sh.setFar(sh.far ? d > LOD_D * 0.88 : d > LOD_D * 1.12);
+  }
+}
+
 function tick(dt) {
   if (G.state === 'loading') { renderer.render(scene, camera); return; }
   if (G.state === 'travel') { input.endFrame(); return; }
@@ -1743,7 +1773,7 @@ function tick(dt) {
     } else if (G.state !== 'title') {
       updateRace(dt);
     }
-    for (const sh of G.ships) sh.trails.update(sh, dt);
+    for (const sh of G.fleet) { if (G.ships.includes(sh)) sh.trails.update(sh, dt); else for (const t of sh.trails.trails) t.mesh.visible = false; }
     emitIon(dt);
     emitDamage(dt);
     G.fx.damage.update(dt, camera, renderer);
@@ -1783,6 +1813,7 @@ function tick(dt) {
   grade.uniforms.uAberr.value += ((sp * sp * 0.006 + (boostOn ? 0.008 : 0)) - grade.uniforms.uAberr.value) * Math.min(1, dt * 4);
   grade.uniforms.uBlur.value += (((boostOn ? 1 : 0) * sp) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
 
+  updateLods(inCircuit);
   if (!G.noRender) { if (CONFIG.post) composer.render(dt); else renderer.render(renderPass.scene, renderPass.camera); }
   input.endFrame();
 
@@ -1796,7 +1827,7 @@ const firstGesture = () => { if (G.state === 'title' || G.state === 'loading' ||
 addEventListener('pointerdown', firstGesture); addEventListener('keydown', firstGesture);
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
 G.showChoice = showChoice; G.begin = begin; G.goMap = goMap; G.menu = showMenu; G.train = startTraining; G.menuAction = menuAction; G.setFamily = setFamily; G.selectNode = (n, c) => selectNode(G.map.nodes[n - 1], c); G.store = store; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
-G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer;
+G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer; G.THREE = { Frustum: THREE.Frustum, Matrix4: THREE.Matrix4 };
 G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)

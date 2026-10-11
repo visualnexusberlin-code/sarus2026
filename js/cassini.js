@@ -7,6 +7,7 @@ import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('cassini');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
+import { QUALITY } from './quality.js';
 import { deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 const RAW = [[390, 385], [560, 282], [750, 172], [900, 84], [1000, 40], [1070, 25], [1122, 42], [1140, 100], [1145, 200], [1135, 300], [1110, 370], [1070, 430], [1010, 470], [950, 470], [915, 440], [905, 390], [930, 330], [965, 280], [960, 230], [920, 200], [860, 205], [800, 240], [760, 290], [730, 350], [715, 420], [700, 480], [670, 540], [620, 550], [570, 520], [545, 450], [535, 420], [510, 420], [495, 450], [495, 520], [495, 600], [485, 680], [440, 740], [370, 780], [270, 795], [170, 790], [100, 760], [70, 700], [90, 620], [150, 560], [250, 480], [330, 420]];
@@ -220,7 +221,8 @@ export function buildCassini(def, { world, own, srcMat }) {
   // ── Fragmentos del anillo: hielo sucio y roca (instancias) ──
   const rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, metalness: 0.02, flatShading: false });
   own.push(rockMat);
-  const geoBig = [rockGeo(3, 1.3), rockGeo(3, 4.1), rockGeo(3, 7.7)], geoMid = [rockGeo(2, 2.2), rockGeo(2, 5.5)], geoSmall = [rockGeo(1, 3.3), rockGeo(1, 8.8)];
+  const lo = QUALITY.lite ? 1 : 0;   // móvil: un nivel menos de subdivisión en cada roca (¼ de triángulos)
+  const geoBig = [rockGeo(3 - lo, 1.3), rockGeo(3 - lo, 4.1), rockGeo(3 - lo, 7.7)], geoMid = [rockGeo(2 - lo, 2.2), rockGeo(2 - lo, 5.5)], geoSmall = [rockGeo(1 - lo, 3.3), rockGeo(1 - lo, 8.8)];
   [...geoBig, ...geoMid, ...geoSmall].forEach((gg) => own.push(gg));
   const ICE = [[0.86, 0.83, 0.77], [0.78, 0.74, 0.66], [0.66, 0.63, 0.58], [0.9, 0.88, 0.84], [0.55, 0.52, 0.48], [0.74, 0.7, 0.62]];
   const trackPts = []; for (let s = 0; s < L; s += 14) { track.sample(s, F); trackPts.push([F.pos.x, F.pos.y, F.pos.z]); }
@@ -260,7 +262,7 @@ export function buildCassini(def, { world, own, srcMat }) {
     if (d < 40 + r) yy = Math.min(yy, ty - 45 - r);
     mids.push([new THREE.Vector3(x, yy, z), r, rot3()]);
   }
-  for (let k = 0; k < 7000; k++) {
+  for (let k = 0; k < (QUALITY.lite ? 4000 : 7000); k++) {
     const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * (R0 + 2500);
     const x = centroid.x + Math.cos(a) * rr, z = centroid.z + Math.sin(a) * rr;
     const r = 0.6 + Math.pow(rnd(), 3) * 5;
@@ -292,7 +294,7 @@ export function buildCassini(def, { world, own, srcMat }) {
   const ringMat = new THREE.MeshBasicMaterial({ map: rTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, color: 0xc9c3b6, fog: false });
   own.push(ringMat, rTex);
   {
-    const RS = 220, AS = 720, pos = [], uv = [], idx = [];
+    const RS = 12, AS = 720, pos = [], uv = [], idx = [];   // lámina plana: u es lineal en el radio, no hacen falta anillos intermedios
     for (let i = 0; i <= RS; i++) {
       const u = i / RS, r = (rr0 + (rr1 - rr0) * u) * RV;
       for (let j = 0; j <= AS; j++) { const a = j / AS * Math.PI * 2; pos.push(satC.x + Math.cos(a) * r, satC.y, satC.z + Math.sin(a) * r); uv.push(u, j / AS * 24); }

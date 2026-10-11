@@ -279,14 +279,15 @@ export function buildTiphares(def, { world, own, srcMat }) {
       const a = (k + rnd() * 0.6) / 46 * Math.PI * 2, len = 6 + Math.pow(rnd(), 1.4) * 46;
       const rr = R * (0.97 + rnd() * 0.04), x0 = c.x + Math.cos(a) * rr, z0 = c.z + Math.sin(a) * rr;
       const vg = new THREE.CylinderGeometry(0.35, 0.15, len, 4); vg.translate(x0, top - 1 - len / 2, z0); extra.vine.push(vg);
-      for (let j = 0; j < len / 1.1; j++) {
-        const t = j / (len / 1.1), sway = Math.sin(t * 5 + k) * 1.2;
-        hang.push([x0 + Math.cos(a) * sway + (rnd() - 0.5) * 1.2, top - 1 - t * len, z0 + Math.sin(a) * sway + (rnd() - 0.5) * 1.2, (1.05 - t * 0.6) * (0.6 + rnd() * 0.6), rnd() < 0.1 ? 1 : 0]);
+      const step = QUALITY.lite ? 2.0 : 1.1;     // móvil: la mitad de hojas por enredadera
+      for (let j = 0; j < len / step; j++) {
+        const t = j / (len / step), sway = Math.sin(t * 5 + k) * 1.2;
+        hang.push([plats.length, x0 + Math.cos(a) * sway + (rnd() - 0.5) * 1.2, top - 1 - t * len, z0 + Math.sin(a) * sway + (rnd() - 0.5) * 1.2, (1.05 - t * 0.6) * (0.6 + rnd() * 0.6), rnd() < 0.1 ? 1 : 0]);
       }
     }
-    for (let k = 0; k < 40; k++) {
+    for (let k = 0; k < (QUALITY.lite ? 24 : 40); k++) {
       const a = rnd() * Math.PI * 2, rr = R * (0.66 + rnd() * 0.26);
-      bush.push([c.x + Math.cos(a) * rr, top + 2.6 + rnd(), c.z + Math.sin(a) * rr, 1.6 + rnd() * 2.6, rnd() < 0.15 ? 1 : 0]);
+      bush.push([plats.length, c.x + Math.cos(a) * rr, top + 2.6 + rnd(), c.z + Math.sin(a) * rr, 1.6 + rnd() * 2.6, rnd() < 0.15 ? 1 : 0]);
     }
     // aguja inferior
     const ng = lathe([[R * 0.12, top - depth], [R * 0.05, top - depth - 30], [0, top - depth - 42]], 16); ng.translate(c.x, 0, c.z); extra.silver.push(ng);
@@ -312,19 +313,28 @@ export function buildTiphares(def, { world, own, srcMat }) {
   addMerged(extra, world);
   // follaje instanciado: hojas verde oliva y alguna flor rosada o blanca
   {
-    const leafGeo = new THREE.IcosahedronGeometry(1, 0); own.push(leafGeo);
+    const leafGeo = QUALITY.lite ? new THREE.OctahedronGeometry(1.12, 0) : new THREE.IcosahedronGeometry(1, 0); own.push(leafGeo);   // móvil: 8 caras por hoja en vez de 20
     const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0, flatShading: true }); own.push(leafMat);
     const all = [...hang.map((h) => [...h, 1.0]), ...bush.map((b) => [...b, 0.7])];
-    const im = new THREE.InstancedMesh(leafGeo, leafMat, all.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), col = new THREE.Color();
+    // por tandas de 4 plataformas: cada tanda con su esfera envolvente, así la cámara descarta las que no ve
+    const chunks = new Map();
+    for (const a of all) { const k = Math.floor(a[0] / 4); if (!chunks.has(k)) chunks.set(k, []); chunks.get(k).push(a); }
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), col = new THREE.Color();
     const greens = [0x4f6a26, 0x5f7a2c, 0x3f5a22, 0x6e7f34, 0x56702a], flowers = [0xf2a6b8, 0xf7e6ec, 0xe98aa6, 0xfff2d8];
-    all.forEach(([x, yy, z, r, fl, sy], i) => {
-      q.setFromEuler(e.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28));
-      const rs = fl ? r * 0.45 : r;
-      m4.compose(sc.set(x, yy, z), q, new THREE.Vector3(rs, rs * sy, rs)); im.setMatrixAt(i, m4);
-      im.setColorAt(i, col.setHex(fl ? flowers[i % flowers.length] : greens[i % greens.length]).multiplyScalar(0.85 + rnd() * 0.3));
-    });
-    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere();
-    world.add(im);
+    let i0 = 0;
+    for (const list of chunks.values()) {
+      const im = new THREE.InstancedMesh(leafGeo, leafMat, list.length);
+      list.forEach(([, x, yy, z, r, fl, sy], j) => {
+        const i = i0 + j;
+        q.setFromEuler(e.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28));
+        const rs = fl ? r * 0.45 : r;
+        m4.compose(sc.set(x, yy, z), q, new THREE.Vector3(rs, rs * sy, rs)); im.setMatrixAt(j, m4);
+        im.setColorAt(j, col.setHex(fl ? flowers[i % flowers.length] : greens[i % greens.length]).multiplyScalar(0.85 + rnd() * 0.3));
+      });
+      i0 += list.length;
+      im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere();
+      world.add(im);
+    }
   }
 
   // ── Ciudadela Tiphares, en el gran hueco interior ──
@@ -381,14 +391,14 @@ export function buildTiphares(def, { world, own, srcMat }) {
   }
   // cúmulos sueltos que asoman (bolas suaves instanciadas)
   {
-    const geo = new THREE.IcosahedronGeometry(1, 2); own.push(geo);
+    const geo = new THREE.IcosahedronGeometry(1, QUALITY.lite ? 1 : 2); own.push(geo);
     const mat = new THREE.MeshStandardMaterial({ color: 0xf2c4a8, roughness: 1, metalness: 0, emissive: 0x5a2e2c, emissiveIntensity: 0.35, flatShading: false }); own.push(mat);
     const list = [];
     for (let c = 0; c < 70; c++) {
       const a = rnd() * Math.PI * 2, rr = 900 + Math.pow(rnd(), 0.6) * 12000;
       const cx = centroid.x + Math.cos(a) * rr, cz = centroid.z + Math.sin(a) * rr, sc = 60 + rnd() * 160;
       if (clear(cx, cz) < 300) continue;
-      for (let k = 0; k < 22; k++) { const r = sc * (0.35 + rnd() * 0.75), dx = (rnd() - 0.5) * sc * 4, dz = (rnd() - 0.5) * sc * 4; list.push([cx + dx, CLOUD_Y + 140 + r * 0.3 + (1 - Math.hypot(dx, dz) / (sc * 2.8)) * sc * 0.8, cz + dz, r]); }
+      for (let k = 0; k < (QUALITY.lite ? 14 : 22); k++) { const r = sc * (0.35 + rnd() * 0.75), dx = (rnd() - 0.5) * sc * 4, dz = (rnd() - 0.5) * sc * 4; list.push([cx + dx, CLOUD_Y + 140 + r * 0.3 + (1 - Math.hypot(dx, dz) / (sc * 2.8)) * sc * 0.8, cz + dz, r]); }
     }
     const im = new THREE.InstancedMesh(geo, mat, list.length), m4 = new THREE.Matrix4();
     list.forEach(([x, yy, z, r], i) => { m4.makeScale(r, r * 0.62, r).setPosition(x, yy, z); im.setMatrixAt(i, m4); });

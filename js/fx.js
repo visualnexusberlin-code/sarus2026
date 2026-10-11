@@ -52,7 +52,7 @@ export class Trails {
       g.setAttribute('aT', new THREE.BufferAttribute(t, 1));
       g.setIndex(idx);
       const mesh = new THREE.Mesh(g, mat);
-      mesh.frustumCulled = false;
+      mesh.frustumCulled = false; mesh.visible = false;   // se enciende en update() solo si la nave corre y se ve
       scene.add(mesh);
       this.trails.push({ mesh, pts: [], ups: [] });
     }
@@ -61,6 +61,9 @@ export class Trails {
   update(ship, dt) {
     const speed = ship.v;
     this.mat.uniforms.uAlpha.value = THREE.MathUtils.clamp((speed - 30) / 90, 0, 1) * 0.55;
+    // sin estela visible (parada, fuera de carrera o lejos: 7 cm de ancho no se ven a 40 m) → no se dibuja
+    const vis = this.mat.uniforms.uAlpha.value > 0.004 && ship.root.visible && !ship.far;
+    for (const tr of this.trails) tr.mesh.visible = vis;
     ship.tips.forEach((tip, k) => {
       const tr = this.trails[k]; if (!tr) return;
       const p = ship.worldPoint(tip, new THREE.Vector3());

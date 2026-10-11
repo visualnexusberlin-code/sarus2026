@@ -10,6 +10,7 @@ const TARGET = +(process.env.TARGET || 22000), LOGO = +(process.env.LOGO || 1500
 const tri = (p) => (p.getIndices()?.getCount() ?? p.getAttribute('POSITION').getCount()) / 3;
 const done = new Set();
 for (const n of doc.getRoot().listScenes()[0].listChildren()) {
+  if (n.getName() === 'LODS') continue;   // los LOD ya son ligeros
   const isLogo = n.getName() === 'LOGOS';
   const groups = isLogo ? n.listChildren() : [n];
   for (const g of groups) {

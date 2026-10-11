@@ -20,12 +20,18 @@ export class Flyers {
     const L = track.length;
     for (let i = 0; i < count; i++) {
       const src = ships[(i * 5 + 3) % ships.length];
-      const m = src.model.clone(true);
-      // fuera llamas y halos (materiales animados de la nave de carrera)
-      const drop = []; m.traverse((o) => { if (o.isSprite || o.isLight || (o.material && o.material.isShaderMaterial)) drop.push(o); });
-      drop.forEach((o) => o.parent.remove(o));
-      // materiales propios (el daño de la nave de carrera no les afecta) y sin sombra: van lejos
-      m.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); this.mats.push(o.material); o.castShadow = false; o.receiveShadow = false; } });
+      // van lejos: solo la malla LOD de la nave (1 draw call), con material propio y sin sombra
+      const m = new THREE.Group(); m.scale.copy(src.model.scale);
+      if (src.lodMesh) {
+        const lm = new THREE.Mesh(src.lodMesh.geometry, src.lodMesh.material.clone());
+        lm.material.color.setRGB(1, 1, 1); this.mats.push(lm.material); m.add(lm);
+      } else {
+        const c = src.model.clone(true); const drop = [];
+        c.traverse((o) => { if (o.isSprite || o.isLight || (o.material && o.material.isShaderMaterial)) drop.push(o); });
+        drop.forEach((o) => o.parent.remove(o));
+        c.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); this.mats.push(o.material); o.castShadow = false; o.receiveShadow = false; } });
+        m.add(c);
+      }
       const holder = new THREE.Group(); holder.add(m);
       const gm = new THREE.SpriteMaterial({ map: this.tex, color: src.flame ?? 0xffa060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
       this.mats.push(gm);

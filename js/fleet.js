@@ -1,4 +1,4 @@
-// Flota SARUS (ships43.glb): 20 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
+// Flota SARUS (ships44.glb): 20 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
 import { SHIP_LORE } from './lore.js';
