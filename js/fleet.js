@@ -1,4 +1,4 @@
-// Flota SARUS (ships42.glb): 19 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
+// Flota SARUS (ships43.glb): 20 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
 import { SHIP_LORE } from './lore.js';
@@ -61,6 +61,9 @@ export const FLEET = [
   { num: '19', node: 'PHANTOM_19', hull: 3, flame: [0.62, 0.42, 1.0], name: 'PHANTOM', tag: 'La sombra. Obsidiana de firma mínima: los cohetes rivales la fijan tarde y de cerca. Rápida y fina, pero un golpe directo le duele.',
     V: 5, A: 4, M: 4,
     style: { response: 8.6, grip: 6.2, gripAB: 8.4, ab: 1.0, mass: 0.96, lean: 0.34, bob: 0.03, bobHz: 2.0, drift: 0.22, pitch: 0.8, wallLoss: 1.1, stealth: 1 } },
+  { num: '20', node: 'ANTARES_20', hull: 3, flame: [0.75, 0.95, 1.0], name: 'ANTARES', tag: 'Hielo pulido. Resbala por los muros sin apenas perder velocidad y traza como un cuchillo; acelera con calma y no aguanta muchos golpes.',
+    V: 4, A: 4, M: 5,
+    style: { response: 10.5, grip: 7.6, gripAB: 9.4, ab: 1.0, mass: 0.92, lean: 0.28, bob: 0.03, bobHz: 1.8, drift: 0.14, pitch: 0.7, wallLoss: 0.6 } },
 ];
 
 // capa creativa: escudería, modelo, clase, familia, linaje, procedencia y lore (lore.js)

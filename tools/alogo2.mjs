@@ -1,0 +1,25 @@
+// Logo ANTARES: cristal de hielo de seis puntas (agujas finas) con el corazón rojo de la estrella en el centro
+import * as THREE from '/home/claude/game/node_modules/three/build/three.module.js';
+import { NodeIO } from '@gltf-transform/core'; import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS); const doc = await io.read(process.env.IN);
+const root = doc.getRoot(), buf = root.listBuffers()[0], LOGOS = root.listScenes()[0].listChildren().find(n => n.getName() === 'LOGOS');
+const V = (x, y) => new THREE.Vector2(x, y);
+const needle = (a, L, w) => { const c = Math.cos(a), s = Math.sin(a), p = (x, y) => V(x * c - y * s, x * s + y * c);
+  return new THREE.Shape([p(0.1, -w), p(L * 0.55, -w * 0.7), p(L * 0.62, -w * 2.2), p(L * 0.68, -w * 0.6), p(L, 0), p(L * 0.68, w * 0.6), p(L * 0.62, w * 2.2), p(L * 0.55, w * 0.7), p(0.1, w)]); };
+const ice = []; for (let k = 0; k < 6; k++) ice.push(needle(Math.PI / 2 + k * Math.PI / 3, k % 3 === 0 ? 0.46 : 0.38, 0.026));
+const ring = new THREE.Shape(); ring.absarc(0, 0, 0.13, 0, Math.PI * 2, false); const hole = new THREE.Path(); hole.absarc(0, 0, 0.1, 0, Math.PI * 2, true); ring.holes.push(hole);
+ice.push(ring);
+const heart = new THREE.Shape([V(0, 0.075), V(0.05, 0), V(0, -0.075), V(-0.05, 0)]);
+const ext = (sh, d) => { const g = new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.007, bevelSegments: 2, curveSegments: 24 }); g.translate(0, 0, -d / 2); return g.index ? g.toNonIndexed() : g; };
+const F = { p: [], n: [] }, E = { p: [], n: [] }, R = { p: [], n: [] };
+const add = (g, fd, ed) => { g.computeVertexNormals(); const P = g.attributes.position.array, N = g.attributes.normal.array;
+  for (let t = 0; t < P.length / 9; t++) { const nz = Math.abs(N[t * 9 + 2] + N[t * 9 + 5] + N[t * 9 + 8]) / 3; const d = nz > 0.9 ? fd : ed; for (let k = 0; k < 9; k++) { d.p.push(P[t * 9 + k]); d.n.push(N[t * 9 + k]); } } };
+add(ext(ice, 0.07), F, E); add(ext(heart, 0.1), R, R);
+const A = (arr, ty) => doc.createAccessor().setArray(arr).setType(ty).setBuffer(buf);
+const mk = (o, m) => doc.createPrimitive().setMaterial(m).setAttribute('POSITION', A(new Float32Array(o.p), 'VEC3')).setAttribute('NORMAL', A(new Float32Array(o.n), 'VEC3'));
+const mF = doc.createMaterial('LOGO_ANTARES_Face').setBaseColorFactor([0.9, 0.95, 1, 1]).setMetallicFactor(0.2).setRoughnessFactor(0.12).setDoubleSided(true);
+const mE = doc.createMaterial('LOGO_ANTARES_Edge').setBaseColorFactor([0.55, 0.85, 1, 1]).setEmissiveFactor([0.25, 0.55, 0.75]).setMetallicFactor(0.6).setRoughnessFactor(0.2).setDoubleSided(true);
+const mR = doc.createMaterial('LOGO_ANTARES_Heart').setBaseColorFactor([0.9, 0.12, 0.06, 1]).setEmissiveFactor([0.9, 0.12, 0.05]).setMetallicFactor(0.3).setRoughnessFactor(0.3);
+const old = LOGOS.listChildren().find(n => n.getName() === 'LOGO_ANTARES'); if (old) old.dispose();
+LOGOS.addChild(doc.createNode('LOGO_ANTARES').setMesh(doc.createMesh('LOGO_ANTARES').addPrimitive(mk(F, mF)).addPrimitive(mk(E, mE)).addPrimitive(mk(R, mR))));
+await io.write(process.env.OUT, doc); console.log('ok');

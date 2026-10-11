@@ -140,10 +140,14 @@ export const SHIP_LORE = {
     sector: 'Signature Reduction Systems', origin: 'Classified reconnaissance programs',
     doctrine: 'Llegar sin ser vista.',
     lore: 'PHANTOM ENTERPRISES nunca ha publicado un organigrama. Su casco de obsidiana absorbe radar y luz; en SARUS compite para demostrar que lo que no se puede fijar tampoco se puede alcanzar.' },
+  ANTARES_20: { house: 'ANTARES GLACIAL SHIPS', model: 'ZERO', family: 'handling', lineage: 'outer', cls: 'HANDLING / GLACIAL',
+    sector: 'Cryogenic Hull Engineering', origin: 'Ice-moon shipyards of the outer system',
+    doctrine: 'Fricción cero.',
+    lore: 'ANTARES nació en los astilleros de las lunas heladas, donde el casco se pule a temperaturas cercanas al cero absoluto. Lleva el nombre del corazón rojo del Escorpión: un núcleo de fuego dentro de una carrocería de hielo.' },
   ORION_18: { house: 'ORION AERONAUTICS', model: 'HUNTER', family: 'balanced', lineage: 'outer', cls: 'BALANCED / EXPLORATION',
     sector: 'Deep Space Systems', origin: 'Long-range exploration and search',
     doctrine: 'Persecución y equilibrio ofensivo.',
     lore: 'ORION desarrolla vehículos capaces de operar mucho tiempo lejos de cualquier infraestructura humana: en carrera, equilibrio y fiabilidad.' },
 };
 
-export const MOTTO = 'SARUS no enfrenta diecinueve naves. Enfrenta diecinueve filosofías tecnológicas.';
+export const MOTTO = 'SARUS no enfrenta veinte naves. Enfrenta veinte filosofías tecnológicas.';
