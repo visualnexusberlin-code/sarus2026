@@ -927,7 +927,7 @@ export function buildCeres(def, { world, own, srcMat, renderer }) {
       const dt = Math.min(0.1, this.t - lastT); lastT = this.t;
       const [sa, sb] = R.shadow;
       for (const sh of ships) {
-        if (sh.out || sh.dead > 0) continue;
+        if (sh.out || sh.dead > 0 || sh.fall) { if (sh.fall) ships0.delete(sh); continue; }
         let st = ships0.get(sh); if (!st) { st = { prev: sh.s, ion: 0 }; ships0.set(sh, st); }
         // carteles de zona
         for (const z of zones) { const d0 = track.delta(st.prev, z.s), d1 = track.delta(sh.s, z.s); if (d0 > 0 && d1 <= 0 && d1 > -60) onPass?.(sh, { kind: 'banner', title: z.title, sub: z.sub }); }
@@ -960,7 +960,7 @@ export function buildCeres(def, { world, own, srcMat, renderer }) {
       }
       for (const m of meteors) if (m.t >= 1.6 && !m.hit) {
         m.hit = true;
-        for (const sh of ships) { if (sh.out) continue; const d = track.delta(m.s, sh.s); if (Math.abs(d) < 10 && Math.abs(sh.x - m.x) < 8.5) onPass?.(sh, { kind: 'meteor', pos: m.pos.clone() }); }
+        for (const sh of ships) { if (sh.out || sh.fall) continue; const d = track.delta(m.s, sh.s); if (Math.abs(d) < 10 && Math.abs(sh.x - m.x) < 8.5) onPass?.(sh, { kind: 'meteor', pos: m.pos.clone() }); }
         onPass?.(null, { kind: 'impact', pos: m.pos.clone() });
       }
     },

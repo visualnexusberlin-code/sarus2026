@@ -355,7 +355,7 @@ export class Ship {
     this.throttle = 0; this.accel = 0;
     this.distance = 0;
     this.wallHit = 0; this.scraping = 0; this.bump = 0;
-    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.gripLoss = 0; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
+    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.gripLoss = 0; this.fall = 0; this.inGap = false; this.airLoose = 0; this.fallEvent = null; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
     this.qt = 0; this.qtDir = 0; this.qtCool = 0; this.power = 0.2;
     this.hull = this.maxHull; this.dead = 0; this.invuln = 0; this.draft = 0;
     this.out = false; this.outAt = 0; this.deckScrape = 0; this.scrapeT = 0;
@@ -371,6 +371,7 @@ export class Ship {
     this.t += dt;
     // eliminada: restos que se arrastran hasta pararse y quedan tendidos en la pista
     if (this.out) { this.wreckUpdate(dt); return; }
+    if (this.fall > 0) { this.fallUpdate(dt); return; }
     if (this.invuln > 0) { this.invuln = Math.max(0, this.invuln - dt); this.model.visible = this.invuln === 0 || Math.floor(this.invuln * 12) % 2 === 0; }
     const tr = this.track;
     tr.sample(this.s, this.frame);
@@ -430,9 +431,16 @@ export class Ship {
 
     // Giro
     const sp = Math.min(1, this.v / C.vmax);
-    const A = this.assist || 0;
+    const A = (this.assist || 0) * (!!CONFIG.fallOff && tr.gapAt(this.s) >= 0 ? 0 : 1);
     const rate = (C.turnLow + (C.turnHigh - C.turnLow) * sp) * (C.turnMult || 1) * (1 + 0.45 * A * sp);
-    const steer = ctl ? 0 : input.steer;
+    // Saltos con caída (fallOff): en el aire no hay muros ni ayudas; el mando pierde autoridad
+    const air = !!CONFIG.fallOff && tr.gapAt(this.s) >= 0;
+    if (air && !this.airStart) {               // despegue: la IA a veces sale torcida
+      this.airStart = true;
+      if (!this.player && Math.random() < (this.fallRisk || 0)) { this.airLoose = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.08); this.phi += this.airLoose; this.psi += this.airLoose; }
+    }
+    if (!air) this.airStart = false;
+    const steer = ctl || (air && this.airLoose) ? 0 : input.steer * (air ? 0.55 : 1);
     const moving = Math.min(1, this.v / 8);
     const denom = Math.max(0.35, 1 + k * this.x);
     const sdot = this.v * Math.cos(this.phi) / denom;
@@ -458,7 +466,7 @@ export class Ship {
       target += (wDes - target) * qtW;
     }
     // Seguro de muro: si en ~0,55 s va a tocar el guardarraíl, gira hacia dentro (asistencia y giro brusco)
-    const guard = Math.max(A * 0.7, qtOn || this.qtRec > 0 ? 1 : 0);
+    const guard = (!!CONFIG.fallOff && tr.gapAt(this.s) >= 0) ? 0 : Math.max(A * 0.7, qtOn || this.qtRec > 0 ? 1 : 0);
     const limW = C.wallAt * tr.wAt(this.s) - this.halfWidthGeo * 0.85;
     if (guard > 0) {
       const xp = this.x - this.v * Math.sin(this.phi) * 0.55;
@@ -482,7 +490,11 @@ export class Ship {
     this.wallHit = 0;
     this.scraping = Math.max(0, this.scraping - dt * 4);
     const lim = limW;
-    if (Math.abs(this.x) > lim) {
+    // aterrizaje: fuera del tablero → caída al vacío; en el borde, roce contra el muro
+    const airNow = !!CONFIG.fallOff && tr.gapAt(this.s) >= 0;
+    if (this.inGap && !airNow && Math.abs(this.x) > (C.wallAt + 1.0) * tr.wAt(this.s) + this.halfWidthGeo * 0.3) { this.inGap = false; this.startFall(); return; }
+    this.inGap = airNow; if (!airNow) this.airLoose = 0;
+    if (!airNow && Math.abs(this.x) > lim) {
       const side = Math.sign(this.x);
       this.x = side * lim;
       const into = Math.abs(Math.sin(this.phi));
@@ -585,6 +597,38 @@ export class Ship {
     }
     const cp = Math.cos(this.phi), sphi = Math.sin(this.phi);
     this.velocity.copy(F.tan).multiplyScalar(cp).addScaledVector(F.right, -sphi).multiplyScalar(this.v);
+  }
+
+  // Caída fuera del tablero en un salto: sigue la inercia, cae y da vueltas; reaparece antes del labio
+  startFall() {
+    const tr = this.track;
+    let g = null; for (const q of tr.gaps) if (tr.delta(q.s1, this.s) >= -2 && tr.delta(q.s1, this.s) < 60) g = q;
+    this.fallGap = g || { s0: this.s - 200 };
+    this.fall = 1e-4; this.fallY = 0; this.fallVy = 2; this.fallVx = -this.v * Math.sin(this.phi);
+    this.fallRoll = (this.x > 0 ? 1 : -1) * (1.2 + Math.random()); this.invuln = 4;
+    this.boosting = false; this.boostKick = 0; this.fallEvent = 'fell';
+  }
+  fallUpdate(dt) {
+    this.fall += dt;
+    this.v *= Math.exp(-0.25 * dt);
+    this.s = this.track.wrap(this.s + this.v * Math.cos(this.phi) * dt);
+    this.x += this.fallVx * dt;
+    this.fallVy += 15 * dt; this.fallY += this.fallVy * dt;
+    this.power = 0.15; this.updateEngine(dt, 0.15);
+    this.updateTransform();
+    this.root.position.y -= this.fallY;
+    const k = this.fall;
+    _e.set(0.35 * k, this.yawVis + 0.6 * k, this.fallRoll * k, 'YXZ'); this.body.quaternion.setFromEuler(_e);
+    this.deckScrape = 0;
+    if (this.fall > 2.6) {
+      const R = CONFIG.respawn;
+      this.s = this.track.wrap(this.fallGap.s0 - 110);
+      this.x = 0; this.psi = 0; this.phi = 0; this.omega = 0; this.v = 60; this.fall = 0; this.inGap = false; this.airLoose = 0;
+      this.h = this.C.hover; this.hv = 0; this.spin = 0; this.stun = 0; this.invuln = R.invuln;
+      if (this.race) this.race.prevS = this.s;
+      this.respawned = true; this.fallEvent = 'back';
+      this.updateTransform();
+    }
   }
 
   // Impacto de cohete: frenazo, trompo y un instante sin control. Devuelve 'hit' | 'destroyed' | null

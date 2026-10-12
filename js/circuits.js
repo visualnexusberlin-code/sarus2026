@@ -277,6 +277,7 @@ CIRCUITS.push({
   rockets: false,
   sunFrom: 'ceres',
   wallGrip: { slope: 0.62, v: 105 },          // THE WALL: por debajo de 380 km/h el imán no sujeta
+  fallOff: true,                              // en los saltos no hay muros: quien despega torcido cae al vacío
   atmosphere: {
     sunDir: new THREE.Vector3(-0.36, 0.2, 0.91).normalize(),
     baseDensity: 0.00003, heightDensity: 0.0, heightFalloff: 0.002, fogMax: 0.7,

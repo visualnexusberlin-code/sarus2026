@@ -430,6 +430,7 @@ function applyLook(def) {
   setPaint(def.paint);
   CONFIG.hoverMax = def.hoverMax || 5;
   CONFIG.wallGrip = def.wallGrip || null;
+  CONFIG.fallOff = !!def.fallOff;
   document.body.dataset.circuit = def.id;
 }
 
@@ -769,6 +770,7 @@ function resetRace() {
       const skill = D.skillTop - slot * D.skillStep * 7 / Math.max(1, G.ships.length - 1);   // mismo abanico con 8 o 12 naves
       const ai = new AIDriver(sh, track, { skill, bias: (Math.random() - 0.5) * 3, aggression: 0.3 + Math.random() * 0.6 });
       ai.mistakes = D.mistakes; ai.pace = D.pace ?? 1;
+      sh.fallRisk = 0.04 * D.mistakes;             // saltos con caída: probabilidad de despegar torcida
       ai.pickups = G.pickups;
       G.ai.set(sh, ai);
     }
@@ -1348,8 +1350,8 @@ function updateRace(dt) {
   const DR = CONFIG.draft;
   for (const sh of G.ships) {
     let tgt = 0;
-    if (running && sh.dead <= 0 && sh.v > 40) for (const o of G.ships) {
-      if (o === sh || o.dead > 0) continue;
+    if (running && sh.dead <= 0 && !sh.fall && sh.v > 40) for (const o of G.ships) {
+      if (o === sh || o.dead > 0 || o.fall) continue;
       const d = track.delta(sh.s, o.s);
       if (d > DR.min && d < DR.max && Math.abs(o.x - sh.x) < DR.lateral) { tgt = Math.max(tgt, 1 - (d - DR.min) / (DR.max - DR.min) * 0.5); }
     }
@@ -1372,6 +1374,13 @@ function updateRace(dt) {
     }
     sh.update(dt, i, locked);
     if (sh === ship && sh.landEvent) { G.chase.addShake(sh.landEvent); sh.landEvent = 0; }
+    if (sh.fallEvent) {
+      if (sh === ship) {
+        if (sh.fallEvent === 'fell') { hud.banner(tr('Fuera de pista', 'Off the track'), tr('Caída al vacío', 'Into the void'), false, 2.0); audio.whoosh(); G.chase.addShake(0.6); }
+        else { hud.banner(tr('De vuelta', 'Back on track'), '', false, 1.2, true); G.chase.snap(sh); }
+      }
+      sh.fallEvent = null;
+    }
   }
   if (running) {
     G.pickups.update(dt, G.ships, (sh, it) => {
