@@ -34,7 +34,7 @@ const P = prim.getAttribute('POSITION'), I = prim.getIndices();
 const pv = (i) => P.getElement(i, [0, 0, 0]);
 
 // 2a. reparto de triángulos: costados del fuselaje y motores en metal; el resto, lapislázuli
-const lapIdx = [], broIdx = [], titIdx = [], darkIdx = [];
+const lapIdx = [], broIdx = [], titIdx = [], darkIdx = [], pilIdx = [];
 for (let t = 0; t < I.getCount(); t += 3) {
   const a = pv(I.getScalar(t)), b = pv(I.getScalar(t + 1)), c = pv(I.getScalar(t + 2));
   const cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3, cz = (a[2] + b[2] + c[2]) / 3;
@@ -44,13 +44,14 @@ for (let t = 0; t < I.getCount(); t += 3) {
   const flank = Math.abs(cz) < 0.37 && Math.abs(n[2]) > 0.5 && cy > -0.14 && cx > -0.55;
   if (engine) (n[1] > -0.2 && cy > 0.02 ? broIdx : darkIdx).push(...tri);            // campanas de bronce, entrañas oscuras
   else if (flank) (n[1] > 0.22 ? titIdx : (cy > 0.1 ? broIdx : darkIdx)).push(...tri); // costado: titanio mate arriba, bronce en el filo alto, mecánica oscura abajo
+  else if (cx < -0.12 && Math.abs(cz) < 0.26 + (cx + 0.12) * -0.15 && n[1] > 0.35) pilIdx.push(...tri);   // puesto del piloto
   else lapIdx.push(...tri);
 }
 const mat0 = prim.getMaterial();
-const lapMat = mat0.clone().setName('ALTAIR | Lapis lazuli'), broMat = mat0.clone().setName('ALTAIR | Burnished bronze'), titMat = mat0.clone().setName('ALTAIR | Matte titanium'), darkMat = mat0.clone().setName('ALTAIR | Dark mechanics');
+const lapMat = mat0.clone().setName('ALTAIR | Lapis lazuli'), broMat = mat0.clone().setName('ALTAIR | Burnished bronze'), titMat = mat0.clone().setName('ALTAIR | Matte titanium'), darkMat = mat0.clone().setName('ALTAIR | Dark mechanics'), pilMat = mat0.clone().setName('ALTAIR | Pilot shell');
 prim.setIndices(A(new Uint32Array(lapIdx), 'SCALAR')).setMaterial(lapMat);
-for (const [ix, m] of [[broIdx, broMat], [titIdx, titMat], [darkIdx, darkMat]]) if (ix.length) hn.getMesh().addPrimitive(prim.clone().setIndices(A(new Uint32Array(ix), 'SCALAR')).setMaterial(m));
-console.log('lapislázuli', lapIdx.length / 3, '· bronce', broIdx.length / 3, '· titanio', titIdx.length / 3, '· oscuro', darkIdx.length / 3);
+for (const [ix, m] of [[broIdx, broMat], [titIdx, titMat], [darkIdx, darkMat], [pilIdx, pilMat]]) if (ix.length) hn.getMesh().addPrimitive(prim.clone().setIndices(A(new Uint32Array(ix), 'SCALAR')).setMaterial(m));
+console.log('piloto', pilIdx.length / 3, 'lapislázuli', lapIdx.length / 3, '· bronce', broIdx.length / 3, '· titanio', titIdx.length / 3, '· oscuro', darkIdx.length / 3);
 
 // 2b. textura de lapislázuli (la del metal se queda con la original, aclarada a titanio pavonado)
 const h = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -86,7 +87,8 @@ const vn = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix
     put(dark, i, accent ? [r * 0.8, g * 0.8, b * 0.8] : [0.055 + 0.16 * d, 0.055 + 0.16 * d, 0.06 + 0.17 * d].map((v) => v * knurl));
   }
   const mk = async (name, buf) => doc.createTexture(name).setImage(await sharp(buf, { raw: { width: W, height: H, channels: 3 } }).jpeg({ quality: 88 }).toBuffer()).setMimeType('image/jpeg');
-  lapMat.setBaseColorTexture(await mk('ALTAIR_lapis', lap)).setMetallicFactor(0.3).setRoughnessFactor(0.62);
+  lapMat.setBaseColorTexture(await mk('ALTAIR_lapis', lap)).setMetallicFactor(0.22).setRoughnessFactor(0.3).setMetallicRoughnessTexture(null);
+  pilMat.setBaseColorTexture(null).setBaseColorFactor([0.012, 0.018, 0.045, 1]).setMetallicFactor(0.75).setRoughnessFactor(0.08).setMetallicRoughnessTexture(null);
   broMat.setBaseColorTexture(await mk('ALTAIR_bronze', bro)).setMetallicFactor(1.0).setRoughnessFactor(0.38);
   titMat.setBaseColorTexture(await mk('ALTAIR_titanium', tit)).setMetallicFactor(0.85).setRoughnessFactor(0.8);
   darkMat.setBaseColorTexture(await mk('ALTAIR_dark', dark)).setMetallicFactor(0.7).setRoughnessFactor(0.58);
@@ -110,6 +112,20 @@ for (const side of [-1, 1]) {
   for (let i = 0; i < xs.length; i++) for (const row of rows) gPos.push(row[i][0], yTop[i] + 0.006, row[i][2]);
   const n = xs.length;
   for (let k = 0; k < n - 1; k++) { const a = base + k * 2; gIdx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+}
+// cortes de luz longitudinales: dos por lado, en segmentos (del borde del puesto del piloto hacia la popa)
+for (const zc of [-0.66, -0.47, 0.47, 0.66]) {
+  const segs = Math.abs(zc) < 0.55 ? [[-0.38, -0.12], [-0.06, 0.2], [0.26, 0.44]] : [[-0.2, 0.02], [0.08, 0.3]];
+  for (const [xa, xb] of segs) {
+    const xs = []; for (let x = xa; x <= xb + 1e-6; x += 0.012) xs.push(x);
+    let ys = xs.map((x) => { const y = topAt(x, zc); return y > -1e8 ? y : NaN; });
+    const ok = ys.filter((v) => !isNaN(v)); if (ok.length < 3) continue;
+    const med = ok.slice().sort((a, b) => a - b)[ok.length >> 1]; ys = ys.map((v) => (isNaN(v) || Math.abs(v - med) > 0.05 ? med : v));
+    for (let p = 0; p < 3; p++) ys = ys.map((_, i) => (ys[Math.max(0, i - 1)] + ys[i] + ys[Math.min(ys.length - 1, i + 1)]) / 3);
+    const base = gPos.length / 3;
+    xs.forEach((x, i) => { for (const dz of [-0.007, 0.007]) gPos.push(x, ys[i] + 0.006, zc + dz); });
+    for (let k = 0; k < xs.length - 1; k++) { const a = base + k * 2; gIdx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
 }
 const glowMat = doc.createMaterial('ALTAIR | Edge glow').setBaseColorFactor([0.2, 0.14, 0.06, 1]).setEmissiveFactor([1.0, 0.8, 0.45]).setDoubleSided(true);
 glowMat.setExtension('KHR_materials_emissive_strength', doc.createExtension(KHRMaterialsEmissiveStrength).createEmissiveStrength().setEmissiveStrength(4));
@@ -150,12 +166,10 @@ ALT.addChild(doc.createNode('ALTAIR_16_hover').setMesh(hoverMesh).setScale([hove
   const SP = verts.map((v) => vec3.transformMat4([0, 0, 0], v, M));
   const surfY = (x, z, rr = 0.11) => { for (let k = 0; k < 6; k++, rr *= 1.6) { let y = -1e9; for (const p of SP) if (Math.abs(p[0] - x) < rr && Math.abs(p[2] - z) < rr) y = Math.max(y, p[1]); if (y > -1e8) return y; } return 0; };
   const pos = [], uv = [], idx = [];
-  const LEN = +(process.env.LEN || 1.5), HGT = LEN * H / W, CZ = +(process.env.CZ || -0.75), CX = +(process.env.CX || 1.3), NU = 40, NV = 6;
-  for (const side of [-1, 1]) {
-    const base = pos.length / 3, cx = side * CX;
-    for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const u = i / NU, v = j / NV; const x = cx + (0.5 - u) * LEN, z = CZ + (v - 0.5) * HGT; pos.push(x, surfY(x, z) + 0.012, z); uv.push(u, 1 - v); }
-    for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = base + j * (NU + 1) + i, b = a + 1, c = a + NU + 1, e = c + 1; idx.push(a, b, c, b, e, c); }
-  }
+  const LEN = +(process.env.LEN || 1.55), HGT = LEN * H / W, CZ = +(process.env.CZ || -1.0), CX = +(process.env.CX || 1.28), NU = 60, NV = 8;
+  for (const side of [-1, 1]) { const base = pos.length / 3, cx = side * CX;
+    for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const u = i / NU, v = j / NV; const x = cx + (0.5 - u) * LEN, z = CZ + (v - 0.5) * HGT; pos.push(x, surfY(x, z, 0.06) + 0.014, z); uv.push(u, 1 - v); }
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = base + j * (NU + 1) + i, b = a + 1, c = a + NU + 1, e = c + 1; idx.push(a, b, c, b, e, c); } }
   const nrm = []; for (let i = 0; i < pos.length; i += 3) nrm.push(0, 1, 0);
   ALT.addChild(doc.createNode('ALTAIR_16_name').setMesh(doc.createMesh('ALTAIR_16_name').addPrimitive(doc.createPrimitive().setMaterial(mat).setAttribute('POSITION', A(new Float32Array(pos), 'VEC3')).setAttribute('NORMAL', A(new Float32Array(nrm), 'VEC3')).setAttribute('TEXCOORD_0', A(new Float32Array(uv), 'VEC2')).setIndices(A(new Uint32Array(idx), 'SCALAR')))));
 }
