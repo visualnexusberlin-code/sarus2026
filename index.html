@@ -273,6 +273,9 @@
   .sel-circ { margin: 0; font-size: 11px; letter-spacing: .04em; color: var(--fog-dim); max-width: 40ch; min-height: 1.4em; }
   .standings li em small { color: var(--vermilion); font-size: 10px; margin-left: 6px; }
   .res-unlock { font-family: var(--display); font-size: 10px; letter-spacing: .26em; text-transform: uppercase; color: #19e0cc; }
+  .res-cut { display: block; font-family: var(--display); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: #ff6a3c; line-height: 1.6; }
+  .res-cut.me { color: #ff3c2a; font-size: 12px; }
+  .standings li.cut { opacity: .45; text-decoration: line-through; }
   #travel .inner h2 { font-size: clamp(34px, 7vw, 64px); letter-spacing: .12em; }
   /* barra de trabajo: animación de compositor (transform), sigue moviéndose aunque el hilo principal esté construyendo el circuito */
   #travel .tvbar { position: relative; width: min(260px, 60vw); height: 2px; margin: 22px auto 0; overflow: hidden; background: rgba(255,255,255,.12); }
@@ -562,6 +565,12 @@
         <button class="chip" type="button" data-diff="normal" aria-pressed="true">Normal</button>
         <button class="chip" type="button" data-diff="hard" aria-pressed="false" data-en="Hard">Difícil</button>
       </div>
+      <span class="label" data-en="Championship">Campeonato</span>
+      <div class="diff" role="group" aria-label="Eliminación" data-en-aria="Elimination">
+        <button class="chip" type="button" data-cut="progressive" aria-pressed="true" data-en="Last one out">Fuera la última</button>
+        <button class="chip" type="button" data-cut="phobos" aria-pressed="false" data-en="Cut at PHOBOS">Corte en PHOBOS</button>
+        <button class="chip" type="button" data-cut="off" aria-pressed="false" data-en="No cuts">Sin cortes</button>
+      </div>
       <span class="label" data-en="Controls">Controles</span>
       <div class="diff"><button class="chip" type="button" data-set="assist" aria-pressed="true" data-en="Steering assist">Asistencia de trazada</button></div>
       <span class="label">Idioma · Language</span>
@@ -667,6 +676,7 @@
   <div class="inner">
     <span class="label" id="resLabel">—</span>
     <span class="res-unlock" id="resUnlock" hidden></span>
+    <span class="res-cut" id="resCut" hidden></span>
     <div class="res-head"><span class="res-pos" id="resPos">–</span><div><h2 id="resTotal">0:00.00</h2><span class="sub num" id="resBest"></span></div></div>
     <ol class="standings num" id="standings"></ol>
     <div class="row actions"><button class="btn primary" type="button" data-key="KeyN" id="nextBtn" hidden data-en="Next">Siguiente</button><button class="btn" type="button" data-key="KeyR" data-en="Race again">Repetir carrera</button><button class="btn" type="button" data-key="KeyV" data-en="Change ship">Cambiar nave</button><button class="btn" type="button" data-go="map" data-en="Solar Map">Mapa solar</button><button class="btn" type="button" data-go="menu" data-en="Menu">Menú</button></div>

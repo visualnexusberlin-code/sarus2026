@@ -734,13 +734,14 @@ function setPlayer(i) {
   G.fleet.forEach((s) => { s.player = false; s.removeEngineLight(); s.assist = 0; });
   G.ship = G.fleet[i];
   // versión ligera: corre una parrilla reducida (la nave elegida + rivales que rotan de carrera en carrera)
-  if (QUALITY.rivals < G.fleet.length - 1) {
-    const others = G.fleet.filter((s) => s !== G.ship);
+  const field = alive();
+  if (QUALITY.rivals < field.length - 1) {
+    const others = field.filter((s) => s !== G.ship);
     const k0 = (G.raceSeed = ((G.raceSeed ?? Math.floor(Math.random() * others.length)) + QUALITY.rivals) % others.length);
     const pick = [...others.slice(k0), ...others.slice(0, k0)].slice(0, QUALITY.rivals);
     G.ships = [G.ship, ...pick];
     for (const s of G.fleet) s.root.visible = G.ships.includes(s);
-  } else { G.ships = G.fleet; for (const s of G.fleet) s.root.visible = true; }
+  } else { G.ships = field.includes(G.ship) ? field : [G.ship, ...field]; for (const s of G.fleet) s.root.visible = G.ships.includes(s); }
   G.ship.player = true;
   G.ship.assist = G.assistOn ? 1 : 0;
   G.ship.addEngineLight();
@@ -1240,7 +1241,8 @@ function confirmChoice() {
   setPlayer(G.choice);
   audio.beep(true);
   // el primer circuito de la ruta abre el campeonato; cualquier otro elegido suelto es una carrera independiente
-  G.cup = G.pick === CIRCUITS[0].id ? { round: 0, results: [] } : null;
+  G.cup = G.pick === CIRCUITS[0].id ? { round: 0, results: [], out: new Set() } : null;
+  setPlayer(G.choice);
   travel(G.pick, startIntro, G.pick !== G.circuitId);
 }
 
@@ -1248,7 +1250,11 @@ function goNext() {
   const nx = nextCircuit();
   if (G.state !== 'finished' || !nx || !G.unlocked.has(nx.id)) return;
   $('results').hidden = true;
-  if (G.cup) G.cup.round++;
+  if (G.cup) {
+    for (const sh of cutPreview()) G.cup.out.add(sh.name);
+    G.cup.round++;
+    setPlayer(G.fleet.indexOf(G.ship));
+  }
   G.pick = nx.id;
   audio.beep(true);
   travel(nx.id, startIntro);
@@ -1277,7 +1283,8 @@ function endIntro() {
 
 function introCards() {
   const c = G.circuit;
-  const round = G.cup ? `${tr('Campeonato SARUS · carrera', 'SARUS Championship · race')} ${G.cup.round + 1}/${CIRCUITS.length}` : c.cards[0];
+  const nCut = G.cup ? cutsAfter(G.cup.round) : 0;
+  const round = G.cup ? `${tr('Campeonato SARUS · carrera', 'SARUS Championship · race')} ${G.cup.round + 1}/${CIRCUITS.length} · ${alive().length} ${tr('en liza', 'still in')}${nCut ? ` · ${tr('corte', 'cut')} ${nCut}` : ''}` : c.cards[0];
   return [
     [0.9, 4.6, round, c.cards[1]],
     [6.6, 10.4, `${c.sub} · ${G.ships.length} ${tr('naves', 'ships')} · ${CONFIG.laps} ${tr('vueltas', 'laps')}`, `${(G.track.length / 1000).toFixed(2).replace('.', DEC)} KM`],
@@ -1556,6 +1563,13 @@ function finish() {
   const nb = $('nextBtn');
   nb.hidden = !(nx && G.unlocked.has(nx.id));
   if (nx) nb.textContent = `${G.cup ? tr('Siguiente carrera', 'Next race') : tr('Siguiente circuito', 'Next circuit')} · ${nx.name}`;
+  const cut = cutPreview(), meOut = cut.includes(G.ship);
+  $('resCut').hidden = !cut.length;
+  $('resCut').className = 'res-cut' + (meOut ? ' me' : '');
+  if (cut.length) $('resCut').textContent = meOut
+    ? tr(`Fuera del campeonato · tu nave queda descalificada · repite la carrera para salvarte`, `Out of the championship · your ship is disqualified · race again to stay in`)
+    : `${tr('Quedan fuera del campeonato', 'Out of the championship')} · ${cut.map((s) => s.name).join(' · ')}`;
+  if (meOut) nb.hidden = true;
   $('resUnlock').hidden = !unlocking;
   if (unlocking) $('resUnlock').textContent = `${tr('Desbloqueado', 'Unlocked')} · ${nx.name}`;
   r.resultsTimer = 0;
@@ -1565,13 +1579,38 @@ function finish() {
 }
 
 // puntos de la ronda: las eliminadas no puntúan (se recalcula mientras el resto termina)
+// ── Eliminación progresiva del campeonato ──
+// Tras cada carrera quedan fuera las últimas de la clasificación general (puntos acumulados; desempate: la última carrera).
+//   progressive: una por carrera hasta PHOBOS, cinco en el corte de PHOBOS y otra por carrera después (20 → 6 en la final)
+//   phobos:      nadie hasta PHOBOS, cinco en su corte y otra por carrera después (20 → 12 en la final)
+G.cutMode = store.get('sarus-cut', 'progressive');
+function cutsAfter(round) {
+  if (G.cutMode === 'off' || round >= CIRCUITS.length - 1) return 0;
+  const ph = CIRCUITS.findIndex((c) => c.id === 'phobos');
+  if (round === ph) return 5;
+  if (round < ph) return G.cutMode === 'progressive' ? 1 : 0;
+  return 1;
+}
+function alive() { const out = G.cup?.out || new Set(); return G.fleet.filter((s) => !out.has(s.name)); }
+// quiénes quedarían fuera al cerrar esta carrera (no se aplica hasta pasar a la siguiente)
+function cutPreview() {
+  if (!G.cup) return [];
+  const n = cutsAfter(G.cup.round); if (!n) return [];
+  const tot = cupTotals(), last = G.cup.results[G.cup.round] || new Map();
+  const field = G.ships.filter((s) => tot.has(s.name));   // solo las que han corrido esta carrera (en ligera rotan)
+  const at = (sh) => { const i = (G.order || []).indexOf(sh); return i < 0 ? 99 : i; };   // a igualdad, cae la peor clasificada en esta carrera
+  field.sort((a, b) => tot.get(a.name) - tot.get(b.name) || (last.get(a.name) ?? -1) - (last.get(b.name) ?? -1) || at(b) - at(a));
+  return field.slice(0, Math.min(n, Math.max(0, field.length - 2)));
+}
+
 function cupPoints() {
   if (G.cup) G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, racePts(sh, i)]));
 }
 
 function cupTotals() {
-  const tot = new Map(G.ships.map((sh) => [sh.name, 0]));
-  for (const res of G.cup.results) if (res) for (const [k, v] of res) tot.set(k, (tot.get(k) || 0) + v);
+  const out = G.cup?.out || new Set();
+  const tot = new Map(G.fleet.filter((sh) => !out.has(sh.name)).map((sh) => [sh.name, 0]));
+  for (const res of G.cup.results) if (res) for (const [k, v] of res) if (tot.has(k)) tot.set(k, tot.get(k) + v);
   return tot;
 }
 
@@ -1586,10 +1625,10 @@ function renderStandings() {
     const tot = cupTotals(), race = G.cup.results[G.cup.round];
     const rows = [...G.ships].sort((a, b) => tot.get(b.name) - tot.get(a.name) || race.get(b.name) - race.get(a.name));
     setTwoCols(rows.length);
-    $('standings').innerHTML = rows.map((sh, i) => `<li class="${sh === G.ship ? 'me' : ''}"><span>${i + 1}</span><b>${sh.name}</b><em>${tot.get(sh.name)} pts <small>+${race.get(sh.name)}</small></em></li>`).join('');
+    $('standings').innerHTML = rows.filter((sh) => tot.has(sh.name)).map((sh, i) => `<li class="${sh === G.ship ? 'me' : ''}"><span>${i + 1}</span><b>${sh.name}</b><em>${tot.get(sh.name)} pts <small>+${race.get(sh.name) ?? 0}</small></em></li>`).join('');
     return;
   }
-  const L = G.track.length, lead = G.order[0];
+  const L = G.track.length, lead = G.order[0], cutSet = new Set(G.cup ? cutPreview() : []);
   setTwoCols(G.order.length);
   $('standings').innerHTML = G.order.map((sh, i) => {
     const r = sh.race;
@@ -1602,7 +1641,8 @@ function renderStandings() {
     }
     const c = sh.race.hits ? ` <i class="cb">✶${sh.race.hits}${sh.race.kills ? ' ✕' + sh.race.kills : ''}</i>` : '';
     const pts = `${c} <small>+${racePts(sh, i)}</small>`;
-    return `<li class="${sh === G.ship ? 'me' : ''}"><span>${i + 1}</span><b>${sh.name}</b><em>${t}${pts}</em></li>`;
+    const gone = G.state === 'finished' && cutSet.has(sh) ? ' cut' : '';
+    return `<li class="${sh === G.ship ? 'me' : ''}${gone}"><span>${i + 1}</span><b>${sh.name}</b><em>${t}${pts}</em></li>`;
   }).join('');
 }
 
@@ -1707,6 +1747,9 @@ function setDifficulty(k) {
   document.querySelectorAll('[data-diff]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.diff === k)));
 }
 document.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => { setDifficulty(b.dataset.diff); audio.beep(false); }));
+const markCut = () => document.querySelectorAll('[data-cut]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cut === G.cutMode)));
+document.querySelectorAll('[data-cut]').forEach((b) => b.addEventListener('click', () => { G.cutMode = b.dataset.cut; store.set('sarus-cut', G.cutMode); markCut(); audio.beep(false); }));
+markCut();
 setDifficulty(G.diffKey);
 
 G.assistOn = true;
@@ -1882,4 +1925,4 @@ G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, rend
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };
-G.api = { goSelect, showChoice, setPlayer, confirmChoice, startIntro, endIntro, restart, buildCircuit, goMap, selectNode, tick: (dt) => tick(dt) };   // gancho de pruebas
+G.api = { goSelect, showChoice, setPlayer, confirmChoice, goNext, finish, cutPreview, alive, startIntro, endIntro, restart, buildCircuit, goMap, selectNode, tick: (dt) => tick(dt) };   // gancho de pruebas
