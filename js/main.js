@@ -1882,4 +1882,4 @@ G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, rend
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };
-G.api = { goSelect, confirmChoice, startIntro, endIntro, restart, buildCircuit, goMap, selectNode, tick: (dt) => tick(dt) };   // gancho de pruebas
+G.api = { goSelect, showChoice, setPlayer, confirmChoice, startIntro, endIntro, restart, buildCircuit, goMap, selectNode, tick: (dt) => tick(dt) };   // gancho de pruebas
