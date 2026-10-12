@@ -119,14 +119,18 @@ export class EagleFlight {
       [7.4, new THREE.Vector3(-650, 150, -520), new THREE.Vector3(-806, 330, -949), 52],
       [9.5, new THREE.Vector3(-575, 245, -430), new THREE.Vector3(-160, 140, -640), 60],
     ];
+    // una intro propia más larga (CERES TRANSIT) desplaza el tramo común de llegada a la parrilla
+    const dt0 = Math.max(0, head[head.length - 1][0] - 9.5);
     this.keys = [
       ...head,
-      [11.8, at(-520, -40, 95), at(-330, 0, 12), 60],
-      [14.6, at(-230, 26, 34), at(-20, 0, 2), 62],
-      [16.8, rel(-42, 9, 8), rel(8, 0, 0.6), 58],
-      [18.6, rel(13, 9.5, 1.8), rel(0, 0, 0.5), 48],
-      [19.9, rel(-1, 11, 2.6), rel(0.5, 0, 0.5), 54],
-      [21.4, endPos, endLook, CONFIG.camera.fovBase],
+      ...[
+        [11.8, at(-520, -40, 95), at(-330, 0, 12), 60],
+        [14.6, at(-230, 26, 34), at(-20, 0, 2), 62],
+        [16.8, rel(-42, 9, 8), rel(8, 0, 0.6), 58],
+        [18.6, rel(13, 9.5, 1.8), rel(0, 0, 0.5), 48],
+        [19.9, rel(-1, 11, 2.6), rel(0.5, 0, 0.5), 54],
+        [21.4, endPos, endLook, CONFIG.camera.fovBase],
+      ].map(([t, ...r]) => [t + dt0, ...r]),
     ];
     this.duration = this.keys[this.keys.length - 1][0];
     this.posCurve = new THREE.CatmullRomCurve3(this.keys.map((k) => k[1]), false, 'centripetal');

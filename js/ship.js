@@ -355,7 +355,7 @@ export class Ship {
     this.throttle = 0; this.accel = 0;
     this.distance = 0;
     this.wallHit = 0; this.scraping = 0; this.bump = 0;
-    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
+    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.gripLoss = 0; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
     this.qt = 0; this.qtDir = 0; this.qtCool = 0; this.power = 0.2;
     this.hull = this.maxHull; this.dead = 0; this.invuln = 0; this.draft = 0;
     this.out = false; this.outAt = 0; this.deckScrape = 0; this.scrapeT = 0;
@@ -401,6 +401,17 @@ export class Ship {
     a -= (thr < 0.05 ? C.coastDrag : 0.01) * this.v;
     a -= ab * C.airbrakeDrag * this.v;
     a -= this.frame.tan.y * 9.81 * 0.5;      // la pendiente cuenta: se gana en bajada, se pierde en subida
+    // Paredes (CERES TRANSIT): en pendientes extremas el imán solo sujeta con velocidad. Por debajo del umbral
+    // la nave se despega, pierde empuje y la pendiente pesa el doble; nunca se queda clavada (el empuje gana).
+    this.gripLoss = 0;
+    const WG = CONFIG.wallGrip;
+    if (WG && this.frame.tan.y > WG.slope && tr.gapAt(this.s) < 0) {
+      const short = THREE.MathUtils.clamp(1 - this.v / WG.v, 0, 1);
+      if (short > 0) {
+        this.gripLoss = short;
+        a -= this.frame.tan.y * 9.81 * 1.6 * short + thr * C.accel * 0.45 * short * Math.max(0, 1 - this.v / vmax);
+      }
+    }
     this.v = locked ? 0 : Math.max(0, this.v + a * dt);
     this.accel = (this.v - vPrev) / Math.max(dt, 1e-4);
 
@@ -495,7 +506,7 @@ export class Ship {
     const hMax = CONFIG.hoverMax || 5;
     const lift = THREE.MathUtils.clamp(-kv * this.v * this.v * 0.02, -0.55 * C.hover, hMax - C.hover - 0.4);
     this.lift = lift;
-    const hTarget = C.hover + lift + Math.sin(this.t * w) * C.bob + Math.sin(this.t * w * 2.2) * C.bob * 0.35 * sp;
+    const hTarget = C.hover + lift + (this.gripLoss || 0) * 2.6 + Math.sin(this.t * w) * C.bob + Math.sin(this.t * w * 2.2) * C.bob * 0.35 * sp;
     // muelle no lineal: más duro cerca del tablero (colchón), más blando arriba (imán que tira de vuelta)
     const dh = hTarget - this.h;
     const stiff = (dh > 0 ? 90 : 38 + 22 * Math.min(1, -dh)) / C.mass;

@@ -70,3 +70,12 @@ Monocromo cálido (saturación 0,3) con colores intensos conservados. Brillo fro
 
 ## Siguiente
 Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudos/más armas, tercer circuito (añadir entrada en `js/circuits.js`), música/ambiente por circuito.
+
+## CERES TRANSIT (nodo 07, cinturón principal)
+- Circuito generado (`js/ceres.js`), trazado propio sin origen en ningún circuito real: planta en «8» cerrada numéricamente, 8,28 km, cotas −257 a +125 m. Entre PHOBOS y EUROPA.
+- **Tramos:** parrilla en una plataforma minera frente al asteroide Alfa · **TRIPLE BORE**, túnel perforado de 1,2 km con tres carriles (izquierdo de impulso, centro neutro, derecho de gases que recargan el boost y frenan) · paso por dentro de Gamma (el nudo del 8) · **THE DROP**, el tablero se corta y se cae 50 m · **THE GEODE**, asteroide hueco Beta con hélice libre alrededor de un núcleo de cristal que gira · **THE WALL**, pared a 55° que sube 268 m por la cara de Gamma y termina en un despegue balístico de ~90 m sobre la cumbre · **SHADOW STRAIGHT**, recta entre campos de fuerza con impactos anunciados.
+- **Elemento nuevo, la pared:** `wallGrip` en `circuits.js` (pendiente > 0,62, 380 km/h). Por debajo, la nave se despega, pierde empuje y la pendiente pesa el doble (`ship.js`); nunca se queda clavada. Aviso MAG GRIP en el HUD.
+- **Recta:** impactos cada 2–4 s delante de alguna nave (aro de aviso 1,6 s, roca, destello; frenazo y trompo). Rebufo de iones: 2,2 s pegado a otra nave repara +1 de blindaje.
+- **Estética:** contraluz con el sol bajo de frente en la salida, polvo dorado y rayos de luz, roca parda con motas de sal, acentos blanco sal y ámbar sodio. Ceres gibosa al fondo, banda del cinturón en el cielo. Túnel redondo de broca (frente al octógono de PHOBOS) y tubo de celosía abierto (frente al cristal de NUEVA ITAKA).
+- **Rendimiento:** ~2.000 rocas instanciadas en 5 formas que giran en el shader, pasillo libre de 60 m alrededor de la pista. Versión ligera: unas 620 rocas de baja resolución.
+- **Intro propia (24,5 s):** teleobjetivo desde el fondo del enjambre con Gamma recortada contra el sol, paso entre rocas, la pared de perfil, despegue sobre el vacío y bajada a SHADOW STRAIGHT hasta la parrilla. `EagleFlight` desplaza la llegada común cuando una intro propia dura más.

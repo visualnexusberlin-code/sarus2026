@@ -40,6 +40,7 @@ import { buildTiphares, tipharesSunDir } from './tiphares.js';
 import { buildEuropa, europaSunDir } from './europa.js';
 import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
+import { buildCeres, ceresSunDir } from './ceres.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
@@ -401,6 +402,7 @@ function applyLook(def) {
   if (def.sunFrom === 'europa' && !def._sun) { def.atmosphere.sunDir = europaSunDir(); def._sun = true; }
   if (def.sunFrom === 'miranda' && !def._sun) { def.atmosphere.sunDir = mirandaSunDir(); def._sun = true; }
   if (def.sunFrom === 'phobos' && !def._sun) { def.atmosphere.sunDir = phobosSunDir(); def._sun = true; }
+  if (def.sunFrom === 'ceres' && !def._sun) { def.atmosphere.sunDir = ceresSunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -427,6 +429,7 @@ function applyLook(def) {
   scene.environment = G.envs[def.id];
   setPaint(def.paint);
   CONFIG.hoverMax = def.hoverMax || 5;
+  CONFIG.wallGrip = def.wallGrip || null;
   document.body.dataset.circuit = def.id;
 }
 
@@ -696,7 +699,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos })[def.generated](def, { world, own, srcMat, renderer });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
@@ -704,7 +707,7 @@ function buildGenerated(def, own, t0) {
   G.structures = buildStructures(world, track, def.structures, { tunnel: own_tube ? false : (r.tunnel || false), bridges: own_tube ? 0 : (r.bridges ?? 2), ground: r.ground, rock: true });
   if (own_tube) G.structures.tunnel = r.tunnel;
   G.structures.group.traverse((o) => { if (o.isMesh) own.push(o.geometry, o.material); });
-  G.circuitFx = r.fx; G.introKeys = r.introKeys;
+  G.circuitFx = r.fx; G.introKeys = r.introKeys; G.circuitDbg = r.dbg;
   if (G.fx.rockets) G.fx.rockets.enabled = false;
   finishCircuit(def, world, track, t0);
 }
@@ -1053,7 +1056,7 @@ function goMap() {
   G.map.setState(st);
   G.map.nodes.forEach((nd, i) => { nd.el.className = `mnode ${st[i].status}`; });
   const done = G.map.nodes.filter((nd) => nodeStatus(nd) === 'done').length;
-  $('mapProg').textContent = `${tr('Ruta del campeonato', 'Championship route')} · ${done} / ${NODES.length - 1} ${tr('completados', 'completed')}`;
+  $('mapProg').textContent = `${tr('Ruta del campeonato', 'Championship route')} · ${done} / ${NODES.filter((n) => n.circuits.length).length} ${tr('completados', 'completed')}`;
   G.map.controls.enabled = true;
   $('map').hidden = false;
   mapLook();
@@ -1381,6 +1384,17 @@ function updateRace(dt) {
     });
     // anillos de carrera (EUROPA): reparan el blindaje, recargan dos cohetes y dan un empujón
     G.circuitFx?.passRings?.(G.ships, (sh, gate) => {
+      // CERES TRANSIT: carteles de zona, agarre en la pared, rebufo de iones e impactos
+      if (gate?.kind === 'banner') { if (sh === ship && sh.race?.lap === 1) hud.banner(gate.title, tr(...gate.sub), false, 2.4, true); return; }
+      if (gate?.kind === 'grip') { if (sh === ship) { hud.banner('MAG GRIP', tr('Poca velocidad: el imán no sujeta', 'Too slow: the magnet slips'), false, 1.2, true); G.chase.addShake(0.3); } return; }
+      if (gate?.kind === 'ion') { sh.hull = Math.min(sh.maxHull, sh.hull + 1); sh.setDamage(); if (sh === ship) { audio.chime(false); hud.banner(tr('Rebufo de iones', 'Ion wake'), tr('Blindaje +1', 'Armor +1'), false, 1.4, true); } return; }
+      if (gate?.kind === 'meteor') {
+        if (sh.invuln > 0) return;
+        sh.v *= 0.6; sh.spin = Math.max(sh.spin, 0.6); sh.stun = Math.max(sh.stun, 0.35); sh.hv += 2.5 / sh.C.mass;
+        if (sh === ship) { G.chase.addShake(1.0); audio.thud(1.2); hud.banner(tr('Impacto', 'Impact'), '', false, 1.0, true); }
+        return;
+      }
+      if (gate?.kind === 'impact') { G.fx.sparks.burst(gate.pos, new THREE.Vector3(0, 0.7, 0), 60, 26); if (gate.pos.distanceTo(ship.root.position) < 350) { audio.boom(0.6); G.chase.addShake(0.25); } return; }
       if (gate?.kind === 'rockets') {                    // anillo de cohetes (PHOBOS): solo recarga
         sh.ammo = 2;
         if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner(tr('Anillo de cohetes', 'Rocket ring'), IS_TOUCH ? tr('Cohetes × 2 · pulsa COHETE', 'Rockets × 2 · tap ROCKET') : tr('Cohetes × 2 · F disparar', 'Rockets × 2 · F fire'), false, 1.6, true); }
@@ -1859,3 +1873,4 @@ G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, rend
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };
+G.api = { goSelect, confirmChoice, startIntro, endIntro, restart, buildCircuit, goMap, selectNode, tick: (dt) => tick(dt) };   // gancho de pruebas

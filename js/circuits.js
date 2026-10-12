@@ -260,6 +260,46 @@ CIRCUITS.push({
   pad: 0x2a2c30,
 });
 
+// Fase del cinturón: CERES TRANSIT. Corredor abierto en un enjambre de rocas junto a Ceres: túnel de tres carriles,
+// caída al vacío, hélice dentro de una geoda, pared a 55° con despegue en la cumbre y recta entre campos de fuerza (ceres.js)
+CIRCUITS.push({
+  id: 'ceres',
+  name: 'CERES TRANSIT',
+  sub: L('Cinturón principal · enjambre de Ceres', 'Main belt · Ceres swarm'),
+  blurb: L('Ceres · entre rocas a contraluz · túnel de tres carriles, geoda, pared a 55° y salto sobre el nudo', 'Ceres · through backlit rocks · three-lane bore, geode, 55° wall and a jump over the knot'),
+  unlockAfter: 'phobos',
+  generated: 'ceres',
+  music: 'pursuit',
+  motes: true,
+  inSectorOrder: false,
+  hoverMax: 7,
+  far: 420000,
+  rockets: false,
+  sunFrom: 'ceres',
+  wallGrip: { slope: 0.62, v: 105 },          // THE WALL: por debajo de 380 km/h el imán no sujeta
+  atmosphere: {
+    sunDir: new THREE.Vector3(-0.36, 0.2, 0.91).normalize(),
+    baseDensity: 0.00003, heightDensity: 0.0, heightFalloff: 0.002, fogMax: 0.7,
+    exposure: 1.02, saturation: 0.92, redKeep: 0.95,
+    bloom: { strength: 0.55, radius: 0.6, threshold: 0.8 },
+    sky: {
+      horizon: [0.014, 0.0095, 0.0065], zenith: [0.003, 0.0024, 0.002], below: [0.01, 0.0072, 0.005], zLow: -0.6, zHigh: 0.6,
+      glow: [1.0, 0.58, 0.26], glowK: 0.5, glowExp: 9, haloCol: [1.0, 0.76, 0.48], halo: 0.55, haloExp: 70,
+      sun: [1.0, 0.94, 0.84], corona: 0.6, coronaExp: 2400, disc: 7.0, discExp: 60000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xffe2c0, sunI: 2.8, hemiSky: 0x3a2c20, hemiGround: 0x120d09, hemiI: 0.35, env: 0.22 },
+  grade: { tint: [1.04, 0.99, 0.94], vignette: 0.55, grain: 0.05, contrast: 0.36 },
+  paint: {
+    edge: [0.95, 0.92, 0.86], chev: [1.0, 0.64, 0.2], lane: [0.9, 0.86, 0.8],
+    kerbA: [0.94, 0.92, 0.88], kerbB: [1.0, 0.6, 0.18], edgeGlow: 0.6, chevGlow: 0.5, kerbGlow: 0.25,
+    buoy: 0xffa63a, guide: 0xffe2b8,
+  },
+  structures: { dark: 0x2c2926, pale: 0xd9d4ca, lamp: 0xffa040, ivory: 0xfff4e4 },
+  pad: 0x2c2926,
+});
+
 // Séptima fase: CASSINI-7, sobre los anillos de Saturno junto a la división de Cassini (trazado inspirado en
 // trazado de archivo de los años setenta; cassini.js)
 CIRCUITS.push({
@@ -414,7 +454,7 @@ CIRCUITS.push({
 });
 
 // ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
-const ORDER = ['arcadia', 'saturn', 'tiphares', 'itaka', 'olympus', 'tharsis', 'phobos', 'europa', 'cassini', 'miranda'];
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'miranda'];
 CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 CIRCUITS.forEach((c, i) => {
   c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;
