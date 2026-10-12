@@ -34,21 +34,23 @@ const P = prim.getAttribute('POSITION'), I = prim.getIndices();
 const pv = (i) => P.getElement(i, [0, 0, 0]);
 
 // 2a. reparto de triángulos: costados del fuselaje y motores en metal; el resto, lapislázuli
-const lapIdx = [], mecIdx = [];
+const lapIdx = [], broIdx = [], titIdx = [], darkIdx = [];
 for (let t = 0; t < I.getCount(); t += 3) {
   const a = pv(I.getScalar(t)), b = pv(I.getScalar(t + 1)), c = pv(I.getScalar(t + 2));
   const cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3, cz = (a[2] + b[2] + c[2]) / 3;
   const n = vec3.normalize([], vec3.cross([], vec3.sub([], b, a), vec3.sub([], c, a)));
+  const tri = [I.getScalar(t), I.getScalar(t + 1), I.getScalar(t + 2)];
   const engine = cx > 0.62 && Math.abs(cz) < 0.3;
   const flank = Math.abs(cz) < 0.37 && Math.abs(n[2]) > 0.5 && cy > -0.14 && cx > -0.55;
-  (engine || flank ? mecIdx : lapIdx).push(I.getScalar(t), I.getScalar(t + 1), I.getScalar(t + 2));
+  if (engine) (n[1] > -0.2 && cy > 0.02 ? broIdx : darkIdx).push(...tri);            // campanas de bronce, entrañas oscuras
+  else if (flank) (n[1] > 0.22 ? titIdx : (cy > 0.1 ? broIdx : darkIdx)).push(...tri); // costado: titanio mate arriba, bronce en el filo alto, mecánica oscura abajo
+  else lapIdx.push(...tri);
 }
 const mat0 = prim.getMaterial();
-const lapMat = mat0.clone().setName('ALTAIR | Lapis lazuli'), mecMat = mat0.clone().setName('ALTAIR | Gunmetal mechanics');
+const lapMat = mat0.clone().setName('ALTAIR | Lapis lazuli'), broMat = mat0.clone().setName('ALTAIR | Burnished bronze'), titMat = mat0.clone().setName('ALTAIR | Matte titanium'), darkMat = mat0.clone().setName('ALTAIR | Dark mechanics');
 prim.setIndices(A(new Uint32Array(lapIdx), 'SCALAR')).setMaterial(lapMat);
-const mecPrim = prim.clone().setIndices(A(new Uint32Array(mecIdx), 'SCALAR')).setMaterial(mecMat);
-hn.getMesh().addPrimitive(mecPrim);
-console.log('lapislázuli', lapIdx.length / 3, '· metal', mecIdx.length / 3);
+for (const [ix, m] of [[broIdx, broMat], [titIdx, titMat], [darkIdx, darkMat]]) if (ix.length) hn.getMesh().addPrimitive(prim.clone().setIndices(A(new Uint32Array(ix), 'SCALAR')).setMaterial(m));
+console.log('lapislázuli', lapIdx.length / 3, '· bronce', broIdx.length / 3, '· titanio', titIdx.length / 3, '· oscuro', darkIdx.length / 3);
 
 // 2b. textura de lapislázuli (la del metal se queda con la original, aclarada a titanio pavonado)
 const h = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -56,7 +58,8 @@ const vn = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix
 {
   const tex = mat0.getBaseColorTexture();
   const { data, info } = await sharp(Buffer.from(tex.getImage())).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  const W = info.width, H = info.height, lap = Buffer.alloc(W * H * 3), mec = Buffer.alloc(W * H * 3);
+  const W = info.width, H = info.height, lap = Buffer.alloc(W * H * 3), bro = Buffer.alloc(W * H * 3), tit = Buffer.alloc(W * H * 3), dark = Buffer.alloc(W * H * 3);
+  const put = (buf, i, c) => { for (let k = 0; k < 3; k++) buf[i + k] = Math.max(0, Math.min(255, c[k] * 255)); };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = (y * W + x) * 3, r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
     const L = 0.2126 * r + 0.7152 * g + 0.0722 * b, mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx > 0 ? (mx - mn) / mx : 0;
@@ -70,15 +73,23 @@ const vn = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix
       c = c.map((v, k) => v + Math.min(1, cal) * [0.26, 0.29, 0.34][k] * 0.55);
       if (h(Math.floor(x / 2), Math.floor(y / 2)) > 0.9978) c = [0.82, 0.64, 0.24];
     }
-    for (let k = 0; k < 3; k++) lap[i + k] = Math.min(255, c[k] * 255);
-    // metal: titanio pavonado, con el detalle de la pieza original
-    const m = accent ? [r, g, b] : [0.16 + L * 1.1, 0.165 + L * 1.1, 0.18 + L * 1.15];
-    for (let k = 0; k < 3; k++) mec[i + k] = Math.min(255, m[k] * 255);
+    put(lap, i, c);
+    const d = Math.min(1, L * 1.6);
+    // bronce bruñido: el detalle de la pieza original en una rampa de bronce, con pátina en los huecos
+    const pat = vn(x / 40, y / 40);
+    put(bro, i, accent ? [r, g, b] : [0.3 + 0.56 * d, 0.2 + 0.46 * d, 0.09 + 0.24 * d].map((v, k) => v * (0.85 + 0.25 * pat) + (d < 0.25 ? [-0.06, 0.02, 0.01][k] * (1 - pat) : 0)));
+    // titanio mate: gris frío con cepillado fino
+    const brush = 0.94 + 0.06 * Math.sin(y * 0.9 + vn(x / 8, y / 200) * 6);
+    put(tit, i, accent ? [r, g, b] : [0.36 + 0.42 * d, 0.37 + 0.42 * d, 0.39 + 0.43 * d].map((v) => v * brush));
+    // mecánica oscura: grafito con moleteado en rombo
+    const knurl = (Math.abs(Math.sin((x + y) * 0.35)) > 0.86 || Math.abs(Math.sin((x - y) * 0.35)) > 0.86) ? 0.65 : 1;
+    put(dark, i, accent ? [r * 0.8, g * 0.8, b * 0.8] : [0.055 + 0.16 * d, 0.055 + 0.16 * d, 0.06 + 0.17 * d].map((v) => v * knurl));
   }
-  const lapTex = doc.createTexture('ALTAIR_lapis').setImage(await sharp(lap, { raw: { width: W, height: H, channels: 3 } }).jpeg({ quality: 88 }).toBuffer()).setMimeType('image/jpeg');
-  const mecTex = doc.createTexture('ALTAIR_gunmetal').setImage(await sharp(mec, { raw: { width: W, height: H, channels: 3 } }).jpeg({ quality: 88 }).toBuffer()).setMimeType('image/jpeg');
-  lapMat.setBaseColorTexture(lapTex).setMetallicFactor(0.3).setRoughnessFactor(0.62);
-  mecMat.setBaseColorTexture(mecTex).setMetallicFactor(0.9).setRoughnessFactor(0.55);
+  const mk = async (name, buf) => doc.createTexture(name).setImage(await sharp(buf, { raw: { width: W, height: H, channels: 3 } }).jpeg({ quality: 88 }).toBuffer()).setMimeType('image/jpeg');
+  lapMat.setBaseColorTexture(await mk('ALTAIR_lapis', lap)).setMetallicFactor(0.3).setRoughnessFactor(0.62);
+  broMat.setBaseColorTexture(await mk('ALTAIR_bronze', bro)).setMetallicFactor(1.0).setRoughnessFactor(0.38);
+  titMat.setBaseColorTexture(await mk('ALTAIR_titanium', tit)).setMetallicFactor(0.85).setRoughnessFactor(0.8);
+  darkMat.setBaseColorTexture(await mk('ALTAIR_dark', dark)).setMetallicFactor(0.7).setRoughnessFactor(0.58);
 }
 
 // 2c. franja de luz en los dos cantos del triángulo frontal (vista cenital: del morro truncado hacia las puntas de ala)
