@@ -1,7 +1,7 @@
 // Sustituye en la flota ligera existente solo ALTAIR_16 y su LOD (el resto queda tal cual)
-import { NodeIO } from '@gltf-transform/core'; import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+import { NodeIO, VertexLayout } from '@gltf-transform/core'; import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { mergeDocuments, prune, unpartition } from '@gltf-transform/functions';
-const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).setVertexLayout(VertexLayout.SEPARATE);   // igual que lite.mjs: el juego no puede fusionar atributos intercalados con separados
 const doc = await io.read(process.argv[2]), src = await io.read(process.argv[3]);
 const NAME = process.env.NODE || 'ALTAIR_16';
 // fuente: solo la nave y su LOD
