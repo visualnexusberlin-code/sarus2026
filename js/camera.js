@@ -58,7 +58,7 @@ export class ChaseCamera {
     if (ship.v > 1) _t.addScaledVector(_v.copy(ship.velocity).normalize(), 0.35);
     _t.normalize();
     this.dir.lerp(_t, kYaw).normalize();
-    this.up.lerp(_t2.copy(ship.upv).lerp(WORLD_UP, 0.45).normalize(), kUp).normalize();
+    this.up.lerp(_t2.copy(ship.upv).lerp(WORLD_UP, 0.45 * (1 - (ship.flyW || 0))).normalize(), kUp).normalize();
     // tirón de aceleración
     const pullT = THREE.MathUtils.clamp(ship.accel * 0.035, -0.6, 1.8) + (ship.boosting ? 1.4 : 0);
     this.pull += (pullT - this.pull) * (1 - Math.exp(-dt * 2.5));

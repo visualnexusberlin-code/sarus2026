@@ -79,3 +79,12 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - **Estética:** contraluz con el sol bajo de frente en la salida, polvo dorado y rayos de luz, roca parda con motas de sal, acentos blanco sal y ámbar sodio. Ceres gibosa al fondo, banda del cinturón en el cielo. Túnel redondo de broca (frente al octógono de PHOBOS) y tubo de celosía abierto (frente al cristal de NUEVA ITAKA).
 - **Rendimiento:** ~2.000 rocas instanciadas en 5 formas que giran en el shader, pasillo libre de 60 m alrededor de la pista. Versión ligera: unas 620 rocas de baja resolución.
 - **Intro propia (24,5 s):** teleobjetivo desde el fondo del enjambre con Gamma recortada contra el sol, paso entre rocas, la pared de perfil, despegue sobre el vacío y bajada a SHADOW STRAIGHT hasta la parrilla. `EagleFlight` desplaza la llegada común cuando una intro propia dura más.
+
+## ENCELADUS (nodo 09·B, sistema de Saturno)
+- `js/enceladus.js`. Trazado con la silueta de Japón (44 puntos de control, ~9 km), salida en la recta de la costa oeste.
+- Superficie (0–0,32 y 0,855–1): hielo en falso color infrarrojo (cian y azul, grietas), cuatro rayas de tigre rojas y anaranjadas con géiseres; tablero sobre puntales blancos y dos tramos de tubo.
+- THE DESCENT / THE ASCENT: rampas dentro del tubo blanco dodecagonal (apotema 22 m), que atraviesa la corteza; huecos por cápsulas en el hielo y en el techo del vacío.
+- GALLERIES: tubos colgados en el vacío (techo −95 m, galerías −225 m), con ventanas a torres y pilares a contraluz, haces de luz y niebla de altura. Dos anillos de cohetes (0,485 y 0,742), un cohete cada uno.
+- FREE FLIGHT: `track.flight` + `track.flightAt/place`. Sin tablero; el eje lateral se curva sobre un arco de radio 26 m hasta ~110° (`ship.js`), con límites blandos. Tres bandas de luz, costillas parciales y una lámina casi invisible.
+- Intro: Encélado entero con su penacho y Saturno en creciente, picado sobre el polo, a ras de una raya entre géiseres, ruinas anteriores a SARUS y la parrilla.
+- El campeonato pasa a 12 carreras.

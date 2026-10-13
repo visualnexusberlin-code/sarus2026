@@ -76,6 +76,7 @@ export class Pickups {
     let k = 0;
     for (let s = C.firstAt; s < track.length - 160; s += C.every, k++) {
       if (track.gapAt && [0, 30, -30].some((d) => track.gapAt(s + d) >= 0)) continue;   // nada en el aire de los saltos
+      if (track.flightAt && [0, 30, -30].some((d) => track.flightAt(s + d) > 0)) continue;   // ni en el vuelo libre
       const pat = PATTERNS[k % PATTERNS.length];
       const wq = Math.min(1, track.wAt ? track.wAt(s) : 1);
       C.lanes.forEach((x, i) => this.items.push({ s, x: x * wq, type: pat[i], active: true, t: 0, pop: 1, seed: Math.random() * 10 }));
@@ -209,8 +210,10 @@ export class Missiles {
         if (d < -6) m.target = null;
         else m.x += THREE.MathUtils.clamp(m.target.x - m.x, -1, 1) * 42 * dt;
       }
-      tr.sample(m.s, this.F);
-      const pos = _v.copy(this.F.pos).addScaledVector(this.F.right, m.x).addScaledVector(this.F.up, m.h);
+      let pos;
+      if (tr.flight && tr.flightAt(m.s) > 0) { this._pl = this._pl || { pos: new THREE.Vector3(), up: new THREE.Vector3(), right: new THREE.Vector3() };
+        tr.place(m.s, m.x, m.h, this.F, this._pl); pos = _v.copy(this._pl.pos); }
+      else { tr.sample(m.s, this.F); pos = _v.copy(this.F.pos).addScaledVector(this.F.right, m.x).addScaledVector(this.F.up, m.h); }
       m.obj.position.copy(pos);
       m.obj.lookAt(pos.clone().add(this.F.tan));
       // estela
@@ -222,7 +225,7 @@ export class Missiles {
         if ((o === m.owner && m.life > 4.2) || o.out) continue;
         if (Math.abs(tr.delta(m.s, o.s)) < 3 && Math.abs(o.x - m.x) < 2.1) { hit = o; break; }
       }
-      const wall = Math.abs(m.x) > 15.6;
+      const wall = Math.abs(m.x) > Math.max(15.6, (tr.flightAt ? tr.flightAt(m.s) : 0) * (tr.flightR || 26) * 1.92 + 1);
       if (hit || wall || m.life <= 0) {
         this.explode(pos, !!hit);
         if (hit) { const r = hit.hit(); if (r) onHit?.(m.owner, hit, r, pos.clone()); }

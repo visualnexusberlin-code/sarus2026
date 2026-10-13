@@ -7,6 +7,7 @@ import { LITE } from './quality.js';
 import { mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const _m = new THREE.Matrix4(), _e = new THREE.Euler();
+const _pl = { pos: new THREE.Vector3(), up: new THREE.Vector3(), right: new THREE.Vector3() };
 const _v = new THREE.Vector3();
 const ION_RE = /_Ion|Reactor red/i;
 const QT = 0.5;
@@ -467,7 +468,9 @@ export class Ship {
     }
     // Seguro de muro: si en ~0,55 s va a tocar el guardarraíl, gira hacia dentro (asistencia y giro brusco)
     const guard = (!!CONFIG.fallOff && tr.gapAt(this.s) >= 0) ? 0 : Math.max(A * 0.7, qtOn || this.qtRec > 0 ? 1 : 0);
-    const limW = C.wallAt * tr.wAt(this.s) - this.halfWidthGeo * 0.85;
+    const flyW = tr.flightAt ? tr.flightAt(this.s) : 0;
+    const limW = Math.max(C.wallAt * tr.wAt(this.s) - this.halfWidthGeo * 0.85, flyW * (tr.flightR || 26) * 1.92);
+    this.flyW = flyW;
     if (guard > 0) {
       const xp = this.x - this.v * Math.sin(this.phi) * 0.55;
       const over = Math.abs(xp) - (limW - 2.2);
@@ -494,7 +497,10 @@ export class Ship {
     const airNow = !!CONFIG.fallOff && tr.gapAt(this.s) >= 0;
     if (this.inGap && !airNow && Math.abs(this.x) > (C.wallAt + 1.0) * tr.wAt(this.s) + this.halfWidthGeo * 0.3) { this.inGap = false; this.startFall(); return; }
     this.inGap = airNow; if (!airNow) this.airLoose = 0;
-    if (!airNow && Math.abs(this.x) > lim) {
+    if (!airNow && flyW > 0.5 && Math.abs(this.x) > lim) {
+      // vuelo libre: las bandas exteriores no son muros; rozarlas frena y saca chispas
+      this.x = Math.sign(this.x) * lim; this.scraping = 1; this.v *= 1 - 0.5 * dt; this.phi *= 0.6; this.psi *= 0.8;
+    } else if (!airNow && Math.abs(this.x) > lim) {
       const side = Math.sign(this.x);
       this.x = side * lim;
       const into = Math.abs(Math.sin(this.phi));
@@ -573,13 +579,18 @@ export class Ship {
 
   updateTransform() {
     const F = this.track.sample(this.s, this.frame);
+    if (this.track.flight && this.track.flightAt(this.s) > 0) {           // vuelo libre: marco girado sobre el arco
+      const P = this.track.place(this.s, this.x, 0, F, _pl);
+      F.right.copy(_pl.right); F.up.copy(_pl.up); this._flyPos = P.pos;
+    } else this._flyPos = null;
     const c = Math.cos(this.psi), sn = Math.sin(this.psi);
     this.fwd.copy(F.tan).multiplyScalar(c).addScaledVector(F.right, -sn).normalize();
     this.upv.copy(F.up);
     const left = _v.crossVectors(this.upv, this.fwd).normalize();
     _m.makeBasis(left, this.upv, this.fwd);
     this.root.quaternion.setFromRotationMatrix(_m);
-    this.root.position.copy(F.pos).addScaledVector(F.right, this.x).addScaledVector(F.up, this.h - this.bottom + this.track.jumpLift(this.s, this.v));
+    if (this._flyPos) this.root.position.copy(this._flyPos).addScaledVector(F.up, this.h - this.bottom);
+    else this.root.position.copy(F.pos).addScaledVector(F.right, this.x).addScaledVector(F.up, this.h - this.bottom + this.track.jumpLift(this.s, this.v));
     const sp = this.spin > 0 ? (1 - this.spin) : 0;
     const spinYaw = this.spin > 0 ? Math.PI * 2 * (1 - Math.pow(1 - sp, 2)) : 0;
     _e.set(this.pitch + Math.sin(sp * 20) * this.spin * 0.25, this.yawVis + spinYaw, this.roll + Math.sin(sp * 14) * this.spin * 0.6, 'YXZ');

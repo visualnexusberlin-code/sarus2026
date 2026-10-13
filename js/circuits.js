@@ -338,6 +338,45 @@ CIRCUITS.push({
   pad: 0x1f1f20,
 });
 
+// Fase 09·B: ENCELADUS, polo sur de Encélado (sistema de Saturno). Trazado con la silueta de Japón: mitad sobre el hielo,
+// mitad bajo la corteza, en tubos blancos y en vuelo libre entre tres bandas de luz (enceladus.js)
+CIRCUITS.push({
+  id: 'enceladus',
+  name: 'ENCELADUS',
+  sub: L('Saturno · polo sur de Encélado', 'Saturn · Enceladus south pole'),
+  blurb: L('Encélado · sobre las rayas de tigre y bajo la corteza · tubos blancos, galerías en el vacío y vuelo libre entre bandas de luz', 'Enceladus · over the tiger stripes and below the crust · white tubes, galleries in the void and free flight between light bands'),
+  unlockAfter: 'cassini',
+  generated: 'enceladus',
+  music: 'observatory',
+  motes: false,
+  inSectorOrder: false,
+  hoverMax: 7,
+  far: 950000,
+  rockets: false,
+  sunFrom: 'enceladus',
+  atmosphere: {
+    sunDir: new THREE.Vector3(-0.66, 0.15, -0.74).normalize(),
+    baseDensity: 0.000004, heightDensity: 0.00002, heightFalloff: 0.02, fogMax: 0.97,
+    exposure: 0.95, saturation: 1.0, redKeep: 0.9,
+    bloom: { strength: 0.6, radius: 0.6, threshold: 0.78 },
+    sky: {
+      horizon: [0.006, 0.014, 0.02], zenith: [0.001, 0.0015, 0.003], below: [0.004, 0.01, 0.015], zLow: -0.05, zHigh: 0.4,
+      glow: [0.9, 0.95, 1.0], glowK: 0.05, glowExp: 30, haloCol: [1.0, 0.95, 0.9], halo: 0.12, haloExp: 600,
+      sun: [1.0, 0.97, 0.93], corona: 0.5, coronaExp: 4000, disc: 5.0, discExp: 60000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff4ea, sunI: 3.0, hemiSky: 0x3f7590, hemiGround: 0x0e2230, hemiI: 0.42, env: 0.35 },
+  grade: { tint: [0.98, 1.0, 1.03], vignette: 0.5, grain: 0.04, contrast: 0.32 },
+  paint: {
+    edge: [0.9, 0.97, 1.0], chev: [0.45, 0.85, 1.0], lane: [0.88, 0.92, 0.95],
+    kerbA: [0.92, 0.95, 0.97], kerbB: [1.0, 0.45, 0.2], edgeGlow: 0.55, chevGlow: 0.45, kerbGlow: 0.2,
+    buoy: 0x7fdcff, guide: 0xd8f4ff,
+  },
+  structures: { dark: 0x15191c, pale: 0xd9dcdc, lamp: 0xbfeaff, ivory: 0xf4fbff },
+  pad: 0x15191c,
+});
+
 // Séptima fase: TIPHARES, Venus, plataformas flotantes sobre el mar de nubes alrededor de la ciudadela
 // (trazado inspirado en el autódromo Oscar y Juan Gálvez; tiphares.js)
 CIRCUITS.push({
@@ -455,7 +494,7 @@ CIRCUITS.push({
 });
 
 // ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
-const ORDER = ['arcadia', 'saturn', 'tiphares', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'miranda'];
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda'];
 CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 CIRCUITS.forEach((c, i) => {
   c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;

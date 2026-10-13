@@ -45,7 +45,7 @@ const SAT_DIR = new THREE.Vector3(-0.82 * MX, 0, -0.57).normalize();
 export function cassiniSunDir() { return new THREE.Vector3(0.45 * MX, 0.2, -0.87).normalize(); }
 
 // ── Bandas de los anillos (perfil radial, colores naturales) ──
-function ringTexture() {
+export function ringTexture() {
   const W = 2048, H = 64, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H);
   const r0 = 1.2, r1 = 2.4;                       // radio en unidades de RV
@@ -74,7 +74,7 @@ function ringTexture() {
 }
 
 // ── Saturno: beige dorado apagado, bandas suaves, polo algo más gris ──
-function saturnTexture() {
+export function saturnTexture() {
   const W = 1024, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H);
   for (let j = 0; j < H; j++) {

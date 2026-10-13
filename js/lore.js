@@ -19,7 +19,7 @@ export const NODES = [
   { n: 6, id: 'phobos', label: L('FOBOS', 'PHOBOS'), title: 'PHOBOS', system: L('SISTEMA DE MARTE', 'MARS SYSTEM'), place: L('CRÁTER STICKNEY', 'STICKNEY CRATER'), circuits: ['phobos'] },
   { n: 7, id: 'belt', label: L('CINTURÓN DE ASTEROIDES', 'ASTEROID BELT'), title: 'CERES TRANSIT', system: L('CINTURÓN PRINCIPAL', 'MAIN BELT'), place: L('ENJAMBRE DE CERES', 'CERES SWARM'), circuits: ['ceres'] },
   { n: 8, id: 'europa', label: 'EUROPA', title: 'EUROPA', system: L('SISTEMA DE JÚPITER', 'JUPITER SYSTEM'), place: L('CORTEZA DE HIELO · LINEAE', 'ICE CRUST · LINEAE'), circuits: ['europa'] },
-  { n: 9, id: 'saturn', label: L('SATURNO', 'SATURN'), title: 'CASSINI', system: L('SISTEMA DE SATURNO', 'SATURN SYSTEM'), place: L('PLANO DE LOS ANILLOS · DIVISIÓN DE CASSINI', 'RING PLANE · CASSINI DIVISION'), circuits: ['cassini'] },
+  { n: 9, id: 'saturn', label: L('SATURNO', 'SATURN'), title: 'CASSINI', system: L('SISTEMA DE SATURNO', 'SATURN SYSTEM'), place: L('PLANO DE LOS ANILLOS · DIVISIÓN DE CASSINI', 'RING PLANE · CASSINI DIVISION'), circuits: ['cassini', 'enceladus'] },
   { n: 10, id: 'uranus', label: 'MIRANDA', title: 'MIRANDA', system: L('SISTEMA DE URANO', 'URANUS SYSTEM'), place: 'VERONA RUPES', circuits: ['miranda'] },
 ];
 
@@ -46,6 +46,8 @@ export const CIRCUIT_LORE = {
     archive: L('Dibujado sobre la corteza helada por los asentamientos jovianos. Un descenso se hunde en una sima sobre la ciudad iluminada.', 'Drawn over the ice crust by the Jovian settlements. One descent plunges into a chasm above the lit city below.') },
   cassini: { code: 'CASSINI', gravity: 'MICRO-G', surface: L('Hielo de anillo · fragmentos de roca', 'Ring ice · rock fragments'), diff: 4, year: 2231,
     archive: L('Alzado sobre columnas ancladas en fragmentos de anillo, sobre el hueco entre los anillos. Sin suelo: solo hielo y luz.', 'Raised on columns anchored in ring fragments, over the gap between the rings. No ground, only ice and light.') },
+  enceladus: { code: 'ENCELADUS', gravity: '0.011 G', surface: L('Hielo joven · rayas de tigre · géiseres', 'Young ice · tiger stripes · geysers'), diff: 5, year: 2233,
+    archive: L('Trazado sobre el polo sur de Encélado, con la silueta de un viejo archipiélago de la Tierra. La mitad corre bajo la corteza, por los tubos blancos que levantaron sobre las estaciones abandonadas de la primera colonia.', 'Laid over the south pole of Enceladus in the outline of an old Earth archipelago. Half of it runs below the crust, through the white tubes raised over the abandoned stations of the first colony.') },
   miranda: { code: 'MIRANDA', gravity: '0.008 G', surface: L('Acantilados de hielo · terreno estriado', 'Ice cliffs · grooved terrain'), diff: 5, year: 2236,
     archive: L('Un trazado que se cruza: el puente sobre el cruce mira al acantilado más alto del sistema solar.', 'A crossing course: the bridge over the crossover looks down the highest cliff in the Solar System.') },
 };

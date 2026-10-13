@@ -41,6 +41,7 @@ import { buildEuropa, europaSunDir } from './europa.js';
 import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildCeres, ceresSunDir } from './ceres.js';
+import { buildEnceladus, enceladusSunDir } from './enceladus.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
@@ -403,6 +404,7 @@ function applyLook(def) {
   if (def.sunFrom === 'miranda' && !def._sun) { def.atmosphere.sunDir = mirandaSunDir(); def._sun = true; }
   if (def.sunFrom === 'phobos' && !def._sun) { def.atmosphere.sunDir = phobosSunDir(); def._sun = true; }
   if (def.sunFrom === 'ceres' && !def._sun) { def.atmosphere.sunDir = ceresSunDir(); def._sun = true; }
+  if (def.sunFrom === 'enceladus' && !def._sun) { def.atmosphere.sunDir = enceladusSunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -700,7 +702,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres })[def.generated](def, { world, own, srcMat, renderer });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
@@ -1412,8 +1414,8 @@ function updateRace(dt) {
       }
       if (gate?.kind === 'impact') { G.fx.sparks.burst(gate.pos, new THREE.Vector3(0, 0.7, 0), 60, 26); if (gate.pos.distanceTo(ship.root.position) < 350) { audio.boom(0.6); G.chase.addShake(0.25); } return; }
       if (gate?.kind === 'rockets') {                    // anillo de cohetes (PHOBOS): solo recarga
-        sh.ammo = 2;
-        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner(tr('Anillo de cohetes', 'Rocket ring'), IS_TOUCH ? tr('Cohetes × 2 · pulsa COHETE', 'Rockets × 2 · tap ROCKET') : tr('Cohetes × 2 · F disparar', 'Rockets × 2 · F fire'), false, 1.6, true); }
+        const n = gate.ammo ?? 2; sh.ammo = Math.max(sh.ammo, n);
+        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner(tr('Anillo de cohetes', 'Rocket ring'), IS_TOUCH ? tr(`Cohetes × ${n} · pulsa COHETE`, `Rockets × ${n} · tap ROCKET`) : tr(`Cohetes × ${n} · F disparar`, `Rockets × ${n} · F fire`), false, 1.6, true); }
         return;
       }
       sh.hull = sh.maxHull; sh.setDamage(); sh.ammo = 2;

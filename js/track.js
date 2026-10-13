@@ -184,6 +184,8 @@ export class Track {
       }
     });
     // Saltos: tramos sin tablero; la nave vuela en parábola (altura según velocidad)
+    this.flight = (opts.flight || []).map(([f0, f1]) => ({ s0: f0 * this.length, s1: f1 * this.length }));
+    this.flightR = opts.flightR || 26; this.flightRamp = opts.flightRamp || 110;
     this.gaps = (opts.gaps || []).map(([f0, f1]) => ({ s0: f0 * this.length, s1: f1 * this.length }));
     this.sectors.sort((a, b) => a.s - b.s);
   }
@@ -268,6 +270,31 @@ export class Track {
     lerp3(this.right, out.right).normalize();
     lerp3(this.up, out.up).normalize();
     out.kappa = this.kappa[i] + (this.kappa[j] - this.kappa[i]) * t;
+    return out;
+  }
+
+  // Vuelo libre (ENCELADUS): en estos tramos no hay tablero y el eje lateral se curva sobre un tubo virtual de radio
+  // flightR: al desplazarse de lado la nave sube por la curva (hasta ~110°). flight = [{s0, s1}], con rampas de 60 m.
+  flightAt(s) {
+    if (!this.flight || !this.flight.length) return 0;
+    s = this.wrap(s); let w = 0;
+    for (const f of this.flight) {
+      const a = this.delta(f.s0, s), b = this.delta(s, f.s1);
+      const r = this.flightRamp || 110;
+      if (a >= -r && b >= -r) { const t = Math.min(1, (a + r) / r, (b + r) / r); w = Math.max(w, t * t * (3 - 2 * t)); }
+    }
+    return w;
+  }
+  // Coloca un punto a (x lateral, h altura) sobre la pista en s, con la curvatura del vuelo: out = {pos, up, right}
+  place(s, x, h, F, out) {
+    this.sample(s, F);
+    const w = this.flightAt(s);
+    if (w <= 0) { out.pos.copy(F.pos).addScaledVector(F.right, x).addScaledVector(F.up, h); out.up.copy(F.up); out.right.copy(F.right); return out; }
+    const R = this.flightR || 26, th = w * x / R, c = Math.cos(th), sn = Math.sin(th);
+    const lr = Math.abs(th) < 1e-5 ? x : x * sn / th, lu = Math.abs(th) < 1e-5 ? 0 : x * (1 - c) / th;
+    out.up.copy(F.up).multiplyScalar(c).addScaledVector(F.right, -sn);
+    out.right.copy(F.right).multiplyScalar(c).addScaledVector(F.up, sn);
+    out.pos.copy(F.pos).addScaledVector(F.right, lr).addScaledVector(F.up, lu).addScaledVector(out.up, h);
     return out;
   }
 
