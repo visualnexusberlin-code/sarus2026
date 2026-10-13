@@ -99,7 +99,7 @@ const NOISE = /* glsl */`
 // Hielo en falso color (la imagen infrarroja de Cassini): cian y azul, grietas oscuras, rayas de tigre rojas y anaranjadas
 function iceMaterial(uni, opts = {}) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.62, metalness: 0.0 });
-  const NC = 8;
+  const NC = 12;
   m.userData.caps = opts.caps || [];
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uT = uni.uT; sh.uniforms.uSt = uni.uSt; sh.uniforms.uSo = uni.uSo; sh.uniforms.uSunI = { value: SUN };
@@ -150,7 +150,7 @@ function iceMaterial(uni, opts = {}) {
 // Cara inferior de la corteza (techo del vacío): hielo negro azulado; por las grietas se cuela luz cian y, bajo las rayas, rojiza
 function ceilMaterial(uni) {
   const m = new THREE.MeshStandardMaterial({ color: 0x0a1218, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide });
-  const NC = 8;
+  const NC = 12;
   m.userData.caps = [];
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uT = uni.uT; sh.uniforms.uSt = uni.uSt; sh.uniforms.uSo = uni.uSo;
@@ -562,9 +562,10 @@ export function buildEnceladus(def, { world, own, srcMat, renderer }) {
     return out;
   };
   const surfX = crossings(natural), ceilX = crossings(ceil);
+  // cápsulas de 55 m a lo largo del eje del tubo alrededor de cada cruce (máx. 12 por material: ver NC)
   const capsAt = (list, span = 110) => { const c = []; for (const q of list) for (let k = -span; k < span; k += 55) { const a = P3(q + k, 0, TC), b = P3(q + k + 55, 0, TC); c.push(new THREE.Vector4(a.x, a.y, a.z, TR + 2.2), new THREE.Vector4(b.x, b.y, b.z, 0)); } return c; };
   const ice = iceMaterial(uni, { caps: capsAt(surfX) }); own.push(ice);
-  const ceilM = ceilMaterial(uni); ceilM.userData.caps = capsAt(ceilX, 165); own.push(ceilM);
+  const ceilM = ceilMaterial(uni); ceilM.userData.caps = capsAt(ceilX, 140); own.push(ceilM);
   // el tramo «a cubierto» (luz atenuada): desde que el tubo entra en el hielo hasta que sale
   const covA = surfX[0] ?? S.down0 + 100, covB = surfX[surfX.length - 1] ?? S.up1 - 100;
 

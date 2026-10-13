@@ -63,6 +63,8 @@
   #title.cover .mbtn { background: rgba(4,8,14,.42); border-color: rgba(220,230,240,.22); backdrop-filter: blur(6px); min-width: 140px; padding: 11px 16px 10px; }
   #title.cover .mbtn.primary { border-color: rgba(235,240,245,.75); }
   #title.cover .mbtn:hover, #title.cover .mbtn:focus-visible { background: var(--fog); color: var(--graphite); border-color: var(--fog); }
+  .lite-chip { justify-self: center; margin-top: 4px; font: 500 11px/1 var(--mono, monospace); letter-spacing: .12em; text-transform: uppercase; color: rgba(230,236,242,.8); background: rgba(4,8,14,.5); border: 1px solid rgba(220,230,240,.28); padding: 8px 12px; cursor: pointer; backdrop-filter: blur(6px); }
+  .lite-chip:hover { background: var(--fog); color: var(--graphite); }
   #title.cover #startBtn { background: rgba(4,8,14,.42); backdrop-filter: blur(6px); }
   @media (max-height: 500px) { #title.cover { padding-bottom: 6vh; } }
   @media (orientation: portrait) and (max-width: 600px) { #title.cover { background-size: 190% auto; background-position: 46% 8vh; place-items: end center; padding-bottom: 8vh; } }
@@ -556,6 +558,7 @@
       <button type="button" class="mbtn" data-menu="training"><b data-en="Training">Entrenamiento</b><small data-en="Pilot test · PRIME-EX">Prueba de piloto · PRIME-EX</small></button>
       <button type="button" class="mbtn" data-menu="settings"><b data-en="Settings">Ajustes</b><small data-en="Sound · graphics · language">Sonido · gráficos · idioma</small></button>
     </nav>
+    <button type="button" id="liteChip" class="lite-chip" hidden data-en="Light graphics (mobile) · switch to full">Gráficos ligeros (móvil) · pasar a completos</button>
   </div>
 </div>
 

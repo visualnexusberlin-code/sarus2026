@@ -109,7 +109,9 @@ function setView(sc, cam) {
 setView(scene, camera);
 const B = CONFIG.atmosphere.bloom;
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth * QUALITY.bloomScale, innerHeight * QUALITY.bloomScale), B.strength, B.radius, B.threshold);
-if (LITE) bloom.setSize = function (w, h) { UnrealBloomPass.prototype.setSize.call(this, Math.round(w * 0.5), Math.round(h * 0.5)); };
+// ligera: bloom a media resolución (la de serie) y sin los dos niveles más bajos, que a tan poca resolución
+// se ven como cuadrados que parpadean alrededor de las estrellas y de las luces pequeñas
+if (LITE) { bloom.bloomTintColors[3].setScalar(0.35); bloom.bloomTintColors[4].setScalar(0); }
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const grade = new ShaderPass({
@@ -199,6 +201,9 @@ document.querySelectorAll('.panel [data-key]').forEach((b) => b.addEventListener
   };
   document.querySelectorAll('[data-quality]').forEach((b) => b.addEventListener('click', () => { if ((b.dataset.quality === 'lite') !== LITE) setQuality(b.dataset.quality === 'lite'); }));
   document.getElementById('qualityBtn')?.addEventListener('click', () => setQuality(!LITE));
+  // en un ordenador sin pantalla táctil, la calidad ligera solo puede venir de una preferencia guardada: se avisa en la portada
+  const chip = document.getElementById('liteChip');
+  if (chip && LITE && !IS_TOUCH) { chip.hidden = false; chip.addEventListener('click', () => setQuality(false)); }
   sync();
 }
 document.addEventListener('visibilitychange', () => {
@@ -369,6 +374,11 @@ function onLoaded(gltf, fleetGltf) {
   for (const sh of G.ships) G.fx.engine.add(sh);
   const logos = G.ships.map((sh) => findNode(fleetGltf, 'LOGO_' + (sh.def.logo || sh.def.node.split('_')[0])));
   G.showroom = new Showroom(G.envs.saturn || scene.environment, G.ships, logos);
+  // texturas de la flota a la GPU ya, durante la carga: si no, se suben la primera vez que las naves entran en cuadro
+  // (al llegar la intro a la parrilla), y esa subida de golpe congelaba la imagen un instante
+  { const tex = new Set(); const grab = (o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) for (const k in m) { const v = m[k]; if (v && v.isTexture) tex.add(v); } };
+    for (const sh of G.ships) sh.root.traverse(grab);
+    for (const t of tex) { try { renderer.initTexture(t); } catch (e) { /* textura sin imagen todavía */ } } }
 
   setPlayer(G.choice);
   resetRace();
