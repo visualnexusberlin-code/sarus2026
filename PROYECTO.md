@@ -61,6 +61,7 @@ Pendiente: legibilidad del nombre en WOLFEN (se mezcla con su librea) y HUE-MING
 - La pista va entera dentro de un **tubo continuo**: cristal liso con cuadernas, cristal con rejilla hexagonal en las subidas y en tramos alternos, y **paneles hexagonales luminosos** en los tramos subterráneos (Flugplatz y Schwalbenschwanz). Las bocas llevan pórtico en arco con aro de luz.
 - Cúpula de rejilla hexagonal sobre toda la isla. Fondo: espacio con 9000 estrellas, la **Tierra** (océanos, continentes, nubes, luces nocturnas y atmósfera) y la **Luna**.
 - Se desbloquea tras OLYMPUS-3; el campeonato pasa a 4 carreras.
+- Música propia: *Velvet Velocity* (`music-velvet-velocity.mp3`, compuesta por Dear con Gemini); antes sonaba *Obsidian Perimeter*, que se repetía en cuatro fases.
 
 ## Relieve del tablero (todos los circuitos)
 Piezas alzadas reales (`js/deckdetail.js`): costillas transversales en frenadas, bordillos en diente de sierra por el interior de las curvas, carriles en relieve y campos de placas hexagonales en rectas, cajones de parrilla en la salida.

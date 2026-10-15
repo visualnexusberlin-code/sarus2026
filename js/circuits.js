@@ -148,6 +148,7 @@ CIRCUITS.push({
 // Cuarta fase: NUEVA-ITAKA, isla flotante en órbita (circuito generado en itaka.js)
 CIRCUITS.push({
   id: 'itaka',
+  music: 'velvet',               // Velvet Velocity (Dear, con Gemini)
   name: 'NUEVA ITAKA',
   sub: L('Órbita cislunar · sede de SARUS', 'Cislunar orbit · SARUS headquarters'),
   blurb: L('Isla flotante en órbita · tubo de cristal continuo · túneles hexagonales y dos colinas', 'Floating island in orbit · continuous glass tube · hexagonal tunnels and two hills'),
