@@ -114,6 +114,8 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - **Intro (~31 s):** Neptuno llenando el plano, bajada sobre el polo con los géiseres, la recta final hacia Neptuno, giro amplio sobre la horquilla y llegada por detrás de la parrilla.
 - Anillo de cohetes (2) en el fondo de la sima. Nodo 12 en el Solar Map (Neptuno y Tritón en órbita retrógrada). El campeonato pasa a 14 carreras; las dos primeras no eliminan, así que el número total de cortes no cambia.
 
+- Compuertas de esclusa (5) en el túnel técnico y la rampa de salida: se elevan al techo cuando una nave está a < 260 m y se cierran despacio tras el paso; baliza ámbar que parpadea mientras se mueven. La viga bajo el tablero sigue ya la pendiente real (antes asomaba en escalera en las bajadas/subidas). Las bocas del túnel llevan collar de hormigón y el hielo se recorta en la boca.
+
 ## VIRGIL-CTHULHU ABYSS (nodo 13, Plutón · fin de la ruta)
 - `js/pluto.js` (construido sobre la base de `triton.js`). Trazado propio de Dear, 9,25 km, cotas −429 a +48 m, gravedad 0,06 g. En Belton Regio (antes Cthulhu Macula, «la Ballena»).
 - **Tramos:** BELTON STRAIGHT (salida hacia el oeste, Caronte sobre la recta) · curva amplia al norte · VIRGIL FOSSAE, la fosa como corredor rápido entre paredes, bajando con ondulaciones, con respiraderos criovolcánicos (penachos fríos; pasar cerca sacude) · CTHULHU MINES, 1,5 km de galerías mineras bajo la fosa · ELLIOT RIM, salida por un portal en la pared norte del cráter (la fosa corta su borde) y curva por dentro · ELLIOT BOWL, cuenco técnico con paredes interiores y pico central · THE CLIMB, rampa a ~52° por la pared sur con salto en el borde · WHALE BACK, cierre ondulante · recta final.
@@ -122,3 +124,4 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - **Cielo:** Caronte (≈4,3° de radio aparente, casquete rojizo y cañón ecuatorial), Sol diminuto, capas de bruma azul que siguen el limbo real del planeta pequeño.
 - **Intro (~29 s):** Plutón con la Ballena roja y el corazón blanco bajo Caronte, bajada rasante, picado sobre el cráter Elliot con la fosa cortando su borde, y llegada por detrás de la parrilla.
 - Música: *Velvet Velocity*. Nodo 13 en el Solar Map (Plutón con Caronte). El campeonato pasa a 15 carreras; las tres primeras no eliminan, así que el número total de cortes no cambia.
+- Cohetes acumulables hasta 9 (`maxAmmo` en circuits.js; cada pickup +1, anillo de cohetes +3, anillo completo +2). Música: Beneath the Ninth (`ninth`).

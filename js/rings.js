@@ -95,7 +95,7 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
     const fm = filmMaterial(opts.color); own.push(fm);
     const film = new THREE.Mesh(new THREE.CircleGeometry(RR - 2.6, 72), fm); film.renderOrder = 3; grp.add(film); own.push(film.geometry);
     world.add(grp);
-    gates.push({ s, film: fm, group: grp, kind: opts.kind || 'full' });
+    gates.push({ s, film: fm, group: grp, kind: opts.kind || 'full', ammo: opts.ammo });
   }
 
   const shellGeo = new THREE.SphereGeometry(1, 28, 18); own.push(shellGeo);

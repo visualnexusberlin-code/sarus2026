@@ -586,7 +586,8 @@ CIRCUITS.push({
   sub: L('Plutón · Belton Regio', 'Pluto · Belton Regio'),
   blurb: L('Plutón · la fosa Virgil, minas colosales a oscuras y el cráter Elliot · Caronte sobre la recta', 'Pluto · Virgil Fossae, colossal dark mines and Elliot crater · Charon over the straight'),
   generated: 'pluto',
-  music: 'velvet',
+  music: 'ninth',                 // Beneath the Ninth (Dear)
+  maxAmmo: 9,                      // cohetes acumulables hasta 9: más conflagración
   motes: false,
   inSectorOrder: false,
   hoverMax: 9,

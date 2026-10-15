@@ -451,6 +451,7 @@ function applyLook(def) {
   CONFIG.fallOff = !!def.fallOff;
   CONFIG.slopeG = def.slopeG ?? 1;
   CONFIG.headlight = !!def.headlight;
+  CONFIG.maxAmmo = def.maxAmmo ?? 2;    // cohetes acumulables (Plutón: sin límite de dos)
   document.body.dataset.circuit = def.id;
 }
 
@@ -1411,7 +1412,7 @@ function updateRace(dt) {
   }
   if (running) {
     G.pickups.update(dt, G.ships, (sh, it) => {
-      if (it.type === 'G') sh.boostPad(); else sh.ammo = Math.min(2, sh.ammo + 1);
+      if (it.type === 'G') sh.boostPad(); else sh.ammo = Math.min(CONFIG.maxAmmo ?? 2, sh.ammo + 1);
       G.training?.onPick(sh, it);
       if (sh === ship) {
         audio.chime(it.type === 'R');
@@ -1448,11 +1449,11 @@ function updateRace(dt) {
       }
       if (gate?.kind === 'impact') { G.fx.sparks.burst(gate.pos, new THREE.Vector3(0, 0.7, 0), 60, 26); if (gate.pos.distanceTo(ship.root.position) < 350) { audio.boom(0.6); G.chase.addShake(0.25); } return; }
       if (gate?.kind === 'rockets') {                    // anillo de cohetes (PHOBOS): solo recarga
-        const n = gate.ammo ?? 2; sh.ammo = Math.max(sh.ammo, n);
-        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner(tr('Anillo de cohetes', 'Rocket ring'), IS_TOUCH ? tr(`Cohetes × ${n} · pulsa COHETE`, `Rockets × ${n} · tap ROCKET`) : tr(`Cohetes × ${n} · F disparar`, `Rockets × ${n} · F fire`), false, 1.6, true); }
+        const n = gate.ammo ?? 2; const mx = CONFIG.maxAmmo ?? 2; sh.ammo = mx > 2 ? Math.min(mx, sh.ammo + n) : Math.max(sh.ammo, n);
+        if (sh === ship) { audio.ring?.(); ringFilm([255, 120, 60]); hud.banner(tr('Anillo de cohetes', 'Rocket ring'), IS_TOUCH ? tr(`Cohetes × ${sh.ammo} · pulsa COHETE`, `Rockets × ${sh.ammo} · tap ROCKET`) : tr(`Cohetes × ${sh.ammo} · F disparar`, `Rockets × ${sh.ammo} · F fire`), false, 1.6, true); }
         return;
       }
-      sh.hull = sh.maxHull; sh.setDamage(); sh.ammo = 2;
+      sh.hull = sh.maxHull; sh.setDamage(); sh.ammo = (CONFIG.maxAmmo ?? 2) > 2 ? Math.min(CONFIG.maxAmmo, sh.ammo + 2) : 2;
       sh.boostPad(); sh.boost = 1; sh.boostKick = Math.max(sh.boostKick, 1.5 * (sh.C.kick || 1));
       if (sh === ship) { audio.ring?.(); ringFilm(); hud.banner(tr('Anillo', 'Ring'), tr('Blindaje restaurado · cohetes × 2 · boost', 'Armor restored · rockets × 2 · boost'), false, 1.6, true); }
     });

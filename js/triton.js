@@ -459,7 +459,11 @@ export function buildTriton(def, { world, own, srcMat }) {
     }
   };
   const GRES = lite ? 16 : 9;
-  heightGrid(terrain, GRES, ground, !lite, [gx0, gx1, gz0, gz1]);
+  // bocas del túnel: se recortan las celdas que unen el suelo de la trinchera con la ladera de encima (tapaban la boca con hielo)
+  const mouthF = [[sIn, 1], [sOut, -1]].map(([q, sg]) => { track.sample(q, F); const tH = F.tan.clone().setY(0).normalize(); return { p: F.pos.clone(), tH, rH: new THREE.Vector3().crossVectors(tH, new THREE.Vector3(0, 1, 0)).normalize(), sg }; });
+  const mouthHole = (x, z) => mouthF.some((f) => { const dx = x - f.p.x, dz = z - f.p.z; const lat = Math.abs(dx * f.rH.x + dz * f.rH.z), al = (dx * f.tH.x + dz * f.tH.z) * f.sg;
+    return lat < 30 && al > -GRES * 0.8 && al < GRES * 0.8; });
+  heightGrid(terrain, GRES, ground, !lite, [gx0, gx1, gz0, gz1], mouthHole);
   const OUT = 20000, ORES = lite ? 900 : 500;
   const inInner = (x, z) => x > gx0 + 2 && x < gx1 - 2 && z > gz0 + 2 && z < gz1 - 2;
   heightGrid((x, z) => (inInner(x, z) ? terrain(x, z) : cantH(x, z) * 0.6 - 2 - 500 * sstep(OUT - 6000, OUT, Math.hypot(x, z))), ORES, ground, false, [-OUT, OUT, -OUT, OUT], (x, z) => inInner(x - ORES * 0.5, z - ORES * 0.5) && inInner(x + ORES * 0.5, z + ORES * 0.5) || Math.hypot(x, z) > OUT);
@@ -685,8 +689,11 @@ export function buildTriton(def, { world, own, srcMat }) {
   sweepHall((g) => [[-g.W, -g.D, 0], [g.W, -g.D, 1]], CF, false);
 
   // portales: frente de hormigón brutalista con la boca y franjas de luz azul (al final de la trinchera y en la salida)
-  const portal = (q) => {
+  const portal = (q, sg) => {
     const g = gAt(q), top = Math.max(26, natural(g.p.x, g.p.z) + 6 - g.p.y);
+    // collar de hormigón hacia fuera: tapa el recorte del hielo junto a la boca
+    { const C = GRES * 1.2 + 8, gc = { ...g, p: g.p.clone().addScaledVector(g.tH, -sg * (C / 2 - 4)) };
+      for (const sd of [-1, 1]) { hbox(gc, sd * (HW + 0.5 + 15), (top - 40) / 2, 30, top + 40, C, arch.slab); hbox(gc, sd * (HW + 0.6), 3, 0.3, 0.6, C, arch.cold); } }
     const fw = 70, hw = 21, ht = 18;
     for (const [x, h, w, hh] of [[-(fw + hw) / 2, top / 2 - 4, fw - hw, top + 8], [(fw + hw) / 2, top / 2 - 4, fw - hw, top + 8], [0, (ht + top) / 2, hw * 2, top - ht]]) hbox(g, x, h, w, hh, 8, arch.slab);
     hbox(g, 0, ht + 2, hw * 2 + 10, 4, 10, arch.steel);
@@ -695,7 +702,7 @@ export function buildTriton(def, { world, own, srcMat }) {
     for (const x of [-hw - 10, hw + 10]) hbox(g, x, 1.5, 6, 3, 10.6, arch.hazard);
     for (const sd of [-1, 1]) for (const k of [0, 1]) hbox(g, sd * (hw + 16 + k * 14), top * 0.35, 4, top * 0.7, 26, arch.slab, sd * -0.18);
   };
-  portal(sIn); portal(sOut);
+  portal(sIn, 1); portal(sOut, -1);
 
   // ── Vestido: pilares colosales en la sima, pórticos y celosías sobre el tablero, pasarelas, haces de luz ──
   const beamsC = [], beamsW = [];
@@ -720,7 +727,10 @@ export function buildTriton(def, { world, own, srcMat }) {
       const h = (h2(i, 5) < 0.5 ? -1 : 1) * (30 + 50 * h2(i, 6));
       if (h < g.H - 6 && h > -g.D + 10) { hbox(g, 0, h, g.W * 2, 2, 4, arch.steel); for (let x = -g.W + 6; x < g.W - 4; x += 11) hbox(g, x, h - 1.2, 0.8, 0.3, 0.8, arch.cold); }
     }
-    if (i % 4 === 0 && g.D > 10) hbox(g, 0, -3.4, 8, 3.4, STEP * 4.05, arch.steel);
+    if (i % 4 === 0 && g.D > 10) {                                   // viga bajo el tablero: sigue la pendiente real (antes, horizontal, asomaba en escalera sobre la pista)
+      track.sample(g.q + STEP * 2, F); const bx = new THREE.BoxGeometry(8, 3.4, STEP * 4.05);
+      bx.applyMatrix4(new THREE.Matrix4().makeBasis(F.right, F.up, F.tan)); const c = F.pos.clone().addScaledVector(F.up, -3.6); bx.translate(c.x, c.y, c.z); arch.steel.push(bx);
+    }
     if (big && i % 6 === 3) for (const x of [-17.1, 17.1]) { const a = P3(g.q, x, -1.2), c = new THREE.Vector3(a.x, g.p.y + g.H, a.z); cyl(a, c, 0.22, arch.grey, 5); }
     if (big && i % 19 === 7 && g.H > 50) {
       const x = (h2(i, 9) - 0.5) * g.W * 1.4, top = new THREE.Vector3(g.p.x + g.rH.x * x, g.p.y + g.H - 1, g.p.z + g.rH.z * x);
@@ -837,6 +847,34 @@ export function buildTriton(def, { world, own, srcMat }) {
     if (tubes.length) { const gg = mergeGeometries(tubes, false); tubes.forEach((t) => t.dispose()); const m = new THREE.Mesh(gg, pm); m.renderOrder = 6; m.frustumCulled = false; world.add(m); own.push(gg); }
   }
 
+  // ── Compuertas de esclusa: en el túnel técnico y la rampa de salida, se elevan al techo cuando se acerca una nave ──
+  const doors = [];
+  {
+    let last = -1e9;
+    for (const g of G6) {
+      if (!(g.kind === 'tech' || g.kind === 'shaft') || g.q - last < 230 || g.q < sIn + 120 || g.q > sOut - 90) continue;
+      last = g.q;
+      const fr = hframe(g.q), Wd = g.W * 2 + 2, Hd = g.H + 3, lists = { pale: [], steel: [], hazard: [], cold: [] };
+      const lb = (x, y, w, h, d, l, rz = 0) => { const b = new THREE.BoxGeometry(w, h, d); if (rz) b.rotateZ(rz); b.translate(x, y, 0); lists[l].push(b); };
+      lb(0, Hd / 2, Wd, Hd, 1.6, 'pale');                                          // hoja clara: se recorta contra la niebla
+      for (let x = -Wd / 2 + 4; x < Wd / 2 - 2; x += 7) lb(x, Hd / 2 + 2, 1.0, Hd - 4, 2.4, 'steel');   // nervios verticales
+      for (const y of [Hd * 0.42, Hd * 0.78]) lb(0, y, Wd, 1.0, 2.4, 'steel');
+      for (let x = -Wd / 2 + 2; x < Wd / 2; x += 4.5) lb(x, 2.2, 2.2, 5.5, 2.6, 'hazard', 0.6);   // chevrones del borde inferior
+      lb(0, 4.6, Wd, 0.5, 2.7, 'cold'); lb(0, Hd * 0.42 + 1.2, Wd, 0.35, 2.7, 'cold');
+      lb(0, Hd / 2 + 2, 0.4, Hd - 6, 2.7, 'cold');                                 // junta central iluminada
+      const grp = new THREE.Group(); const fin = [];
+      for (const [k, l] of Object.entries(lists)) { if (!l.length) continue; const gg = mergeGeometries(l, false); l.forEach((q) => q.dispose()); own.push(gg); const m = new THREE.Mesh(gg, SM[k]); m.castShadow = !lite; grp.add(m); fin.push(m); }
+      grp.matrixAutoUpdate = true; grp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(fr.rH, new THREE.Vector3(0, 1, 0), fr.tH));
+      const y0 = fr.p.y - 2.5; grp.position.set(fr.p.x, y0, fr.p.z); world.add(grp);
+      hbox(g, 0, g.H + 1.5, Wd + 6, 3.4, 5, arch.steel);                            // dintel / alojamiento en el techo
+      for (const sd of [-1, 1]) { hbox(g, sd * (g.W + 0.4), g.H / 2, 2.2, g.H + 2, 4, arch.steel); hbox(g, sd * (g.W - 0.9), g.H * 0.5, 0.4, g.H * 0.8, 1, arch.hazard); }
+      const amb = new THREE.MeshStandardMaterial({ color: 0x2a1802, emissive: 0xffa21a, emissiveIntensity: 0.6 }); own.push(amb);
+      const bc = new THREE.Mesh(new THREE.BoxGeometry(Wd, 0.6, 0.6), amb); bc.position.set(0, g.H - 0.2, 2.8); bc.quaternion.identity();
+      const beacon = new THREE.Group(); beacon.quaternion.copy(grp.quaternion); beacon.position.set(fr.p.x, fr.p.y, fr.p.z); beacon.add(bc); world.add(beacon); own.push(bc.geometry);
+      doors.push({ q: g.q, grp, y0, lift: Hd + 1, open: 0, v: 0, beacon, amb });
+    }
+  }
+
   // fusiona estructuras
   for (const [k, list] of Object.entries(arch)) {
     if (!list.length) continue;
@@ -862,7 +900,19 @@ export function buildTriton(def, { world, own, srcMat }) {
   const prevS = new Map(), gustT = new Map();
   const fx = {
     t: 0, gates: rr.gates, zones,
-    update(dt) { this.t += dt; uni.uT.value = this.t; rr.update(dt); for (const o of smokes) { o.sp.position.set(o.base.x + Math.sin(this.t * 0.05 + o.ph) * 25, o.base.y + Math.sin(this.t * 0.07 + o.ph * 2) * 8, o.base.z + Math.cos(this.t * 0.04 + o.ph) * 25); o.sp.material.rotation += dt * 0.01; } },
+    update(dt, camera, G) {
+      this.t += dt; uni.uT.value = this.t; rr.update(dt);
+      const ships = G?.ships || [];
+      for (const d of doors) {
+        let want = 0;
+        for (const sh of ships) { if (sh.out) continue; const dd = track.delta(sh.s, d.q); if (dd > -50 && dd < 260) { want = 1; break; } }
+        const prev = d.open;
+        d.open = want ? Math.min(1, d.open + dt * 1.15) : Math.max(0, d.open - dt * 0.28);
+        const e = d.open * d.open * (3 - 2 * d.open);
+        d.grp.position.y = d.y0 + e * d.lift; d.grp.visible = e < 0.995;
+        const moving = Math.abs(d.open - prev) > 1e-4;
+        d.amb.emissiveIntensity = moving ? 2.2 + 2.0 * Math.sin(this.t * 14) : (d.open > 0.5 ? 0.25 : 0.9);
+      } for (const o of smokes) { o.sp.position.set(o.base.x + Math.sin(this.t * 0.05 + o.ph) * 25, o.base.y + Math.sin(this.t * 0.07 + o.ph * 2) * 8, o.base.z + Math.cos(this.t * 0.04 + o.ph) * 25); o.sp.material.rotation += dt * 0.01; } },
     passRings(ships, onPass) {
       for (const sh of ships) {
         if (sh.out || sh.dead > 0) { prevS.delete(sh); continue; }
@@ -877,14 +927,14 @@ export function buildTriton(def, { world, own, srcMat }) {
       }
       rr.passRings(ships, onPass);
     },
-    reset() { prevS.clear(); gustT.clear(); rr.reset(); },
+    reset() { prevS.clear(); gustT.clear(); rr.reset(); for (const d of doors) { d.open = 0; d.grp.position.y = d.y0; d.grp.visible = true; } },
   };
 
   const introKeys = makeIntro({ P3, MC, nepC, sOut, L });
   let ymin = Infinity, ymax = -Infinity; for (const q of smp) { ymin = Math.min(ymin, q.p.y); ymax = Math.max(ymax, q.p.y); }
-  console.info(`[SRS] TRITON CHASM: ${L.toFixed(0)} m · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · bajo tierra ${Math.round(sIn)}–${Math.round(sOut)} · salto ${Math.round(gapS0)}–${Math.round(gapS1)} · géiseres ${geysers.length} · ${(performance.now() - T0).toFixed(0)} ms`);
+  console.info(`[SRS] TRITON CHASM: ${L.toFixed(0)} m · compuertas ${doors.length} · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · bajo tierra ${Math.round(sIn)}–${Math.round(sOut)} · salto ${Math.round(gapS0)}–${Math.round(gapS1)} · géiseres ${geysers.length} · ${(performance.now() - T0).toFixed(0)} ms`);
   return { track, ground: (x, z) => terrain(x, z), tunnel: { s: sIn, len: sOut - sIn }, ownTunnel: true, bridges: 0, introKeys, fx,
-    dbg: { G6, sIn, sOut, sM, geysers, natural, terrain } };
+    dbg: { G6, sIn, sOut, sM, geysers, natural, terrain, doors } };
 }
 
 // ── Intro: Neptuno enorme con Tritón en creciente delante; bajada sobre el cantalupo con Neptuno de frente; los géiseres;

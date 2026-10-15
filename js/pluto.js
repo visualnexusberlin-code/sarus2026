@@ -825,7 +825,7 @@ export function buildPluto(def, { world, own, srcMat }) {
   }
 
   // ── Anillo de cohetes en lo más hondo de las minas ──
-  const rr = buildRaceRings(world, track, [sM.mine + 360], own, { kind: 'rockets', R: 17, lift: 8, color: [1.0, 0.6, 0.3] });
+  const rr = buildRaceRings(world, track, [sM.mine + 360], own, { kind: 'rockets', ammo: 3, R: 17, lift: 8, color: [1.0, 0.6, 0.3] });
   for (const g of rr.gates) g.ammo = 2;
 
   const zones = [
