@@ -534,8 +534,51 @@ CIRCUITS.push({
   pad: 0x1e1f21,
 });
 
+// Fase 12: TRITON CHASM, Tritón (sistema de Neptuno). Superficie de terreno «cantalupo», descenso por una sima en la corteza
+// de hielo de agua, túnel técnico y rampa a 55° que sale al cielo; Neptuno domina la recta final (trazado propio; triton.js)
+CIRCUITS.push({
+  id: 'triton',
+  name: 'TRITON CHASM',
+  sub: L('Neptuno · Tritón', 'Neptune · Triton'),
+  blurb: L('Tritón · terreno cantalupo, la sima en la corteza de hielo y una rampa a 55° al cielo · Neptuno sobre la recta final', 'Triton · cantaloupe terrain, the chasm in the ice crust and a 55° ramp to the sky · Neptune over the final straight'),
+  generated: 'triton',
+  music: 'horizon',
+  motes: false,
+  inSectorOrder: false,
+  hoverMax: 9,                     // gravedad de 0,079 g: en las crestas se despega mucho más
+  slopeG: 0.55,                    // la pendiente pesa menos (baja gravedad + antigravedad)
+  far: 8e6,
+  rockets: false,
+  sunFrom: 'triton',
+  wallGrip: { slope: 0.66, v: 92 },  // THE LAUNCH: por debajo de ~330 km/h el imán no sujeta en la rampa
+  dimSun: 0.95,
+  deckInTunnel: true,
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.38, 0.4, 0.83).normalize(),
+    // bruma de altura: casi nada en la superficie, muy densa en la sima (lo lejano se aclara)
+    baseDensity: 0.000005, heightDensity: 0.00006, heightFalloff: 0.0085, fogMax: 0.96,
+    exposure: 1.0, saturation: 0.85, redKeep: 0.9,
+    bloom: { strength: 0.55, radius: 0.6, threshold: 0.82 },
+    sky: {
+      horizon: [0.2, 0.26, 0.34], zenith: [0.0015, 0.002, 0.004], below: [0.17, 0.22, 0.29], zLow: -0.03, zHigh: 0.05,
+      glow: [0.8, 0.88, 1.0], glowK: 0.03, glowExp: 20, haloCol: [0.9, 0.95, 1.0], halo: 0.05, haloExp: 2000,
+      sun: [1.0, 0.98, 0.95], corona: 0.25, coronaExp: 20000, disc: 6.0, discExp: 400000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xe8eeff, sunI: 2.4, hemiSky: 0x5a7ab8, hemiGround: 0x262a32, hemiI: 0.6, env: 0.42 },
+  grade: { tint: [0.97, 1.0, 1.04], vignette: 0.5, grain: 0.04, contrast: 0.32 },
+  paint: {
+    edge: [0.6, 0.85, 1.0], chev: [0.35, 0.7, 1.0], lane: [0.88, 0.92, 0.95],
+    kerbA: [0.92, 0.95, 0.98], kerbB: [0.3, 0.62, 1.0], edgeGlow: 0.6, chevGlow: 0.45, kerbGlow: 0.2,
+    buoy: 0x5fb4ff, guide: 0xcfe8ff,
+  },
+  structures: { dark: 0x1e2228, pale: 0xb8c4cc, lamp: 0x7fc4ff, ivory: 0xf0f6ff },
+  pad: 0x1e2228,
+});
+
 // ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
-const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda'];
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda', 'triton'];
 CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 CIRCUITS.forEach((c, i) => {
   c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;

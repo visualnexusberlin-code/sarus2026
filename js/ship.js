@@ -402,7 +402,7 @@ export class Ship {
     a -= brk * C.brake;
     a -= (thr < 0.05 ? C.coastDrag : 0.01) * this.v;
     a -= ab * C.airbrakeDrag * this.v;
-    a -= this.frame.tan.y * 9.81 * 0.5;      // la pendiente cuenta: se gana en bajada, se pierde en subida
+    a -= this.frame.tan.y * 9.81 * 0.5 * (CONFIG.slopeG ?? 1);      // la pendiente cuenta: se gana en bajada, se pierde en subida (TRITON: baja gravedad)
     // Paredes (CERES TRANSIT): en pendientes extremas el imán solo sujeta con velocidad. Por debajo del umbral
     // la nave se despega, pierde empuje y la pendiente pesa el doble; nunca se queda clavada (el empuje gana).
     this.gripLoss = 0;

@@ -43,6 +43,7 @@ import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildCeres, ceresSunDir } from './ceres.js';
 import { buildEnceladus, enceladusSunDir } from './enceladus.js';
 import { buildMercury, mercurySunDir } from './mercury.js';
+import { buildTriton, tritonSunDir } from './triton.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
@@ -417,6 +418,7 @@ function applyLook(def) {
   if (def.sunFrom === 'ceres' && !def._sun) { def.atmosphere.sunDir = ceresSunDir(); def._sun = true; }
   if (def.sunFrom === 'enceladus' && !def._sun) { def.atmosphere.sunDir = enceladusSunDir(); def._sun = true; }
   if (def.sunFrom === 'mercury' && !def._sun) { def.atmosphere.sunDir = mercurySunDir(); def._sun = true; }
+  if (def.sunFrom === 'triton' && !def._sun) { def.atmosphere.sunDir = tritonSunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -445,6 +447,7 @@ function applyLook(def) {
   CONFIG.hoverMax = def.hoverMax || 5;
   CONFIG.wallGrip = def.wallGrip || null;
   CONFIG.fallOff = !!def.fallOff;
+  CONFIG.slopeG = def.slopeG ?? 1;
   document.body.dataset.circuit = def.id;
 }
 
@@ -714,7 +717,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus, mercury: buildMercury })[def.generated](def, { world, own, srcMat, renderer });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus, mercury: buildMercury, triton: buildTriton })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
@@ -1425,6 +1428,8 @@ function updateRace(dt) {
         return;
       }
       // CALORIS: columnas y prensas. Cada choque cuesta un punto de blindaje (como un cohete) y puede eliminar
+      // TRITON CHASM: turbulencia de los géiseres
+      if (gate?.kind === 'shake') { if (sh === ship) G.chase.addShake(gate.k); return; }
       if (gate?.kind === 'obstacle') {
         const res = sh.hit(); if (!res) return;
         const d = sh.root.position.distanceTo(ship.root.position);
@@ -1609,14 +1614,14 @@ function finish() {
 // puntos de la ronda: las eliminadas no puntúan (se recalcula mientras el resto termina)
 // ── Eliminación progresiva del campeonato ──
 // Tras cada carrera quedan fuera las últimas de la clasificación general (puntos acumulados; desempate: la última carrera).
-//   progressive: una por carrera hasta PHOBOS (salvo tras la primera), cinco en el corte de PHOBOS y otra por carrera después (20 → 5 en la final, como antes)
-//   phobos:      nadie hasta PHOBOS, cinco en su corte y otra por carrera después (20 → 11 en la final)
+//   progressive: una por carrera hasta PHOBOS (salvo tras las dos primeras), cinco en el corte de PHOBOS y otra por carrera después (20 → 5 en la final, como antes)
+//   phobos:      nadie hasta PHOBOS, cinco en su corte y otra por carrera después (20 → 10 en la final)
 G.cutMode = store.get('sarus-cut', 'progressive');
 function cutsAfter(round) {
   if (G.cutMode === 'off' || round >= CIRCUITS.length - 1) return 0;
   const ph = CIRCUITS.findIndex((c) => c.id === 'phobos');
   if (round === ph) return 5;
-  if (round < ph) return G.cutMode === 'progressive' && round > 0 ? 1 : 0;     // la primera carrera (ARCADIA) no elimina: con CALORIS el total de cortes no cambia
+  if (round < ph) return G.cutMode === 'progressive' && round > 1 ? 1 : 0;     // las dos primeras carreras no eliminan: con CALORIS y TRITON el total de cortes no cambia
   return 1;
 }
 function alive() { const out = G.cup?.out || new Set(); return G.fleet.filter((s) => !out.has(s.name)); }
