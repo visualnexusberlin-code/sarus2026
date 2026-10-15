@@ -356,7 +356,9 @@ function moonMaterial(center, sun) {
 // ─────────────────────────────────────────────────────────────
 const SUN = new THREE.Vector3(0.38, 0.4, 0.83).normalize();           // sur-sureste, bajo: sombras largas en el cantalupo
 const NEP_DIR = new THREE.Vector3(-0.95, 0.26, 0.12).normalize();      // oeste, 15° sobre el horizonte
-const NEP_D = 3.0e6, NEP_R = 690000;                                   // ~13° de radio aparente: Neptuno domina el cielo
+// ~13° de radio aparente: Neptuno domina el cielo. A 450 km y no más lejos: a varios millones de metros, con el plano
+// cercano de la cámara a 0,25 m, la profundidad en precisión simple roza 1,0 y se recortan fragmentos (manchas negras)
+const NEP_D = 4.5e5, NEP_R = 103500;
 export function tritonSunDir() { return SUN.clone(); }
 export const TRITON_R = 26000;                                         // radio artístico de Tritón (el real son 1353 km)
 
@@ -479,6 +481,8 @@ export function buildTriton(def, { world, own, srcMat }) {
   const nepAx = new THREE.Vector3(0.25, 1, -0.35).normalize();
   {
     const nm = neptuneMaterial(uni, nepC, SUN, nepAx); own.push(nm);
+    // sin escribir profundidad: a 3 millones de metros la oclusión ambiental (N8AO) pierde precisión y deja manchas negras
+    nm.depthWrite = false;
     const nep = new THREE.Mesh(new THREE.SphereGeometry(NEP_R, 160, 80), nm); nep.position.copy(nepC); nep.frustumCulled = false; nep.renderOrder = -2; world.add(nep); own.push(nep.geometry);
     const ringM = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false,
@@ -496,9 +500,12 @@ export function buildTriton(def, { world, own, srcMat }) {
           float r = vUv.x;
           float q1 = (r - 0.2) / 0.012, q2 = (r - 0.62) / 0.008, q3 = (r - 0.95) / 0.02; float a = exp(-q1 * q1) * 0.5 + exp(-q2 * q2) * 0.35 + exp(-q3 * q3) * 0.6;
           float qa = sin((vUv.y - 0.15) * 3.14159) / 0.12; float arc = 1.0 + 1.6 * exp(-qa * qa) * step(0.9, r);
+          // detrás del disco de Neptuno (visto desde la cámara) no se dibuja: el planeta no escribe profundidad
+          vec3 ro = cameraPosition, rd = normalize(vW - ro); vec3 oc = ro - uC; float bq = dot(oc, rd), cq = dot(oc, oc) - uR * uR, dq = bq * bq - cq;
+          if (dq > 0.0) { float th = -bq - sqrt(dq); if (th > 0.0 && th < length(vW - ro)) discard; }
           vec3 rel = vW - uC; float t = dot(rel, uSun); vec3 perp = rel - uSun * t;
           float sh = (t < 0.0 && length(perp) < uR) ? 0.05 : 1.0;
-          gl_FragColor = vec4(vec3(0.75, 0.8, 0.88) * sh, a * arc * 0.16);
+          gl_FragColor = vec4(vec3(0.75, 0.8, 0.88), a * arc * 0.16 * sh);          // en la sombra de Neptuno el anillo desaparece (no se oscurece)
         }`,
     });
     own.push(ringM);
