@@ -159,9 +159,9 @@ export class SolarMap {
       const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xbcc4cc, transparent: true, opacity: op, depthWrite: false }));
       S.add(l); return l;
     };
-    const R = { neptune: 89, mercury: 8.2, venus: 13, earth: 21, mars: 30, belt: 38.5, jupiter: 50, saturn: 63, uranus: 76 };
-    const A = { neptune: -2.75, mercury: 3.05, venus: 2.62, earth: 1.92, mars: 1.12, belt: 0.5, jupiter: -0.1, saturn: -0.9, uranus: -1.9 };
-    for (const k of ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']) orbit(R[k]);
+    const R = { pluto: 101, neptune: 89, mercury: 8.2, venus: 13, earth: 21, mars: 30, belt: 38.5, jupiter: 50, saturn: 63, uranus: 76 };
+    const A = { pluto: -3.25, neptune: -2.75, mercury: 3.05, venus: 2.62, earth: 1.92, mars: 1.12, belt: 0.5, jupiter: -0.1, saturn: -0.9, uranus: -1.9 };
+    for (const k of ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']) orbit(R[k], k === 'pluto' ? 0.1 : 0.16);
 
     const body = (name, r, mat, at) => { const m = sphere(r, mat); m.position.copy(at); m.name = name; S.add(m); return m; };
     const B = this.bodies = {};
@@ -172,6 +172,7 @@ export class SolarMap {
     B.jupiter = body('jupiter', 3.7, planetMaterial({ type: 2, a: 0xe9d6b6, b: 0xb07a4e, c: 0xffffff, atm: 0xf2dcc0, atmK: 0.25, spot: 1, scale: 4.5 }), polar(R.jupiter, A.jupiter));
     B.saturn = body('saturn', 3.0, planetMaterial({ type: 2, a: 0xe8d8b0, b: 0xc8ae7c, c: 0xf6ecd0, atm: 0xf0e2c0, atmK: 0.2, scale: 3.5 }), polar(R.saturn, A.saturn));
     B.neptune = body('neptune', 2.1, planetMaterial({ type: 4, a: 0x3d6fe0, b: 0x2448b4, c: 0x9cc0ff, atm: 0x7fb4ff, atmK: 0.7, scale: 2.2 }), polar(R.neptune, A.neptune));
+    B.pluto = body('pluto', 0.62, planetMaterial({ type: 0, a: 0xd8c8b4, b: 0x8a2c18, scale: 3 }), polar(R.pluto, A.pluto).add(new THREE.Vector3(0, 2.4, 0)));
     B.uranus = body('uranus', 2.2, planetMaterial({ type: 4, a: 0x9fe0e0, b: 0x7cc8d0, c: 0xc8f4f0, atm: 0xbff8ff, atmK: 0.6, scale: 1.2 }), polar(R.uranus, A.uranus));
 
     // anillos
@@ -193,6 +194,7 @@ export class SolarMap {
     B.phobos.scale.set(1.35, 0.9, 1.0);
     B.europa = moon(B.jupiter, 'europa', 0.42, planetMaterial({ type: 3, a: 0xf2ecdf, b: 0xcfc2a8, c: 0x8a4a30, scale: 3 }), 6.2, -2.0, 0.04);
     B.triton = moon(B.neptune, 'triton', 0.36, planetMaterial({ type: 0, a: 0xc8c0b4, b: 0x6c7468, scale: 4 }), 4.0, 2.2, -0.05, 0.35);   // retrógrada
+    B.charon = moon(B.pluto, 'charon', 0.32, planetMaterial({ type: 0, a: 0xa8a49e, b: 0x4a3c36, scale: 4 }), 1.6, 0.8, 0.09, 0.2);
     B.miranda = moon(B.uranus, 'miranda', 0.34, planetMaterial({ type: 0, a: 0xb4c4c8, b: 0x4c5a60, scale: 4 }), 4.2, -2.4, 0.05, 0.4);
 
     // Nueva Itaka: isla orbital entre la Tierra y la Luna (anillo de luz + núcleo)
@@ -225,9 +227,9 @@ export class SolarMap {
 
     // anclas de cada nodo y encuadre al seleccionarlo (objeto que se sigue, centro del sistema, distancia)
     this.nodes = NODES.map((nd) => {
-      const anchor = { neptune: B.triton, mercury: B.mercury, earth: B.earth, moon: B.moon, venus: B.venus, itaka: B.itaka, mars: B.mars, phobos: B.phobos, belt: B.belt, europa: B.europa, saturn: B.saturn, uranus: B.miranda }[nd.id];
+      const anchor = { pluto: B.pluto, neptune: B.triton, mercury: B.mercury, earth: B.earth, moon: B.moon, venus: B.venus, itaka: B.itaka, mars: B.mars, phobos: B.phobos, belt: B.belt, europa: B.europa, saturn: B.saturn, uranus: B.miranda }[nd.id];
       const center = { neptune: B.neptune, moon: B.earth, itaka: B.earth, phobos: B.mars, europa: B.jupiter, uranus: B.uranus }[nd.id] || anchor;
-      const dist = { neptune: 16, mercury: 6, earth: 11, moon: 11, itaka: 9, venus: 7, mars: 8, phobos: 8, belt: 9, europa: 22, saturn: 24, uranus: 17 }[nd.id];
+      const dist = { pluto: 9, neptune: 16, mercury: 6, earth: 11, moon: 11, itaka: 9, venus: 7, mars: 8, phobos: 8, belt: 9, europa: 22, saturn: 24, uranus: 17 }[nd.id];
       return { ...nd, anchor, center, dist, el: null };
     });
 
@@ -275,7 +277,7 @@ export class SolarMap {
   }
 
   overview(aspect = this.camera.aspect || 1.6) {
-    const d = 172 / Math.min(1, aspect / 1.25);
+    const d = 190 / Math.min(1, aspect / 1.25);
     this.anim = { target: new THREE.Vector3(0, 0, -8), pos: new THREE.Vector3(0, d * 0.62, d * 0.78), follow: null };
     this.focused = null;
   }
@@ -315,7 +317,7 @@ export class SolarMap {
     if (Math.abs(this.sx) + Math.abs(this.sy) > 1e-3) cam.setViewOffset(W, H, W * this.sx, H * this.sy, W, H); else cam.clearViewOffset();
     cam.updateProjectionMatrix();
     for (const [o, s] of this.spin) o.rotation.y += dt * s;
-    for (const k of ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'moon', 'europa', 'miranda', 'phobos', 'triton']) {
+    for (const k of ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'moon', 'europa', 'miranda', 'phobos', 'triton', 'charon']) {
       const b = this.bodies[k]; b.rotation.y += dt * 0.05;
       if (b.material.uniforms?.uTime) b.material.uniforms.uTime.value = this.t;
     }

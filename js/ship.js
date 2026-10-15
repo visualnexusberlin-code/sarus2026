@@ -345,6 +345,7 @@ export class Ship {
   removeEngineLight() {
     if (!this.engineLight) return;
     this.model.remove(this.engineLight); this.engineLight.dispose?.(); this.engineLight = null;
+    if (this.headLight) { this.model.remove(this.headLight, this.headLight.target); this.headLight.dispose?.(); this.headLight = null; }
   }
 
   reset(s, x = 0) {
@@ -574,7 +575,16 @@ export class Ship {
     for (const h of this.halos) { const r = h.userData.r * (1.7 + power * 1.5 + u.uBoost.value * 1.2) * flick; h.scale.set(r, r, 1); }
     this.haloMat.opacity = Math.min(0.7, 0.2 + power * 0.4);
     for (const m of this.reactorMats) m.emissiveIntensity = 1.6 + power * 2.6;
-    if (this.engineLight) this.engineLight.intensity = 0.8 + power * 4;
+    if (this.engineLight) {
+      const dark = !!CONFIG.headlight;
+      this.engineLight.intensity = (0.8 + power * 4) * (dark ? 4 : 1); this.engineLight.distance = dark ? 34 : 14;
+      // foco frontal (VIRGIL-CTHULHU ABYSS): en las minas la luz de la nave es la que deja ver el trazado
+      if (dark && !this.headLight) {
+        this.headLight = new THREE.SpotLight(0xfff1e0, 90, 260, 0.42, 0.5, 1.1);
+        this.headLight.position.set(0, this.size.y * 0.6, this.length * 0.35); this.headLight.target.position.set(0, -1.5, 60);
+        this.model.add(this.headLight, this.headLight.target);
+      } else if (!dark && this.headLight) { this.model.remove(this.headLight, this.headLight.target); this.headLight.dispose?.(); this.headLight = null; }
+    }
   }
 
   updateTransform() {

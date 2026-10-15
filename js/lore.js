@@ -8,7 +8,7 @@ import { L } from './i18n.js';
 
 export const SARUS = { name: 'SARUS', full: 'Solar Advanced Racing Union Series', origin: 'Speed Advanced Racing Über Skies' };
 
-// ── Ruta del campeonato: doce nodos en el orden del Solar Map ──
+// ── Ruta del campeonato: trece nodos en el orden del Solar Map ──
 // circuits: ids internos de circuits.js (Marte tiene dos). belt: aún sin circuito.
 export const NODES = [
   { n: 1, id: 'earth', label: L('TIERRA', 'EARTH'), title: 'ARCADIA', system: L('TIERRA', 'EARTH'), place: L('COSTA DE ARCADIA', 'ARCADIA COAST'), circuits: ['arcadia'] },
@@ -23,6 +23,7 @@ export const NODES = [
   { n: 10, id: 'saturn', label: L('SATURNO', 'SATURN'), title: 'CASSINI', system: L('SISTEMA DE SATURNO', 'SATURN SYSTEM'), place: L('PLANO DE LOS ANILLOS · DIVISIÓN DE CASSINI', 'RING PLANE · CASSINI DIVISION'), circuits: ['cassini', 'enceladus'] },
   { n: 11, id: 'uranus', label: 'MIRANDA', title: 'MIRANDA', system: L('SISTEMA DE URANO', 'URANUS SYSTEM'), place: 'VERONA RUPES', circuits: ['miranda'] },
   { n: 12, id: 'neptune', label: L('TRITÓN', 'TRITON'), title: 'TRITON CHASM', system: L('SISTEMA DE NEPTUNO', 'NEPTUNE SYSTEM'), place: L('TERRENO CANTALUPO · LA SIMA', 'CANTALOUPE TERRAIN · THE CHASM'), circuits: ['triton'] },
+  { n: 13, id: 'pluto', label: L('PLUTÓN', 'PLUTO'), title: 'VIRGIL-CTHULHU ABYSS', system: L('SISTEMA DE PLUTÓN', 'PLUTO SYSTEM'), place: L('BELTON REGIO · FOSA VIRGIL', 'BELTON REGIO · VIRGIL FOSSAE'), circuits: ['pluto'] },
 ];
 
 // ── Ficha de circuito: nombre de competición · localización · archivo ──
@@ -54,6 +55,8 @@ export const CIRCUIT_LORE = {
     archive: L('Trazado sobre el polo sur de Encélado, con la silueta de un viejo archipiélago de la Tierra. La mitad corre bajo la corteza, por los tubos blancos que levantaron sobre las estaciones abandonadas de la primera colonia.', 'Laid over the south pole of Enceladus in the outline of an old Earth archipelago. Half of it runs below the crust, through the white tubes raised over the abandoned stations of the first colony.') },
   triton: { code: 'TRITON CHASM', gravity: '0.079 G', surface: L('Hielo de nitrógeno · hielo de agua', 'Nitrogen ice · water ice'), diff: 5, year: 2241,
     archive: L('El último trazado de la Unión, el más lejano del Sol. Las cuadrillas criogénicas abrieron una sima en la corteza de hielo de agua, sobre el océano que nadie ha visto, y una rampa que devuelve a los pilotos al cielo con Neptuno delante.', 'The Union’s last course, the farthest from the Sun. Cryogenic crews opened a chasm in the water-ice crust, above the ocean nobody has seen, and a ramp that throws the pilots back into the sky with Neptune ahead.') },
+  pluto: { code: 'VIRGIL-CTHULHU ABYSS', gravity: '0.06 G', surface: L('Tolinas · hielo de agua y amoníaco', 'Tholins · water and ammonia ice'), diff: 5, year: 2246,
+    archive: L('El fin de la ruta. En la Ballena roja de Plutón, la Unión siguió la cicatriz criovolcánica de la fosa Virgil hasta las minas que nadie terminó de excavar, y salió por la pared del cráter Elliot. Abajo no hay más luz que la de las naves.', 'The end of the route. On Pluto’s red Whale, the Union followed the cryovolcanic scar of Virgil Fossae down to the mines nobody finished digging, and out through the wall of Elliot crater. Down there the only light is the ships’ own.') },
   miranda: { code: 'MIRANDA', gravity: '0.008 G', surface: L('Acantilados de hielo · terreno estriado', 'Ice cliffs · grooved terrain'), diff: 5, year: 2236,
     archive: L('Un trazado que se cruza: el puente sobre el cruce mira al acantilado más alto del sistema solar.', 'A crossing course: the bridge over the crossover looks down the highest cliff in the Solar System.') },
 };

@@ -578,8 +578,51 @@ CIRCUITS.push({
   pad: 0x1e2228,
 });
 
+// Fase 13: VIRGIL-CTHULHU ABYSS, Plutón (Belton Regio). Fosa Virgil, minas colosales casi a oscuras bajo ella, cráter Elliot
+// con pico central y rampa a 52° de vuelta a la superficie; Caronte en el cielo (trazado propio; pluto.js)
+CIRCUITS.push({
+  id: 'pluto',
+  name: 'VIRGIL-CTHULHU ABYSS',
+  sub: L('Plutón · Belton Regio', 'Pluto · Belton Regio'),
+  blurb: L('Plutón · la fosa Virgil, minas colosales a oscuras y el cráter Elliot · Caronte sobre la recta', 'Pluto · Virgil Fossae, colossal dark mines and Elliot crater · Charon over the straight'),
+  generated: 'pluto',
+  music: 'velvet',
+  motes: false,
+  inSectorOrder: false,
+  hoverMax: 9,
+  slopeG: 0.5,                     // 0,06 g
+  far: 8e5,
+  rockets: false,
+  sunFrom: 'pluto',
+  wallGrip: { slope: 0.66, v: 92 },
+  dimSun: 0.98,
+  deckInTunnel: true,
+  headlight: true,                 // en las minas la luz de la nave es la que deja ver el trazado
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.45, 0.36, 0.82).normalize(),
+    baseDensity: 0.0000008, heightDensity: 0.00004, heightFalloff: 0.008, fogMax: 0.94,
+    exposure: 1.0, saturation: 1.0, redKeep: 1.0,
+    bloom: { strength: 0.6, radius: 0.6, threshold: 0.8 },
+    sky: {
+      horizon: [0.07, 0.075, 0.1], zenith: [0.0015, 0.0015, 0.003], below: [0.06, 0.055, 0.07], zLow: -0.03, zHigh: 0.05,
+      glow: [0.8, 0.85, 1.0], glowK: 0.0, glowExp: 20, haloCol: [0.9, 0.95, 1.0], halo: 0.0, haloExp: 2000,
+      sun: [1.0, 0.98, 0.95], corona: 0.0, coronaExp: 20000, disc: 0.0, discExp: 400000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff0e4, sunI: 2.6, hemiSky: 0x6a5a6a, hemiGround: 0x2a1410, hemiI: 0.45, env: 0.36 },
+  grade: { tint: [1.03, 0.99, 0.98], vignette: 0.55, grain: 0.05, contrast: 0.34 },
+  paint: {
+    edge: [1.0, 0.7, 0.4], chev: [1.0, 0.45, 0.15], lane: [0.9, 0.86, 0.82],
+    kerbA: [0.92, 0.9, 0.86], kerbB: [1.0, 0.42, 0.15], edgeGlow: 0.7, chevGlow: 0.5, kerbGlow: 0.25,
+    buoy: 0xff7a2a, guide: 0xffd2a0,
+  },
+  structures: { dark: 0x221d1c, pale: 0xc9bdb2, lamp: 0xffa040, ivory: 0xfff0e2 },
+  pad: 0x221d1c,
+});
+
 // ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
-const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda', 'triton'];
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda', 'triton', 'pluto'];
 CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 CIRCUITS.forEach((c, i) => {
   c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;
