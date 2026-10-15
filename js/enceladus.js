@@ -182,7 +182,9 @@ function ceilMaterial(uni) {
 
 // Tubo blanco segmentado (TUBULAR ARCHITECTURE): paneles con juntas, cara interior iluminada por la tira del techo
 // y los aros de luz; en los tramos con ventanas, ranuras abiertas al vacío. uv.x: perímetro (m) · uv.y: recorrido (m)
-function tubeMaterial(uni, per, face, { windows = false, lamp = [0.85, 0.95, 1.0] } = {}) {
+// tone (MERCURY reutiliza el tubo para sus horquillas de 180°): base del panel, zócalo y luz rebotada interior
+export function tubeMaterial(uni, per, face, { windows = false, lamp = [0.85, 0.95, 1.0], lampK = 2.4, base = [0.86, 0.87, 0.86], low = [0.32, 0.34, 0.36], bounce = [0.5, 0.54, 0.58] } = {}) {
+  const v3 = (c) => `vec3(${c.map((v) => v.toFixed(3)).join(',')})`;
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.08, side: THREE.DoubleSide });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uT = uni.uT;
@@ -209,12 +211,12 @@ function tubeMaterial(uni, per, face, { windows = false, lamp = [0.85, 0.95, 1.0
           float fu = mod(u, FACE), cs = fract(s / 9.0);
           tSeam = max(1.0 - smoothstep(0.0, 0.07, min(fu, FACE - fu)), 1.0 - smoothstep(0.0, 0.012, min(cs, 1.0 - cs))) * aa;
           vec2 cell = vec2(floor(s / 9.0), floor(u / FACE));
-          vec3 col = vec3(0.86, 0.87, 0.86) * (0.93 + 0.1 * tH(cell));
+          vec3 col = ${v3(base)} * (0.93 + 0.1 * tH(cell));
           // paneles menores dentro de cada panel (refuerzo central) y franja gris en el zócalo
           float sub = 1.0 - smoothstep(0.0, 0.05, abs(fract(s / 4.5) - 0.5) - 0.47);
           col *= 1.0 - 0.06 * sub * aa;
           float low = 1.0 - smoothstep(FACE * 0.9, FACE * 1.1, min(u, PER - u));
-          col = mix(col, vec3(0.32, 0.34, 0.36), low * 0.85);
+          col = mix(col, ${v3(low)}, low * 0.85);
           // abrazaderas con banda de peligro cada 36 m
           float cl = fract(s / 36.0);
           tHaz = (1.0 - smoothstep(0.0, 0.004, abs(cl - 0.5) - 0.02));
@@ -233,12 +235,12 @@ function tubeMaterial(uni, per, face, { windows = false, lamp = [0.85, 0.95, 1.0
         }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.85, tSeam);')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        totalEmissiveRadiance += vec3(${lamp.map((v) => v.toFixed(3)).join(',')}) * tLamp * 2.4;
+        totalEmissiveRadiance += vec3(${lamp.map((v) => v.toFixed(3)).join(',')}) * tLamp * ${lampK.toFixed(2)};
         // luz rebotada dentro del tubo: la cara interior se ve blanca aunque fuera sea de noche
-        totalEmissiveRadiance += diffuseColor.rgb * tIn * vec3(0.5, 0.54, 0.58) * (1.0 - tSeam * 0.7);
+        totalEmissiveRadiance += diffuseColor.rgb * tIn * ${v3(bounce)} * (1.0 - tSeam * 0.7);
         totalEmissiveRadiance += diffuseColor.rgb * (1.0 - tIn) * vec3(0.12, 0.14, 0.16);`);
   };
-  m.customProgramCacheKey = () => 'encTube' + windows + per.toFixed(2) + lamp.join(',');
+  m.customProgramCacheKey = () => 'encTube' + windows + per.toFixed(2) + lamp.join(',') + lampK + base.join(',') + low.join(',') + bounce.join(',');
   return m;
 }
 

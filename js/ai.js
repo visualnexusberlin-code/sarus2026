@@ -50,7 +50,20 @@ export class AIDriver {
         break;
       }
     }
-    this.avoid += (avoidT - this.avoid) * Math.min(1, dt * 2.5);
+    // ── Obstáculos fijos en el tablero (CALORIS): pasa por el hueco más ancho; con menos nivel, reacciona más tarde ──
+    if (tr.obstacles?.length) {
+      const look = (30 + v * 1.25) * (0.55 + 0.45 * skill);
+      for (const o of tr.obstacles) {
+        const ds = tr.delta(sh.s, o.s); if (ds < -4 || ds > look) continue;
+        const lim = o.hw + sh.halfWidthGeo + 2.2, xa = xt + avoidT;
+        if (Math.abs(xa - o.x) >= lim) continue;
+        const ww = 13.6 * tr.wAt(o.s), roomL = o.x - lim + ww, roomR = ww - (o.x + lim);
+        const side = Math.abs(o.x) < 0.5 ? (sh.x >= o.x ? 1 : -1) : roomR > roomL ? 1 : -1;
+        avoidT = clamp(o.x + side * lim - xt, -16, 16);
+        break;
+      }
+    }
+    this.avoid += (avoidT - this.avoid) * Math.min(1, dt * (tr.obstacles?.length ? 4 : 2.5));
     const xw = 13.6 * tr.wAt(sh.s);
     xt = clamp(xt + this.avoid, -xw, xw);
 

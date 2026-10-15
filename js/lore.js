@@ -8,19 +8,20 @@ import { L } from './i18n.js';
 
 export const SARUS = { name: 'SARUS', full: 'Solar Advanced Racing Union Series', origin: 'Speed Advanced Racing Über Skies' };
 
-// ── Ruta del campeonato: diez nodos en el orden del Solar Map ──
+// ── Ruta del campeonato: once nodos en el orden del Solar Map ──
 // circuits: ids internos de circuits.js (Marte tiene dos). belt: aún sin circuito.
 export const NODES = [
   { n: 1, id: 'earth', label: L('TIERRA', 'EARTH'), title: 'ARCADIA', system: L('TIERRA', 'EARTH'), place: L('COSTA DE ARCADIA', 'ARCADIA COAST'), circuits: ['arcadia'] },
   { n: 2, id: 'moon', label: L('LUNA', 'MOON'), title: 'SELENE', system: L('ÓRBITA TERRESTRE', 'EARTH ORBIT'), place: L('ESTACIÓN DEL MAR BASÁLTICO', 'MARE BASIN STATION'), circuits: ['saturn'] },
   { n: 3, id: 'venus', label: 'VENUS', title: 'TIPHARES', system: 'VENUS', place: L('MAR DE NUBES · 54 KM DE ALTITUD', 'CLOUD SEA · 54 KM ALTITUDE'), circuits: ['tiphares'] },
-  { n: 4, id: 'itaka', label: 'NUEVA ITAKA', title: 'NUEVA ITAKA', system: L('ÓRBITA CISLUNAR', 'CISLUNAR ORBIT'), place: L('SEDE DE SARUS', 'SARUS HEADQUARTERS'), circuits: ['itaka'] },
-  { n: 5, id: 'mars', label: L('MARTE', 'MARS'), title: L('MARTE', 'MARS'), system: L('MARTE', 'MARS'), place: L('OLYMPUS MONS · MESETA DE THARSIS', 'OLYMPUS MONS · THARSIS PLATEAU'), circuits: ['olympus', 'tharsis'] },
-  { n: 6, id: 'phobos', label: L('FOBOS', 'PHOBOS'), title: 'PHOBOS', system: L('SISTEMA DE MARTE', 'MARS SYSTEM'), place: L('CRÁTER STICKNEY', 'STICKNEY CRATER'), circuits: ['phobos'] },
-  { n: 7, id: 'belt', label: L('CINTURÓN DE ASTEROIDES', 'ASTEROID BELT'), title: 'CERES TRANSIT', system: L('CINTURÓN PRINCIPAL', 'MAIN BELT'), place: L('ENJAMBRE DE CERES', 'CERES SWARM'), circuits: ['ceres'] },
-  { n: 8, id: 'europa', label: 'EUROPA', title: 'EUROPA', system: L('SISTEMA DE JÚPITER', 'JUPITER SYSTEM'), place: L('CORTEZA DE HIELO · LINEAE', 'ICE CRUST · LINEAE'), circuits: ['europa'] },
-  { n: 9, id: 'saturn', label: L('SATURNO', 'SATURN'), title: 'CASSINI', system: L('SISTEMA DE SATURNO', 'SATURN SYSTEM'), place: L('PLANO DE LOS ANILLOS · DIVISIÓN DE CASSINI', 'RING PLANE · CASSINI DIVISION'), circuits: ['cassini', 'enceladus'] },
-  { n: 10, id: 'uranus', label: 'MIRANDA', title: 'MIRANDA', system: L('SISTEMA DE URANO', 'URANUS SYSTEM'), place: 'VERONA RUPES', circuits: ['miranda'] },
+  { n: 4, id: 'mercury', label: L('MERCURIO', 'MERCURY'), title: 'CALORIS', system: L('MERCURIO', 'MERCURY'), place: L('CUENCA CALORIS · GALERÍAS', 'CALORIS BASIN · GALLERIES'), circuits: ['caloris'] },
+  { n: 5, id: 'itaka', label: 'NUEVA ITAKA', title: 'NUEVA ITAKA', system: L('ÓRBITA CISLUNAR', 'CISLUNAR ORBIT'), place: L('SEDE DE SARUS', 'SARUS HEADQUARTERS'), circuits: ['itaka'] },
+  { n: 6, id: 'mars', label: L('MARTE', 'MARS'), title: L('MARTE', 'MARS'), system: L('MARTE', 'MARS'), place: L('OLYMPUS MONS · MESETA DE THARSIS', 'OLYMPUS MONS · THARSIS PLATEAU'), circuits: ['olympus', 'tharsis'] },
+  { n: 7, id: 'phobos', label: L('FOBOS', 'PHOBOS'), title: 'PHOBOS', system: L('SISTEMA DE MARTE', 'MARS SYSTEM'), place: L('CRÁTER STICKNEY', 'STICKNEY CRATER'), circuits: ['phobos'] },
+  { n: 8, id: 'belt', label: L('CINTURÓN DE ASTEROIDES', 'ASTEROID BELT'), title: 'CERES TRANSIT', system: L('CINTURÓN PRINCIPAL', 'MAIN BELT'), place: L('ENJAMBRE DE CERES', 'CERES SWARM'), circuits: ['ceres'] },
+  { n: 9, id: 'europa', label: 'EUROPA', title: 'EUROPA', system: L('SISTEMA DE JÚPITER', 'JUPITER SYSTEM'), place: L('CORTEZA DE HIELO · LINEAE', 'ICE CRUST · LINEAE'), circuits: ['europa'] },
+  { n: 10, id: 'saturn', label: L('SATURNO', 'SATURN'), title: 'CASSINI', system: L('SISTEMA DE SATURNO', 'SATURN SYSTEM'), place: L('PLANO DE LOS ANILLOS · DIVISIÓN DE CASSINI', 'RING PLANE · CASSINI DIVISION'), circuits: ['cassini', 'enceladus'] },
+  { n: 11, id: 'uranus', label: 'MIRANDA', title: 'MIRANDA', system: L('SISTEMA DE URANO', 'URANUS SYSTEM'), place: 'VERONA RUPES', circuits: ['miranda'] },
 ];
 
 // ── Ficha de circuito: nombre de competición · localización · archivo ──
@@ -32,6 +33,8 @@ export const CIRCUIT_LORE = {
     archive: L('Trazado fundacional de la Unión. Geometría original, vertida en un mar lunar para la primera temporada. La Tierra cuelga sobre la línea de salida.', 'Founding course of the Union. Original geometry, poured into a lunar mare for the first season. Earth hangs over the start line.') },
   tiphares: { code: 'TIPHARES', gravity: '0.90 G', surface: L('Plataformas flotantes · nácar y oro', 'Floating platforms · nacre and gold'), diff: 2, year: 2203,
     archive: L('Dibujado por la Unión para el mar de nubes: un bucle rápido alrededor de la ciudadela loto, tendido sobre plataformas flotantes de nácar.', 'Drawn by the Union for the cloud sea: a fast loop wrapped around the lotus citadel, laid on floating nacre platforms.') },
+  caloris: { code: 'CALORIS', gravity: '0.38 G', surface: L('Hormigón de fundición · regolito quemado', 'Foundry concrete · scorched regolith'), diff: 4, year: 2206,
+    archive: L('Sobre un trazado de archivo, invertido y enterrado. Las fundiciones solares excavaron bajo la cuenca Caloris galerías a escala de catedral para huir del día de Mercurio; la carrera sale del único pozo abierto al sol y no vuelve a verlo hasta la meta.', 'Over an archive course, flipped and buried. The solar foundries dug cathedral-scale galleries beneath the Caloris basin to escape the Mercurian day; the race leaves from the only shaft open to the sun and does not see it again until the finish.') },
   itaka: { code: 'NUEVA ITAKA', gravity: L('0.85 G · rotación', '0.85 G · spin'), surface: L('Tubo de cristal · túneles hexagonales', 'Glass tube · hexagonal tunnels'), diff: 3, year: 2196,
     archive: L('El circuito de pruebas de la propia Unión y el más largo de la serie, plegado en un tubo de cristal alrededor de la isla.', 'The Union’s own proving loop and the longest course in the series, folded into a glass tube around the island.') },
   olympus: { code: 'OLYMPUS', gravity: '0.38 G', surface: L('Escudo basáltico · tubos de lava', 'Basaltic shield · lava tubes'), diff: 3, year: 2209,

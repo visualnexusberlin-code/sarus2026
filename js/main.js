@@ -42,6 +42,7 @@ import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildCeres, ceresSunDir } from './ceres.js';
 import { buildEnceladus, enceladusSunDir } from './enceladus.js';
+import { buildMercury, mercurySunDir } from './mercury.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
@@ -415,6 +416,7 @@ function applyLook(def) {
   if (def.sunFrom === 'phobos' && !def._sun) { def.atmosphere.sunDir = phobosSunDir(); def._sun = true; }
   if (def.sunFrom === 'ceres' && !def._sun) { def.atmosphere.sunDir = ceresSunDir(); def._sun = true; }
   if (def.sunFrom === 'enceladus' && !def._sun) { def.atmosphere.sunDir = enceladusSunDir(); def._sun = true; }
+  if (def.sunFrom === 'mercury' && !def._sun) { def.atmosphere.sunDir = mercurySunDir(); def._sun = true; }
   camera.far = def.far || 30000; camera.updateProjectionMatrix();
   grade.uniforms.uRedKeep.value = def.atmosphere.redKeep ?? 1;
   if (G.fx.rockets) G.fx.rockets.enabled = def.rockets !== false;
@@ -712,7 +714,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus })[def.generated](def, { world, own, srcMat, renderer });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus, mercury: buildMercury })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
@@ -728,7 +730,7 @@ function buildGenerated(def, own, t0) {
 // Parte común: relieve del tablero, esferas, cohetes-arma y reenlazar naves y HUD con la pista nueva
 function finishCircuit(def, world, track, t0) {
   const tn = G.structures?.tunnel;
-  const dd = buildDeckDetail(world, track, def.deckDetail || {}, { skip: [[track.length - 140, track.length], ...(tn ? [[tn.s, tn.s + tn.len]] : [])] });
+  const dd = buildDeckDetail(world, track, def.deckDetail || {}, { skip: [[track.length - 140, track.length], ...(tn && !def.deckInTunnel ? [[tn.s, tn.s + tn.len]] : [])] });
   console.info(`[SRS] relieve del tablero: ${dd.pieces} piezas`);
   if (!G.fx.rockets) G.fx.rockets = new Rockets(scene, []);
   G.pickups = new Pickups(world, track);
@@ -1422,6 +1424,20 @@ function updateRace(dt) {
         if (sh === ship) { G.chase.addShake(1.0); audio.thud(1.2); hud.banner(tr('Impacto', 'Impact'), '', false, 1.0, true); }
         return;
       }
+      // CALORIS: columnas y prensas. Cada choque cuesta un punto de blindaje (como un cohete) y puede eliminar
+      if (gate?.kind === 'obstacle') {
+        const res = sh.hit(); if (!res) return;
+        const d = sh.root.position.distanceTo(ship.root.position);
+        G.fx.sparks.burst(gate.pos, sh.fwd.clone().multiplyScalar(-0.3), res === 'destroyed' ? 90 : 50, 20);
+        if (d < 500) audio.thud(Math.max(0.3, 1.2 - d / 400));
+        if (res === 'destroyed') { for (let k = 0; k < 3; k++) G.missiles.explode(sh.root.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 2, (Math.random() - 0.5) * 4)), true); if (d < 700) audio.boom(Math.max(0.3, 1 - d / 700) * 1.3); }
+        if (sh === ship) {
+          G.chase.addShake(res === 'destroyed' ? 1.5 : 1.0);
+          if (res === 'destroyed') hud.banner(tr('Eliminado', 'Eliminated'), tr('Destrozada contra la estructura', 'Wrecked against the structure'), true, 3.2);
+          else hud.banner(ship.hull === 1 ? tr('Blindaje crítico', 'Critical armor') : tr('Colisión', 'Collision'), `${tr('Blindaje', 'Armor')} ${ship.hull}/${ship.maxHull}`, true, 1.6);
+        } else if (res === 'destroyed' && d < 900) hud.banner(`${sh.name} ${tr('eliminada', 'eliminated')}`, tr('contra la estructura', 'against the structure'), false, 1.4, true);
+        return;
+      }
       if (gate?.kind === 'impact') { G.fx.sparks.burst(gate.pos, new THREE.Vector3(0, 0.7, 0), 60, 26); if (gate.pos.distanceTo(ship.root.position) < 350) { audio.boom(0.6); G.chase.addShake(0.25); } return; }
       if (gate?.kind === 'rockets') {                    // anillo de cohetes (PHOBOS): solo recarga
         const n = gate.ammo ?? 2; sh.ammo = Math.max(sh.ammo, n);
@@ -1593,14 +1609,14 @@ function finish() {
 // puntos de la ronda: las eliminadas no puntúan (se recalcula mientras el resto termina)
 // ── Eliminación progresiva del campeonato ──
 // Tras cada carrera quedan fuera las últimas de la clasificación general (puntos acumulados; desempate: la última carrera).
-//   progressive: una por carrera hasta PHOBOS, cinco en el corte de PHOBOS y otra por carrera después (20 → 6 en la final)
-//   phobos:      nadie hasta PHOBOS, cinco en su corte y otra por carrera después (20 → 12 en la final)
+//   progressive: una por carrera hasta PHOBOS (salvo tras la primera), cinco en el corte de PHOBOS y otra por carrera después (20 → 5 en la final, como antes)
+//   phobos:      nadie hasta PHOBOS, cinco en su corte y otra por carrera después (20 → 11 en la final)
 G.cutMode = store.get('sarus-cut', 'progressive');
 function cutsAfter(round) {
   if (G.cutMode === 'off' || round >= CIRCUITS.length - 1) return 0;
   const ph = CIRCUITS.findIndex((c) => c.id === 'phobos');
   if (round === ph) return 5;
-  if (round < ph) return G.cutMode === 'progressive' ? 1 : 0;
+  if (round < ph) return G.cutMode === 'progressive' && round > 0 ? 1 : 0;     // la primera carrera (ARCADIA) no elimina: con CALORIS el total de cortes no cambia
   return 1;
 }
 function alive() { const out = G.cup?.out || new Set(); return G.fleet.filter((s) => !out.has(s.name)); }
@@ -1898,12 +1914,13 @@ function tick(dt) {
   const tn = G.structures?.tunnel;
   let inside = 0;
   if (tn && inCircuit && G.state !== 'title' && G.state !== 'menu' && G.state !== 'intro') {
-    const d = G.track.delta(tn.s, G.ship.s);
+    // (envuelto en [−40, L−40): un tramo cubierto de más de media vuelta, como en CALORIS, no se cuenta al revés)
+    let d = G.track.wrap(G.ship.s - tn.s); if (d > G.track.length - 40) d -= G.track.length;
     inside = Math.min(THREE.MathUtils.smoothstep(d, -10, 30), 1 - THREE.MathUtils.smoothstep(d, tn.len - 30, tn.len + 10));
   }
   G.dim = (G.dim || 0) + (inside - (G.dim || 0)) * Math.min(1, dt * 3);
   const L = G.light || { sunI: 2.5, hemiI: 0.6, env: 0.85 };
-  sun.intensity = L.sunI * (1 - 0.8 * G.dim);
+  sun.intensity = L.sunI * (1 - (G.circuit?.dimSun ?? 0.8) * G.dim);
   hemi.intensity = L.hemiI * (1 - 0.55 * G.dim);
   scene.environmentIntensity = L.env * (1 - 0.6 * G.dim);
 

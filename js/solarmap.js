@@ -159,12 +159,13 @@ export class SolarMap {
       const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xbcc4cc, transparent: true, opacity: op, depthWrite: false }));
       S.add(l); return l;
     };
-    const R = { venus: 13, earth: 21, mars: 30, belt: 38.5, jupiter: 50, saturn: 63, uranus: 76 };
-    const A = { venus: 2.62, earth: 1.92, mars: 1.12, belt: 0.5, jupiter: -0.1, saturn: -0.9, uranus: -1.9 };
-    for (const k of ['venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus']) orbit(R[k]);
+    const R = { mercury: 8.2, venus: 13, earth: 21, mars: 30, belt: 38.5, jupiter: 50, saturn: 63, uranus: 76 };
+    const A = { mercury: 3.05, venus: 2.62, earth: 1.92, mars: 1.12, belt: 0.5, jupiter: -0.1, saturn: -0.9, uranus: -1.9 };
+    for (const k of ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus']) orbit(R[k]);
 
     const body = (name, r, mat, at) => { const m = sphere(r, mat); m.position.copy(at); m.name = name; S.add(m); return m; };
     const B = this.bodies = {};
+    B.mercury = body('mercury', 0.72, planetMaterial({ type: 0, a: 0x9a948a, b: 0x4a4540, scale: 4 }), polar(R.mercury, A.mercury));
     B.venus = body('venus', 1.3, planetMaterial({ type: 4, a: 0xe8d2a0, b: 0xc9a46a, c: 0xf4ead0, atm: 0xffe2a8, atmK: 0.6, scale: 5 }), polar(R.venus, A.venus));
     B.earth = body('earth', 1.45, planetMaterial({ type: 1, atm: 0x5aa0ff, atmK: 1.1 }), polar(R.earth, A.earth));
     B.mars = body('mars', 1.0, planetMaterial({ type: 0, a: 0xc8643a, b: 0x6e2c18, atm: 0xf0a070, atmK: 0.35, scale: 2.6 }), polar(R.mars, A.mars));
@@ -222,9 +223,9 @@ export class SolarMap {
 
     // anclas de cada nodo y encuadre al seleccionarlo (objeto que se sigue, centro del sistema, distancia)
     this.nodes = NODES.map((nd) => {
-      const anchor = { earth: B.earth, moon: B.moon, venus: B.venus, itaka: B.itaka, mars: B.mars, phobos: B.phobos, belt: B.belt, europa: B.europa, saturn: B.saturn, uranus: B.miranda }[nd.id];
+      const anchor = { mercury: B.mercury, earth: B.earth, moon: B.moon, venus: B.venus, itaka: B.itaka, mars: B.mars, phobos: B.phobos, belt: B.belt, europa: B.europa, saturn: B.saturn, uranus: B.miranda }[nd.id];
       const center = { moon: B.earth, itaka: B.earth, phobos: B.mars, europa: B.jupiter, uranus: B.uranus }[nd.id] || anchor;
-      const dist = { earth: 11, moon: 11, itaka: 9, venus: 7, mars: 8, phobos: 8, belt: 9, europa: 22, saturn: 24, uranus: 17 }[nd.id];
+      const dist = { mercury: 6, earth: 11, moon: 11, itaka: 9, venus: 7, mars: 8, phobos: 8, belt: 9, europa: 22, saturn: 24, uranus: 17 }[nd.id];
       return { ...nd, anchor, center, dist, el: null };
     });
 
@@ -312,7 +313,7 @@ export class SolarMap {
     if (Math.abs(this.sx) + Math.abs(this.sy) > 1e-3) cam.setViewOffset(W, H, W * this.sx, H * this.sy, W, H); else cam.clearViewOffset();
     cam.updateProjectionMatrix();
     for (const [o, s] of this.spin) o.rotation.y += dt * s;
-    for (const k of ['venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'moon', 'europa', 'miranda', 'phobos']) {
+    for (const k of ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'moon', 'europa', 'miranda', 'phobos']) {
       const b = this.bodies[k]; b.rotation.y += dt * 0.05;
       if (b.material.uniforms?.uTime) b.material.uniforms.uTime.value = this.t;
     }

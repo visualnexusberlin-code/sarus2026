@@ -493,8 +493,48 @@ CIRCUITS.push({
   pad: 0x2c2f33,
 });
 
+// Fase 04: CALORIS, Mercurio. Sale del fondo de un pozo abierto al sol en la cuenca Caloris y corre el resto de la vuelta
+// por galerías industriales enterradas, brutalistas y casi a oscuras; obstáculos con daño (trazado de archivo invertido; mercury.js)
+CIRCUITS.push({
+  id: 'caloris',
+  name: 'CALORIS',
+  sub: L('Mercurio · cuenca Caloris', 'Mercury · Caloris basin'),
+  blurb: L('Mercurio · del pozo al sol a las galerías sin fin · columnas y prensas que cuestan blindaje', 'Mercury · from the sunlit shaft into endless galleries · columns and presses that cost armor'),
+  generated: 'mercury',
+  music: 'horizon',
+  motes: false,
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 8.5e6,
+  rockets: false,
+  sunFrom: 'mercury',
+  dimSun: 0.97,                    // bajo tierra el sol no llega: la sombra del techo solo cubre unos metros alrededor de la nave
+  deckInTunnel: true,              // relieve del tablero también en las galerías
+  atmosphere: {
+    sunDir: new THREE.Vector3(0.42, 0.78, -0.46).normalize(),
+    baseDensity: 0.00002, heightDensity: 0.00012, heightFalloff: 0.007, fogMax: 0.9,
+    exposure: 0.95, saturation: 0.6, redKeep: 0.8,
+    bloom: { strength: 0.6, radius: 0.62, threshold: 0.8 },
+    sky: {
+      horizon: [0.05, 0.048, 0.045], zenith: [0.0012, 0.0012, 0.0014], below: [0.04, 0.038, 0.036], zLow: -0.04, zHigh: 0.07,
+      glow: [1.0, 0.78, 0.5], glowK: 0.02, glowExp: 8, haloCol: [1.0, 0.8, 0.5], halo: 0.0, haloExp: 400,
+      sun: [1.0, 0.9, 0.7], corona: 0.0, coronaExp: 3000, disc: 0.0, discExp: 60000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff0dc, sunI: 4.0, hemiSky: 0x5a5650, hemiGround: 0x1c1916, hemiI: 0.42, env: 0.32 },
+  grade: { tint: [1.03, 1.0, 0.96], vignette: 0.52, grain: 0.05, contrast: 0.36 },
+  paint: {
+    edge: [1.0, 0.86, 0.62], chev: [1.0, 0.48, 0.12], lane: [0.88, 0.86, 0.82],
+    kerbA: [0.92, 0.9, 0.86], kerbB: [1.0, 0.48, 0.12], edgeGlow: 0.55, chevGlow: 0.4, kerbGlow: 0.2,
+    buoy: 0xff8a2a, guide: 0xffd6a0,
+  },
+  structures: { dark: 0x1e1f21, pale: 0xb9b6ae, lamp: 0xffa040, ivory: 0xfff2e2 },
+  pad: 0x1e1f21,
+});
+
 // ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
-const ORDER = ['arcadia', 'saturn', 'tiphares', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda'];
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda'];
 CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 CIRCUITS.forEach((c, i) => {
   c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;

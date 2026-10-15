@@ -77,6 +77,7 @@ export class Pickups {
     for (let s = C.firstAt; s < track.length - 160; s += C.every, k++) {
       if (track.gapAt && [0, 30, -30].some((d) => track.gapAt(s + d) >= 0)) continue;   // nada en el aire de los saltos
       if (track.flightAt && [0, 30, -30].some((d) => track.flightAt(s + d) > 0)) continue;   // ni en el vuelo libre
+      if (track.obstacles?.some((o) => Math.abs(track.delta(o.s, s)) < 40)) continue;   // ni junto a columnas y prensas
       const pat = PATTERNS[k % PATTERNS.length];
       const wq = Math.min(1, track.wAt ? track.wAt(s) : 1);
       C.lanes.forEach((x, i) => this.items.push({ s, x: x * wq, type: pat[i], active: true, t: 0, pop: 1, seed: Math.random() * 10 }));
