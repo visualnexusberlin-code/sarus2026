@@ -501,7 +501,7 @@ CIRCUITS.push({
   sub: L('Mercurio · cuenca Caloris', 'Mercury · Caloris basin'),
   blurb: L('Mercurio · del pozo al sol a las galerías sin fin · columnas y prensas que cuestan blindaje', 'Mercury · from the sunlit shaft into endless galleries · columns and presses that cost armor'),
   generated: 'mercury',
-  music: 'horizon',
+  music: 'theorbo',              // Theorbo in Motion (Dear, con Gemini)
   motes: false,
   inSectorOrder: false,
   hoverMax: 6,
