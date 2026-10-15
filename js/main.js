@@ -1923,6 +1923,7 @@ function tick(dt) {
   sun.intensity = L.sunI * (1 - (G.circuit?.dimSun ?? 0.8) * G.dim);
   hemi.intensity = L.hemiI * (1 - 0.55 * G.dim);
   scene.environmentIntensity = L.env * (1 - 0.6 * G.dim);
+  if (G.circuit?.openBoost) renderer.toneMappingExposure = CONFIG.atmosphere.exposure * (1 + G.circuit.openBoost * (1 - G.dim));
 
   // la sombra sigue a la nave del jugador
   sun.target.position.copy(G.ship.root.position);

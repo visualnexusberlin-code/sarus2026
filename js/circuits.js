@@ -522,7 +522,8 @@ CIRCUITS.push({
     },
     clouds: null,
   },
-  light: { sun: 0xfff0dc, sunI: 4.0, hemiSky: 0x5a5650, hemiGround: 0x1c1916, hemiI: 0.42, env: 0.32 },
+  light: { sun: 0xfff3e2, sunI: 6.2, hemiSky: 0x8e877c, hemiGround: 0x2a2620, hemiI: 0.5, env: 0.36 },
+  openBoost: 0.35,                 // a cielo abierto (pozo e intro) la exposición sube: el planeta está quemado por el sol
   grade: { tint: [1.03, 1.0, 0.96], vignette: 0.52, grain: 0.05, contrast: 0.36 },
   paint: {
     edge: [1.0, 0.86, 0.62], chev: [1.0, 0.48, 0.12], lane: [0.88, 0.86, 0.82],

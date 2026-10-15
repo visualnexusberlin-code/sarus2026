@@ -123,11 +123,11 @@ function groundMaterial(uni, Cc, caps) {
       .replace('#include <color_fragment>', `#include <color_fragment>
         {
           vec2 p = vMW.xz;
-          float aa = clamp(1.0 - length(fwidth(p)) / 30.0, 0.0, 1.0);
+          float aa = clamp(1.0 - length(fwidth(p)) / 6.0, 0.0, 1.0);
           float a = mF(p / 2400.0), b = mF(p / 260.0 + 3.0), c = mF(p / 14.0 + 7.0);
-          vec3 col = mix(vec3(0.24, 0.225, 0.21), vec3(0.5, 0.47, 0.43), smoothstep(0.2, 0.85, a * 0.6 + b * 0.4));
+          vec3 col = mix(vec3(0.42, 0.39, 0.35), vec3(0.74, 0.69, 0.62), smoothstep(0.2, 0.85, a * 0.6 + b * 0.4));
           // rayos claros de cráteres jóvenes y manchas oscuras
-          col = mix(col, vec3(0.66, 0.63, 0.58), smoothstep(0.62, 0.8, mF(p / 900.0 + 11.0)) * 0.5);
+          col = mix(col, vec3(0.9, 0.86, 0.78), smoothstep(0.62, 0.8, mF(p / 900.0 + 11.0)) * 0.5);
           col *= 0.85 + 0.3 * c;
           mBump = b * 4.0 + c * 1.2 * aa;
           // dentro del pozo: hormigón en placas con juntas y regueros
@@ -135,7 +135,7 @@ function groundMaterial(uni, Cc, caps) {
           float built = 1.0 - smoothstep(${(MER.RR + 6).toFixed(1)}, ${(MER.RR + 40).toFixed(1)}, r);
           vec2 q = p / vec2(12.0, 9.0); vec2 f = abs(fract(q) - 0.5);
           float seam = (1.0 - smoothstep(0.0, 0.03, 0.5 - max(f.x, f.y))) * aa;
-          vec3 con = vec3(0.3, 0.295, 0.285) * (0.85 + 0.25 * mH(floor(q))) * (1.0 - 0.45 * seam);
+          vec3 con = vec3(0.46, 0.44, 0.41) * (0.85 + 0.25 * mH(floor(q))) * (1.0 - 0.45 * seam);
           con *= 0.9 + 0.2 * mN(p / 3.0);
           col = mix(col, con, built);
           diffuseColor.rgb = col;
@@ -172,7 +172,8 @@ function concreteMaterial(uni, opts = {}) {
       .replace('#include <color_fragment>', `#include <color_fragment>
         {
           float u = vCu.x, s = vCu.y;
-          float aa = clamp(1.3 - length(fwidth(vec2(u, s))) * 0.5, 0.0, 1.0);
+          float fw = length(fwidth(vec2(u, s)));
+          float aa = clamp(1.25 - fw * 2.5, 0.0, 1.0);
           vec2 q = vec2(s / 12.0, u / 9.0); vec2 cell = floor(q); vec2 f = fract(q);
           float e = min(min(f.x, 1.0 - f.x) * 12.0, min(f.y, 1.0 - f.y) * 9.0);
           cSeam = (1.0 - smoothstep(0.04, 0.16, e)) * aa;
@@ -184,18 +185,22 @@ function concreteMaterial(uni, opts = {}) {
           col *= 0.88 + 0.24 * mF(vec2(s, u) / 40.0);
           // agujeros de encofrado: 3 × 2 por placa
           vec2 g = fract(q * vec2(3.0, 2.0)) - 0.5;
-          float tie = (1.0 - smoothstep(0.035, 0.06, length(g * vec2(4.0, 4.5) / vec2(3.0, 2.0)))) * aa;
+          float tie = (1.0 - smoothstep(0.035, 0.06, length(g * vec2(4.0, 4.5) / vec2(3.0, 2.0)))) * aa * aa;
           col *= 1.0 - 0.55 * tie - 0.5 * cSeam;
           ${opts.ceil || opts.floor ? '' : `
           // franja de peligro en el zócalo de algunos tramos
-          float hz = step(0.5, fract((u + s) / 2.2)) ;
+          float hz = mix(0.5, step(0.5, fract((u + s) / 2.2)), aa);
           float band = step(abs(u - 4.0), 0.9) * step(0.7, mH(vec2(floor(s / 96.0), 3.0)));
           col = mix(col, mix(vec3(0.03), vec3(0.78, 0.5, 0.06), hz), band * 0.9);
           // líneas de luz punteada: una junta horizontal de cada cuatro, puntos de 1,2 m cada 4 m
           float row = floor(u / 9.0 + 0.5);
           float onRow = step(mod(row, 4.0), 0.5) * step(1.0, row);
+          // de lejos la fila se ensancha a un píxel y se promedia (sin chispeo)
+          float lw = max(0.3, fw * 0.9), farK = smoothstep(0.25, 0.9, fw);
           float dy = abs(u - row * 9.0);
-          float dot1 = (1.0 - smoothstep(0.2, 0.35, dy)) * (1.0 - smoothstep(0.45, 0.6, abs(fract(s / 4.0) - 0.5) * 4.0));
+          float lband = (1.0 - smoothstep(lw * 0.6, lw, dy)) * 0.3 / lw;
+          float dots = 1.0 - smoothstep(0.45, 0.6, abs(fract(s / 4.0) - 0.5) * 4.0);
+          float dot1 = lband * mix(dots, 0.33, farK);
           float lit = step(0.18, mH(vec2(floor(s / 60.0), row)));
           cGlow += vec3(0.85, 0.92, 1.0) * dot1 * onRow * lit * 2.6;
           // placas retroiluminadas sueltas (como las de la referencia): luz blanca difusa muy baja
@@ -210,13 +215,14 @@ function concreteMaterial(uni, opts = {}) {
           cGlow += mix(vec3(1.0, 0.55, 0.2), vec3(0.6, 0.85, 1.0), mH(floor(vec2(s, u) / 6.0) + 2.0)) * sp * 2.0;` : ''}
           ${opts.ceil ? `
           // rejillas del techo con luz fría de vez en cuando
-          float gr = step(0.93, mH(cell + 5.0)) * (0.5 + 0.5 * step(0.5, fract(s / 1.2)));
+          float gr = step(0.93, mH(cell + 5.0)) * (0.5 + 0.5 * mix(0.5, step(0.5, fract(s / 1.2)), aa));
           cGlow += vec3(0.6, 0.75, 0.9) * gr * 0.5;` : ''}
           ${opts.rings ? `
           // pozo: anillos de luz punteada cada 40 m de altura
           float rr = abs(fract(vCW.y / 40.0) - 0.5) * 40.0;
-          float rd = (1.0 - smoothstep(18.8, 19.4, rr)) * 0.0 + (1.0 - smoothstep(0.25, 0.45, abs(rr - 20.0)));
-          cGlow += vec3(0.9, 0.95, 1.0) * rd * (1.0 - smoothstep(0.45, 0.6, abs(fract(u / 3.0) - 0.5) * 3.0)) * 2.4;` : ''}
+          float rw = max(0.35, fw * 0.9);
+          float rd = (1.0 - smoothstep(rw * 0.6, rw, abs(rr - 20.0))) * 0.35 / rw;
+          cGlow += vec3(0.9, 0.95, 1.0) * rd * mix(1.0 - smoothstep(0.45, 0.6, abs(fract(u / 3.0) - 0.5) * 3.0), 0.4, smoothstep(0.25, 0.9, fw)) * 2.4;` : ''}
           diffuseColor.rgb = col;
         }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 1.0, cSeam);')
@@ -281,7 +287,7 @@ function planetMaterial(center, sun) {
         vec3 n = normalize(vW - uC), V = normalize(cameraPosition - vW);
         vec2 q = vec2(atan(n.z, n.x), asin(clamp(n.y, -1.0, 1.0))) * 6.0;
         float a = mF(q + 2.0), b = mF(q * 5.0 + 1.0);
-        vec3 col = mix(vec3(0.2, 0.19, 0.18), vec3(0.52, 0.49, 0.45), smoothstep(0.2, 0.85, a * 0.6 + b * 0.4));
+        vec3 col = mix(vec3(0.34, 0.31, 0.28), vec3(0.78, 0.72, 0.64), smoothstep(0.2, 0.85, a * 0.6 + b * 0.4));
         float c1 = crat(q * 3.0), c2 = crat(q * 11.0 + 3.0);
         col *= 0.75 + 0.25 * smoothstep(0.6, 1.0, c1) + 0.2 * (1.0 - smoothstep(0.85, 1.05, abs(c1 - 1.0) + 0.9));
         col *= 0.85 + 0.15 * smoothstep(0.5, 1.0, c2);
@@ -318,16 +324,22 @@ function sunMaterial(uni, center) {
         #include <logdepthbuf_fragment>
         vec3 n = normalize(vL), V = normalize(cameraPosition - vW);
         float mu = max(0.0, dot(normalize(vW - uC), V));
-        vec2 q = vec2(atan(n.z, n.x) * 3.0, asin(clamp(n.y, -1.0, 1.0)) * 3.0);
-        float g1 = mF(q * 6.0 + vec2(uT * 0.02, 0.0)), g2 = mF(q * 22.0 - vec2(0.0, uT * 0.05)), g3 = mF(q * 60.0 + uT * 0.08);
-        float gran = g1 * 0.45 + g2 * 0.35 + g3 * 0.2;
-        vec3 hot = vec3(1.0, 0.86, 0.42), mid = vec3(1.0, 0.5, 0.08), dark = vec3(0.55, 0.12, 0.01);
+        // triplanar (sin el remolino de los polos de una proyección esférica)
+        vec3 w3 = pow(abs(n), vec3(4.0)); w3 /= w3.x + w3.y + w3.z;
+        float gran = 0.0;
+        for (int k = 0; k < 3; k++) {
+          vec2 q = k == 0 ? n.yz : k == 1 ? n.zx : n.xy;
+          q *= 9.0;
+          float g = mF(q * 6.0 + vec2(uT * 0.02, 0.0)) * 0.45 + mF(q * 22.0 - vec2(0.0, uT * 0.05)) * 0.35 + mF(q * 60.0 + uT * 0.08) * 0.2;
+          gran += g * (k == 0 ? w3.x : k == 1 ? w3.y : w3.z);
+        }
+        vec3 hot = vec3(1.0, 0.74, 0.3), mid = vec3(0.95, 0.36, 0.04), dark = vec3(0.42, 0.07, 0.0);
         vec3 col = mix(dark, mid, smoothstep(0.25, 0.55, gran));
         col = mix(col, hot, smoothstep(0.55, 0.8, gran));
         float limb = pow(mu, 0.45);
         col *= 0.35 + 0.65 * limb;
         col += vec3(1.0, 0.75, 0.3) * pow(1.0 - mu, 8.0) * 0.8;
-        gl_FragColor = vec4(col * 1.7, 1.0);
+        gl_FragColor = vec4(col * 1.15, 1.0);
       }`,
   });
 }
@@ -365,13 +377,24 @@ export function merLayout() {
 }
 
 const HW = 17.6;
-const SUN = new THREE.Vector3(0.42, 0.78, -0.46).normalize();     // alto (51°): el sol cae a plomo en el pozo de salida
-const SUN_D = 1.9e6, SUN_R = 160000;                                // ~4,8° de radio aparente: un sol desmesurado
-export function mercurySunDir() { return SUN.clone(); }
+// El sol: alto (51°) y de frente sobre la recta de meta, para que la intro llegue desde el lado nocturno por la prolongación
+// de la recta y la parrilla mire al sol
+let SUN = null;
+function sunDirFromLayout() {
+  if (SUN) return SUN;
+  const { S, cum, total } = merPlan(4);
+  const at = (d) => S[Math.max(0, cum.findIndex((c) => c >= total - d))];
+  const a = at(700), b = at(350), ax = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize(), el = 0.89;
+  SUN = new THREE.Vector3(ax.x * Math.cos(el), Math.sin(el), ax.z * Math.cos(el)).normalize();
+  return SUN;
+}
+const SUN_D = 1.9e6, SUN_R = 360000;                                // ~11° de radio aparente: el sol de Mercurio, desmesurado
+export function mercurySunDir() { return sunDirFromLayout().clone(); }
 
 export function buildMercury(def, { world, own, srcMat }) {
   const T0 = performance.now();
   _seed = 47;
+  sunDirFromLayout();
   const lite = QUALITY.lite;
   const lay = merLayout();
   const { Cc, Wc } = lay;
@@ -654,7 +677,7 @@ export function buildMercury(def, { world, own, srcMat }) {
   // mamparos en los extremos de cada tramo: el muro con un hueco para la pista (o la boca del tubo)
   const bulkhead = (g, dir, hole) => {
     const [hw, hb, ht] = hole;                                   // semiancho del hueco y cotas (sobre el tablero)
-    const W = g.W, H = g.H + 4, D = g.D;
+    const W = g.W - 0.35, H = g.H + 3.6, D = g.D - 0.35;
     const sl = [[(-W - hw) / 2, (-D + H) / 2, W - hw, H + D], [(W + hw) / 2, (-D + H) / 2, W - hw, H + D], [0, (ht + H) / 2, hw * 2, H - ht], [0, (hb - D) / 2, hw * 2, hb + D]];
     for (const [x, h, w, hh] of sl) if (w > 0.5 && hh > 0.5) hbox(g, x, h, w, hh, 2.5, arch.slab);
     hbox(g, 0, ht + 1.2, hw * 2 + 4, 2.4, 3.2, arch.steel); hbox(g, 0, ht - 0.5, hw * 2, 0.35, 3.4, arch.warm);
@@ -675,7 +698,7 @@ export function buildMercury(def, { world, own, srcMat }) {
     const i = Math.round(g.q / STEP);
     // vigas transversales cada 30 m
     if (i % 5 === 0) {
-      hbox(g, 0, g.H - 1.6, g.W * 2 - 2, 3.2, 2.4, arch.steel);
+      hbox(g, 0, g.H - 2.4, g.W * 2 - 2.6, 3.2, 2.4, arch.steel);
       if (i % 10 === 0) { hbox(g, 0, g.H - 3.6, 1.6, 0.6, 1.6, arch.warm); for (const x of [-g.W + 8, g.W - 8]) hbox(g, x, g.H - 3.3, 1.2, 1.2, 1.2, arch.red); }
     }
     // pilas bajo el tablero o péndolas al techo (alternas)
@@ -964,29 +987,40 @@ function makeIntro({ P3, Cc, MC }) {
   const T = up.clone().addScaledVector(SUN, -up.dot(SUN)).normalize();              // terminador más cercano al polo
   const e1 = new THREE.Vector3().crossVectors(SUN, up).normalize();
   const sunC = SUN.clone().multiplyScalar(SUN_D);
-  const Th = new THREE.Vector3(T.x, 0, T.z).normalize().negate();                     // de la parrilla hacia el terminador (lado contrario al sol)
+  const Th = new THREE.Vector3(T.x, 0, T.z).normalize();                              // de la parrilla hacia el terminador: se llega desde ahí, con el sol de frente
   const Ch = new THREE.Vector3(Cc.x, MER.Y_SHAFT, Cc.z);
   // tránsito: lejos, en el lado nocturno, Mercurio como un punto negro junto al limbo del Sol
   // desplazado de lado para que el punto negro caiga cerca del limbo (como en la referencia)
-  const D0 = 2.5e6, off = Math.tan(0.062) * D0;
+  const D0 = 2.5e6, off = Math.tan(0.11) * D0;
   const c0 = MC.clone().addScaledVector(SUN, -D0).addScaledVector(e1, off);
   const dS = sunC.clone().sub(c0).normalize(), dM = MC.clone().sub(c0).normalize();
   const l0 = c0.clone().addScaledVector(dS.multiplyScalar(0.45).addScaledVector(dM, 0.55).normalize(), 1e6);
-  const c1 = MC.clone().addScaledVector(SUN, -150000).addScaledVector(T, 52000).addScaledVector(e1, 6000);
-  const l1 = MC.clone().addScaledVector(T, MER.R * 0.9).addScaledVector(SUN, MER.R * 0.4);
+  const c1 = MC.clone().addScaledVector(SUN, -95000).addScaledVector(T, 50000).addScaledVector(e1, 5000);
   const tP = MC.clone().addScaledVector(T.clone().multiplyScalar(0.35).add(up.clone().multiplyScalar(0.65)).normalize(), MER.R);
   const c2 = tP.clone().addScaledVector(tP.clone().sub(MC).normalize(), 5200);
-  const l2 = Ch.clone().addScaledVector(Th, 4000).setY(-400);
-  const c3 = Ch.clone().addScaledVector(Th, 2400).setY(950);
-  const l3 = Ch.clone().addScaledVector(Th, 200).setY(-120);
-  const c4 = Ch.clone().addScaledVector(Th, MER.RR - 60).setY(150);
-  const l4 = P3(-300, 0, 0);
+  // mira por delante del recorrido (más allá de la clave siguiente): el rumbo apenas cambia al llegar
+  const l1 = c2.clone().addScaledVector(c2.clone().sub(c1).normalize(), 30000).lerp(Ch, 0.35);
+  const l2 = Ch.clone().addScaledVector(Th, 2500).setY(-300);
+  // paso intermedio: frena el descenso desde la órbita (sin cambio brusco de velocidad ni de rumbo en la clave)
+  const nT = tP.clone().sub(MC).normalize();
+  void nT;
+  // aproximación final por la prolongación de la recta de meta: el pozo de frente y el picado sin giros
+  const g0 = P3(-600);
+  const c3 = g0.clone().addScaledVector(Th, 2600).setY(950);
+  const l3 = Ch.clone().addScaledVector(Th, -150).setY(-140);
+  // picado alineado con la recta de meta: empalma con la llegada común (520 m por detrás de la nave) sin barrido lateral
+  const c4 = P3(-780, -50, 175);
+  const l4 = P3(-400, 0, 10);
+  // llegada: muy lejos, el disco del Sol llena el encuadre y Mercurio entra en él (4 s más para el arranque del tema)
+  const Dp = 4.6e6, cp = MC.clone().addScaledVector(SUN, -Dp).addScaledVector(e1, Math.tan(0.05) * Dp);
+  const lp = cp.clone().addScaledVector(sunC.clone().sub(cp).normalize(), 1e6);
   const keys = [
-    [0.0, c0, l0, 6],
-    [3.6, c1, l1, 30],
-    [6.6, c2, l2, 52],
-    [9.4, c3, l3, 50],
-    [11.8, c4, l4, 58],
+    [0.0, cp, lp, 9],
+    [4.4, c0, l0, 7],
+    [8.0, c1, l1, 30],
+    [12.2, c2, l2, 52],
+    [14.8, c3, l3, 50],
+    [17.2, c4, l4, 58],
   ];
   return () => keys.map(([tt, a, b, f]) => [tt, a.clone(), b.clone(), f]);
 }
