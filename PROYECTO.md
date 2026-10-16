@@ -130,3 +130,13 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 
 ## Marte: regolito con textura (js/regolith.js)
 - El suelo de OLYMPUS y THARSIS SIERRA hereda el tratamiento de Belton Regio: paleta de tolinas sobre la luminosidad de base (las coladas de basalto siguen oscuras), ruido en tres escalas, crestas claras de Voronoi y relieve por derivadas. En Tharsis, el pavimento de la ciudad lleva una capa ligera del mismo polvo sin crestas y conserva las juntas.
+
+## ALTAIR 16 (nueva, octubre 2026)
+- Sustituye a la ALTAIR de lapislázuli: modelo «Raptor» de Meshy (pico de rapaz, alas en flecha, dos góndolas con franja roja), 5,7 m. Sin el dorsal «38» del original (borrado en color, normales y rugosidad).
+- Cabina en gota suavizada sobre el lomo (en lugar del lomo pintado y la aleta), con junta grafito, cubeta oscura y el piloto estándar NEXUS: se ve tras el cristal en el hangar; en carrera el cristal oscuro lo oculta casi del todo.
+- Toberas de ión en las dos góndolas, barras de levitación de MANTA, nombre en esmalte rojo sobre los paneles blancos. Mismo logo (estrella sobre alas de águila) y mismas estadísticas.
+- Proceso: `tools/altair_raptor.sh` (rap_retex → rap_slim → knorm → raptor → nname → lod → lite + splice).
+
+## Plutón: bocas y llegada
+- Las bocas de las minas ya no tienen un frente plano que asomaba contra el cielo: marco de hormigón solo alrededor de la boca y, encima, una cara de roca con relieve que llega exactamente a la ladera (mismo material que el terreno).
+- Intro: el disco de terreno ya no aparece como un casquete negro sobre el globo (el suelo no recibe la niebla, cuyo color es el del espacio) y su borde se funde con el globo por tramado entre 9 y 13,6 km.

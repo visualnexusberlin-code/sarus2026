@@ -1,0 +1,5 @@
+import { NodeIO, getBounds } from '@gltf-transform/core'; import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+const doc = await io.read(process.argv[2]); const r = doc.getRoot();
+for (const s of r.listScenes()) { console.log('scene', s.getName()); s.traverse(n => { const m = n.getMesh(); console.log(' node', n.getName(), 'T', n.getTranslation().map(v=>+v.toFixed(3)), 'R', n.getRotation().map(v=>+v.toFixed(3)), 'S', n.getScale().map(v=>+v.toFixed(3)), m ? 'mesh '+m.listPrimitives().map(p=>p.getAttribute('POSITION').getCount()+'v/'+(p.getIndices()?.getCount()/3|0)+'t '+p.getMaterial()?.getName()).join(', ') : ''); }); const b = getBounds(s); console.log(' bounds', b.min.map(v=>+v.toFixed(3)), b.max.map(v=>+v.toFixed(3))); }
+for (const m of r.listMaterials()) console.log('mat', JSON.stringify(m.getName()), 'base', m.getBaseColorTexture()?.getSize(), 'norm', !!m.getNormalTexture(), 'mr', !!m.getMetallicRoughnessTexture(), 'met', m.getMetallicFactor(), 'rough', m.getRoughnessFactor(), 'emis', !!m.getEmissiveTexture());

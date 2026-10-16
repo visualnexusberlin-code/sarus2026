@@ -115,6 +115,7 @@ const NOISE = /* glsl */`
 // Belton Regio: tolinas rojo profundo y pardo, parches de hielo claro y azulado, crestas brillantes (grietas heladas) y hoyos
 function groundMaterial(EL) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, metalness: 0.0 });
+  m.fog = false;                       // la niebla de Plutón tiene el color del espacio: desde la órbita volvía negro el disco de terreno
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uEl = { value: new THREE.Vector4(EL.x, EL.z, EL.R0, EL.RR) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGW; varying vec3 vGN;')
@@ -150,6 +151,10 @@ function groundMaterial(EL) {
           col = mix(col, vec3(0.7, 0.66, 0.62), smoothstep(uEl.w - 20.0, uEl.w, re) * (1.0 - smoothstep(uEl.w, uEl.w + 40.0, re)) * 0.5);
           gBump = b * 3.0 + c * 1.4 * aa + line * 2.0;
           diffuseColor.rgb = col;
+          // borde del disco de terreno: se funde con el globo de Plutón que hay debajo (tramado, sin transparencia)
+          float rr = length(p);
+          if (rr > ${(OUT_FADE0).toFixed(1)}) { float fa = 1.0 - smoothstep(${(OUT_FADE0).toFixed(1)}, ${(OUT_FADE1).toFixed(1)}, rr + (tF(p / 900.0) - 0.5) * 1800.0);
+            if (fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453) > fa) discard; }
         }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.45, gIce);')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
@@ -363,6 +368,7 @@ const CH_DIR = new THREE.Vector3(-0.9, 0.38, -0.2).normalize();       // oeste-n
 const CH_D = 4.0e5, CH_R = 30000;                                       // ~4,3° de radio aparente (a menos de 450 km: precisión)
 export function plutoSunDir() { return SUN.clone(); }
 export const PLUTO_R = 60000;                                           // radio artístico de Plutón (el real son 1188 km)
+const OUT_FADE0 = 9000, OUT_FADE1 = 13600;                              // fundido del disco de terreno con el globo
 
 const HW = 17.6;
 
@@ -477,7 +483,7 @@ export function buildPluto(def, { world, own, srcMat }) {
   const mouthHole = (x, z) => mouthF.some((f) => { const dx = x - f.p.x, dz = z - f.p.z; const lat = Math.abs(dx * f.rH.x + dz * f.rH.z), al = (dx * f.tH.x + dz * f.tH.z) * f.sg;
     return lat < 30 && al > -GRES * 0.8 && al < GRES * 0.8; });
   heightGrid(terrain, GRES, ground, !lite, [gx0, gx1, gz0, gz1], mouthHole);
-  const OUT = 14000, ORES = lite ? 700 : 400;
+  const OUT = 14000, ORES = lite ? 700 : 400;   // (el disco se funde con el globo entre OUT_FADE0 y OUT_FADE1)
   const inInner = (x, z) => x > gx0 + 2 && x < gx1 - 2 && z > gz0 + 2 && z < gz1 - 2;
   const PR = PLUTO_R, drop = (x, z) => PR - Math.sqrt(Math.max(0, PR * PR - x * x - z * z));
   heightGrid((x, z) => (inInner(x, z) ? terrain(x, z) : 26 * (fbm(x / 1800, z / 1800, 3) - 0.5) - 2 - drop(x, z)), ORES, ground, false, [-OUT, OUT, -OUT, OUT], (x, z) => inInner(x - ORES * 0.5, z - ORES * 0.5) && inInner(x + ORES * 0.5, z + ORES * 0.5) || Math.hypot(x, z) > OUT);
@@ -489,7 +495,7 @@ export function buildPluto(def, { world, own, srcMat }) {
     const sg = new THREE.SphereGeometry(PR, lite ? 160 : 256, lite ? 80 : 128);
     sg.translate(0, -PR - 40, 0);
     const p = sg.attributes.position, idx = sg.index.array, keep = [];
-    const inside = (i) => p.getY(i) > -PR && Math.hypot(p.getX(i), p.getZ(i)) < OUT - 1500;
+    const inside = (i) => p.getY(i) > -PR && Math.hypot(p.getX(i), p.getZ(i)) < OUT_FADE0 - 1000;
     for (let t = 0; t < idx.length; t += 3) if (!(inside(idx[t]) && inside(idx[t + 1]) && inside(idx[t + 2]))) keep.push(idx[t], idx[t + 1], idx[t + 2]);
     sg.setIndex(keep); sg.deleteAttribute('uv'); sg.computeBoundingSphere();
     const mesh = new THREE.Mesh(sg, mm); mesh.frustumCulled = false; mesh.renderOrder = -1; world.add(mesh); own.push(sg);
@@ -662,19 +668,47 @@ export function buildPluto(def, { world, own, srcMat }) {
   sweepHall((g) => [[-g.W, -g.D, 0], [g.W, -g.D, 1]], CF, false);
 
   // portales mineros: frente de hormigón y acero con franja ámbar (en el fondo de la fosa y en la pared de Elliot)
+  const rockFace = [];
   const portal = (q, sg) => {
-    const g = gAt(q), top = Math.max(26, natural(g.p.x, g.p.z) + 6 - g.p.y);
-    // collar de hormigón hacia fuera: tapa el recorte del terreno junto a la boca
+    const g = gAt(q);
+    // altura de la ladera sobre el plano de la boca, a cada lado: el frente sigue el terreno y nunca asoma contra el cielo
+    const hillAt = (x, off = 4) => natural(g.p.x + g.rH.x * x + g.tH.x * sg * off, g.p.z + g.rH.z * x + g.tH.z * sg * off) - g.p.y;
+    const fw = 70, hw = 21, ht = 18, STEPX = 5, FR = 7;   // FR: marco de hormigón alrededor de la boca; el resto, roca
+    // collar de hormigón hacia fuera: tapa el recorte del terreno junto a la boca (también a la altura de la ladera)
     { const C = GRES * 1.2 + 8, gc = { ...g, p: g.p.clone().addScaledVector(g.tH, -sg * (C / 2 - 4)) };
-      for (const sd of [-1, 1]) { hbox(gc, sd * (HW + 0.5 + 15), (top - 40) / 2, 30, top + 40, C, arch.slab); hbox(gc, sd * (HW + 0.6), 3, 0.3, 0.6, C, arch.warm); } }
-    const fw = 70, hw = 21, ht = 18;
-    for (const [x, h, w, hh] of [[-(fw + hw) / 2, top / 2 - 4, fw - hw, top + 8], [(fw + hw) / 2, top / 2 - 4, fw - hw, top + 8], [0, (ht + top) / 2, hw * 2, top - ht]]) hbox(g, x, h, w, hh, 8, arch.slab);
+      for (const sd of [-1, 1]) {
+        for (let x = HW + 0.5; x < HW + 30.5; x += 2.5) { const xc = x + 1.25, tp = Math.min(hillAt(sd * xc, -C / 2) + 1.0, hillAt(sd * xc) + 1.0); if (tp > -38) hbox(gc, sd * xc, (tp - 40) / 2, 2.55, tp + 40, C, rockFace); }
+        hbox(gc, sd * (HW + 0.6), 3, 0.3, 0.6, C, arch.warm);
+      } }
+    // frente: columnas de 5 m que llegan justo a la ladera (sobre la boca, desde el dintel; a los lados, desde abajo)
+    // marco de hormigón alrededor de la boca
+    for (let x = -(hw + FR + STEPX); x < hw + FR + STEPX; x += STEPX) {
+      const xc = x + STEPX / 2, tp = hillAt(xc) + 1.5, fr = Math.min(tp, ht + FR);
+      if (Math.abs(xc) < hw) { if (fr > ht) hbox(g, xc, (ht + fr) / 2, STEPX + 0.05, fr - ht, 8, arch.slab); }
+      else if (fr > -38) hbox(g, xc, (fr - 40) / 2, STEPX + 0.05, fr + 40, 8, arch.slab);
+    }
+    // cara de roca: lámina continua con relieve (columnas y repisas irregulares) cuyo borde superior sigue la ladera
+    { const pos = [], idx = [], DX = 2.5, NV = 14, along = -sg * 3.6; const cols = [];
+      for (let x = -fw - 10; x <= fw + 10 + 1e-6; x += DX) cols.push(x);
+      cols.forEach((x) => {
+        const ax = Math.abs(x), bot = ax < hw + FR + STEPX ? Math.min(hillAt(x) + 1.5, ht + FR) - 0.5 : -40, top = Math.max(bot, hillAt(x) + 1.5);
+        for (let j = 0; j <= NV; j++) {
+          const h = bot + (top - bot) * j / NV, edge = Math.min(1, (h - bot) / 6) * Math.min(1, (top - h) / 3 + 0.25);
+          const rel = (fbm(x / 9 + sg * 7, h / 14, 3) - 0.35) * 7 + (fbm(x / 3 + 3, h / 3, 2) - 0.5) * 2;   // estrías verticales y bultos
+          const out = Math.max(0, rel) * edge;
+          pos.push(g.p.x + g.rH.x * x + g.tH.x * (along - sg * out), g.p.y + h, g.p.z + g.rH.z * x + g.tH.z * (along - sg * out));
+        }
+      });
+      for (let i = 0; i < cols.length - 1; i++) for (let j = 0; j < NV; j++) { const a = i * (NV + 1) + j, b = a + NV + 1; if (sg > 0) idx.push(a, b, a + 1, a + 1, b, b + 1); else idx.push(a, a + 1, b, a + 1, b + 1, b); }
+      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setIndex(idx); gg.computeVertexNormals(); rockFace.push(gg); }
     hbox(g, 0, ht + 2, hw * 2 + 10, 4, 10, arch.rust);
     hbox(g, 0, ht + 0.4, hw * 2, 0.4, 10.4, arch.warm);
     for (const x of [-hw - 2, hw + 2]) { hbox(g, x, ht / 2, 2.4, ht, 10.4, arch.steel); hbox(g, x, ht / 2, 0.4, ht, 10.8, arch.warm); }
     for (const x of [-hw - 10, hw + 10]) hbox(g, x, 1.5, 6, 3, 10.6, arch.hazard);
   };
   portal(sIn, 1); portal(sOut, -1);
+  // la cara de roca sobre las bocas lleva el mismo material que el terreno (escarcha en lo vertical): no es un plano negro
+  if (rockFace.length) { const gg = mergeGeometries(rockFace.map((q) => { for (const a of Object.keys(q.attributes)) if (!['position', 'normal'].includes(a)) q.deleteAttribute(a); return q.index ? q.toNonIndexed() : q; }), false); rockFace.forEach((q) => q.dispose()); gg.computeVertexNormals(); const m = new THREE.Mesh(gg, ground); m.receiveShadow = true; m.castShadow = !lite; world.add(m); own.push(gg); }
 
   // ── Vestido minero: pórticos grúa, cintas transportadoras, cabezas de tuneladora, pilares, cabinas, cables ──
   const beamsW = [];
