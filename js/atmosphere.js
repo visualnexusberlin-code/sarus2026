@@ -199,7 +199,7 @@ export function createMoonMaterial(haze = 0.5, tint = new THREE.Color(0.56, 0.57
         float l = dot(n, SUN_DIR);
         float diff = smoothstep(-0.25, 0.85, l);
         vec3 lit = uTint * (0.78 + 0.35 * surf) * diff * 1.35;
-        float rim = pow(1.0 - abs(dot(n, -d)), 3.0);
+        float rim = pow(max(1.0 - abs(dot(n, -d)), 0.0), 3.0);
         vec3 sky = skyColor(d);
         vec3 c = mix(lit, sky, clamp(uHaze + rim * 0.45, 0.0, 1.0));
         gl_FragColor = vec4(c, 1.0);
@@ -252,7 +252,7 @@ export function earthMaterial() {
         float day = smoothstep(-0.12, 0.35, l);
         float spec = pow(max(dot(reflect(-SUN_DIR, n), -d), 0.0), 40.0) * (1.0 - isLand) * (1.0 - cloud) * 0.6;
         vec3 lit = c * day * 1.25 + vec3(1.0, 0.95, 0.85) * spec * day;
-        float rim = pow(1.0 - abs(dot(n, -d)), 2.5);
+        float rim = pow(max(1.0 - abs(dot(n, -d)), 0.0), 2.5);
         lit += vec3(0.25, 0.5, 1.0) * rim * smoothstep(-0.3, 0.4, l) * 0.9;
         gl_FragColor = vec4(lit, 1.0);
       }`,

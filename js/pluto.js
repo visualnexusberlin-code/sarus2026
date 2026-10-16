@@ -227,7 +227,7 @@ function beamMaterial(uni, col, k = 0.08) {
         #include <logdepthbuf_fragment>
         float core = pow(abs(dot(normalize(vN), normalize(vV))), 2.0);
         float y = vUv.y;
-        float along = smoothstep(0.0, 0.05, y) * pow(1.0 - y, 1.4);
+        float along = smoothstep(0.0, 0.05, y) * pow(max(1.0 - y, 0.0), 1.4);
         along *= 0.8 + 0.2 * sin(vUv.x * 40.0 + y * 9.0 + uT * 0.4);
         float near = smoothstep(8.0, 70.0, vD);
         gl_FragColor = vec4(uCol * core * along * uK * near, 1.0);
@@ -258,7 +258,7 @@ function plumeMaterial(uni) {
         float core = pow(abs(dot(normalize(vN), normalize(vV))), 1.2);
         float y = vUv.x;                                   // 0 en la boca, 1 en la punta (TubeGeometry: u a lo largo)
         float tb = tF(vec2(vUv.y * 5.0, y * 14.0 - uT * 0.35)) * 0.7 + tF(vec2(vUv.y * 13.0 + 2.0, y * 40.0 - uT * 0.8)) * 0.3;
-        float a = core * smoothstep(0.0, 0.03, y) * pow(1.0 - y, 1.3) * (0.25 + 1.1 * tb * tb) * 0.55;
+        float a = core * smoothstep(0.0, 0.03, y) * pow(max(1.0 - y, 0.0), 1.3) * (0.25 + 1.1 * tb * tb) * 0.55;
         vec3 c = mix(vec3(0.82, 0.86, 0.9), vec3(0.42, 0.42, 0.44), smoothstep(0.35, 0.9, y));
         gl_FragColor = vec4(c, clamp(a, 0.0, 0.85));
       }`,

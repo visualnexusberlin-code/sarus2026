@@ -523,7 +523,7 @@ class Space {
           vec3 col = c * (0.04 + 1.25 * max(d, 0.0));
           float city = step(0.83, hh(floor(vO * 260.0))) * land * (1.0 - cl) * (1.0 - day);
           col += vec3(1.0, 0.7, 0.35) * city * 0.6;
-          float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+          float rim = pow(max(1.0 - max(dot(N, V), 0.0), 0.0), 3.0);
           col += vec3(0.3, 0.6, 1.0) * rim * (0.15 + 1.1 * smoothstep(-0.2, 0.4, d));
           gl_FragColor = vec4(col, 1.0);
         }`,
@@ -534,7 +534,7 @@ class Space {
     const halo = new THREE.Mesh(new THREE.SphereGeometry(62000 * 1.035, 96, 64), new THREE.ShaderMaterial({
       fog: false, transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, uniforms: { uSun: { value: sun } },
       vertexShader: 'varying vec3 vN; varying vec3 vW; void main(){ vN = normalize(mat3(modelMatrix) * normal); vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-      fragmentShader: 'uniform vec3 uSun; varying vec3 vN; varying vec3 vW; void main(){ vec3 V = normalize(cameraPosition - vW); float r = pow(1.0 - abs(dot(normalize(vN), V)), 5.0); float d = smoothstep(-0.3, 0.5, dot(normalize(vN), uSun)); gl_FragColor = vec4(vec3(0.35, 0.65, 1.0) * r * (0.2 + d), 1.0); }',
+      fragmentShader: 'uniform vec3 uSun; varying vec3 vN; varying vec3 vW; void main(){ vec3 V = normalize(cameraPosition - vW); float r = pow(max(1.0 - abs(dot(normalize(vN), V)), 0.0), 5.0); float d = smoothstep(-0.3, 0.5, dot(normalize(vN), uSun)); gl_FragColor = vec4(vec3(0.35, 0.65, 1.0) * r * (0.2 + d), 1.0); }',
     }));
     halo.position.copy(this.earth.position); halo.frustumCulled = false; this.group.add(halo);
     this.moonDir = new THREE.Vector3(-0.7 * MX, 0.25, 0.66).normalize();

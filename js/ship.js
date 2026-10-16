@@ -305,11 +305,11 @@ export class Ship {
           float flick = 0.85 + 0.15 * sin(uTime * 57.0 + vL * 23.0) * sin(uTime * 31.0);
           vec3 c;
           if (uOuter > 0.5) {
-            float body = pow(facing, 0.9) * pow(1.0 - L, 1.3);
+            float body = pow(facing, 0.9) * pow(max(1.0 - L, 0.0), 1.3);
             float tongue = smoothstep(0.0, 0.15, L) * (0.6 + 0.4 * sin(vL * 9.0 - uTime * 24.0));
             c = uHot * body * (0.55 + 0.45 * tongue) * 1.15;
           } else {
-            float core = pow(facing, 1.8) * pow(1.0 - L, 2.2);
+            float core = pow(facing, 1.8) * pow(max(1.0 - L, 0.0), 2.2);
             float diamonds = 0.65 + 0.35 * pow(abs(sin(L * 16.0 - uTime * 3.0)), 3.0);
             c = mix(uHot, vec3(1.0, 0.97, 0.92), (1.0 - L) * 0.6) * core * diamonds * 2.4;
           }

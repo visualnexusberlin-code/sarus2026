@@ -76,7 +76,7 @@ function planetMaterial({ type = 0, a = 0x888888, b = 0x444444, c = 0xffffff, at
         float d = dot(n, L);
         float lit = smoothstep(-0.15, 0.6, d);
         vec3 c = col * (0.06 + 1.15 * lit);
-        float rim = pow(1.0 - max(dot(n, v), 0.0), 2.6);
+        float rim = pow(max(1.0 - max(dot(n, v), 0.0), 0.0), 2.6);
         c += uAtm * rim * uAtmK * smoothstep(-0.4, 0.5, d);
         gl_FragColor = vec4(c, 1.0);
       }`,

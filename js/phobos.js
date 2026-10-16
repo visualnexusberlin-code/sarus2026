@@ -219,7 +219,7 @@ function marsMaterial(center, sun, tex) {
         float limb = pow(max(0.0, dot(n, V)), 0.4);
         col = pow(col, vec3(1.35)) * 1.25;
         vec3 c = col * (0.006 + 0.95 * day * (0.25 + 0.75 * max(lam, 0.0))) * (0.6 + 0.4 * limb);
-        c += vec3(0.85, 0.55, 0.42) * pow(1.0 - max(0.0, dot(n, V)), 3.0) * 0.35 * smoothstep(-0.3, 0.3, lam);
+        c += vec3(0.85, 0.55, 0.42) * pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 3.0) * 0.35 * smoothstep(-0.3, 0.3, lam);
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

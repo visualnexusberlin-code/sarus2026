@@ -18,6 +18,7 @@ export class Showroom {
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 80 });
     sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.025;              // sin acné de sombra sobre la nave que gira (rayas que parpadeaban)
     s.add(sun, new THREE.HemisphereLight(0xc9c7c0, 0x18191a, 0.6));
 
     // pedestal

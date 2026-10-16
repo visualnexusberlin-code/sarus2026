@@ -110,6 +110,18 @@ function setView(sc, cam) {
   aoPass.enabled = aoOn && sc === scene; renderPass.enabled = !aoPass.enabled;
 }
 setView(scene, camera);
+// saneado antes del bloom: un píxel NaN o infinito (un brillo especular desbordado en media precisión, una
+// división por cero en algún shader) el bloom lo convierte en un cuadrado negro que parpadea; aquí se anula
+// o se acota antes de que llegue a la cadena de desenfoque
+const sanitize = new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    float sf(float x){ if (isnan(x)) return 0.0; if (isinf(x)) return x > 0.0 ? 4000.0 : 0.0; return x >= 0.0 ? min(x, 4000.0) : 0.0; }
+    void main(){ vec4 c = texture2D(tDiffuse, vUv); gl_FragColor = vec4(sf(c.r), sf(c.g), sf(c.b), c.a == c.a ? c.a : 1.0); }`,
+});
+composer.addPass(sanitize);
 const B = CONFIG.atmosphere.bloom;
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth * QUALITY.bloomScale, innerHeight * QUALITY.bloomScale), B.strength, B.radius, B.threshold);
 // ligera: bloom a media resolución (la de serie) y sin los dos niveles más bajos, que a tan poca resolución

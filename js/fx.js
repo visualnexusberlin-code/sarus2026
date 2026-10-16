@@ -36,7 +36,7 @@ export class Trails {
         uniform float uAlpha; varying float vT;
         void main(){
           #include <logdepthbuf_fragment>
-          float a = pow(1.0 - vT, 2.2) * uAlpha;
+          float a = pow(max(1.0 - vT, 0.0), 2.2) * uAlpha;
           gl_FragColor = vec4(vec3(0.95, 0.93, 0.88) * a * 1.4, 1.0);
         }`,
     });
@@ -427,7 +427,7 @@ export class EngineTrails {
           void main(){
             #include <logdepthbuf_fragment>
             float across = 1.0 - vS * vS;                     // borde suave
-            float along = pow(1.0 - vT, 1.7) * smoothstep(0.0, 0.06, vT);
+            float along = pow(max(1.0 - vT, 0.0), 1.7) * smoothstep(0.0, 0.06, vT);
             float shimmer = 0.85 + 0.15 * sin(vT * 40.0 - uTime * 30.0);
             vec3 c = mix(uColor, vec3(1.0), (1.0 - vT) * 0.25);
             gl_FragColor = vec4(c * across * across * along * shimmer * uAlpha, 1.0);

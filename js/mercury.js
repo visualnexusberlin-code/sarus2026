@@ -254,7 +254,7 @@ function beamMaterial(uni, col, k = 0.08) {
         #include <logdepthbuf_fragment>
         float core = pow(abs(dot(normalize(vN), normalize(vV))), 2.0);
         float y = vUv.y;
-        float along = smoothstep(0.0, 0.05, y) * pow(1.0 - y, 1.4);
+        float along = smoothstep(0.0, 0.05, y) * pow(max(1.0 - y, 0.0), 1.4);
         along *= 0.8 + 0.2 * sin(vUv.x * 40.0 + y * 9.0 + uT * 0.4);
         float near = smoothstep(8.0, 70.0, vD);
         gl_FragColor = vec4(uCol * core * along * uK * near, 1.0);
@@ -294,7 +294,7 @@ function planetMaterial(center, sun) {
         col = mix(col, vec3(0.7, 0.67, 0.62), smoothstep(0.66, 0.82, mF(q * 2.0 + 8.0)) * 0.45);
         float lam = dot(n, uSun), day = smoothstep(-0.02, 0.18, lam) * max(lam, 0.0);
         vec3 c = col * (0.002 + 1.6 * day);
-        float rim = pow(1.0 - max(0.0, dot(n, V)), 6.0);
+        float rim = pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 6.0);
         c += vec3(1.0, 0.7, 0.4) * rim * smoothstep(-0.25, 0.1, lam) * 0.25;
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
@@ -338,7 +338,7 @@ function sunMaterial(uni, center) {
         col = mix(col, hot, smoothstep(0.55, 0.8, gran));
         float limb = pow(mu, 0.45);
         col *= 0.35 + 0.65 * limb;
-        col += vec3(1.0, 0.75, 0.3) * pow(1.0 - mu, 8.0) * 0.8;
+        col += vec3(1.0, 0.75, 0.3) * pow(max(1.0 - mu, 0.0), 8.0) * 0.8;
         gl_FragColor = vec4(col * 1.15, 1.0);
       }`,
   });

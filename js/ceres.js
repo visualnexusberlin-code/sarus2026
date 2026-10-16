@@ -264,7 +264,7 @@ function rockMaterial(tex, uni, mode = 'world', opts = {}) {
         {
           // borde a contraluz: el sol detrás de la roca enciende su silueta a través del polvo
           vec3 V = normalize(cameraPosition - vRW);
-          float back = pow(max(dot(-V, uSunC), 0.0), 4.0), rim = pow(1.0 - max(dot(rN, V), 0.0), 5.0) * smoothstep(-0.2, 0.3, dot(rN, uSunC));
+          float back = pow(max(dot(-V, uSunC), 0.0), 4.0), rim = pow(max(1.0 - max(dot(rN, V), 0.0), 0.0), 5.0) * smoothstep(-0.2, 0.3, dot(rN, uSunC));
           totalEmissiveRadiance += vec3(1.0, 0.62, 0.3) * rim * back * ${opts.rim ?? '0.55'};
           ${NL ? `vec3 acc = vec3(0.0);
           for (int i = 0; i < ${NL}; i++) { vec3 d = uLamps[i].xyz - vRW; float l2 = dot(d, d); float r = uLamps[i].w;
@@ -422,7 +422,7 @@ function ceresMaterial(center, sun, tex) {
         float limb = pow(max(0.0, dot(n, V)), 0.35);
         vec3 c = T.rgb * vec3(1.0, 0.9, 0.78) * (0.003 + 0.5 * day * max(lam, 0.0)) * (0.65 + 0.35 * limb);
         // halo de polvo a contraluz en el borde
-        float rim = pow(1.0 - max(0.0, dot(n, V)), 4.0);
+        float rim = pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 4.0);
         c += vec3(1.0, 0.66, 0.36) * rim * (0.08 + 0.5 * smoothstep(-0.4, 0.4, lam));
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>

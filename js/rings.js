@@ -51,10 +51,10 @@ function shellMaterial(col = [0.35, 0.8, 1.0]) {
       uniform float uP; uniform vec3 uCol; varying vec3 vP; varying vec3 vN; varying vec3 vV;
       void main(){
         #include <logdepthbuf_fragment>
-        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
+        float f = pow(max(1.0 - abs(dot(normalize(vN), normalize(vV))), 0.0), 2.2);
         float sweep = exp(-pow((vP.z - (1.2 - uP * 3.0)) * 3.2, 2.0));
         float lines = 0.5 + 0.5 * sin(vP.z * 40.0 - uP * 30.0);
-        float a = (0.9 * f + 1.6 * sweep * (0.6 + 0.4 * lines)) * pow(1.0 - uP, 1.4);
+        float a = (0.9 * f + 1.6 * sweep * (0.6 + 0.4 * lines)) * pow(max(1.0 - uP, 0.0), 1.4);
         gl_FragColor = vec4(uCol * a, 1.0);
       }`,
   });

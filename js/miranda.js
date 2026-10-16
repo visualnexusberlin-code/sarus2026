@@ -180,7 +180,7 @@ function rockMaterial(tex) {
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         normal = normalize((viewMatrix * vec4(rNw, 0.0)).xyz);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        { vec3 Vw = normalize(cameraPosition - vRW); float fr = pow(1.0 - max(dot(rNw, Vw), 0.0), 3.0);
+        { vec3 Vw = normalize(cameraPosition - vRW); float fr = pow(max(1.0 - max(dot(rNw, Vw), 0.0), 0.0), 3.0);
           float lit = max(dot(rNw, uSunR), 0.0);
           totalEmissiveRadiance += vec3(0.42, 0.72, 0.82) * fr * lit * 0.55 * diffuseColor.rgb * 2.0; }`);
   };
@@ -276,7 +276,7 @@ function uranusMaterial(center, sun, axis) {
         float limb = pow(max(0.0, dot(n, V)), 0.45);
         vec3 c = col * (0.006 + 1.7 * day * (0.2 + 0.8 * max(lam, 0.0))) * (0.6 + 0.4 * limb);
         c += vec3(0.03, 0.022, 0.03) * (1.0 - day);                                   // lado nocturno apenas violáceo
-        c += vec3(0.5, 0.8, 0.85) * pow(1.0 - max(0.0, dot(n, V)), 3.0) * 0.5 * smoothstep(-0.35, 0.2, lam);   // halo del limbo a contraluz
+        c += vec3(0.5, 0.8, 0.85) * pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 3.0) * 0.5 * smoothstep(-0.35, 0.2, lam);   // halo del limbo a contraluz
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

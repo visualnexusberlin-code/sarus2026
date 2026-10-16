@@ -296,7 +296,7 @@ function planetMaterial(center, sunDir, kind, tex) {
         #endif
         float limb = pow(max(0.0, dot(n, V)), 0.35);
         vec3 c = col * (0.015 + 0.62 * day * (0.35 + 0.65 * max(lam, 0.0))) * (0.55 + 0.45 * limb);
-        c += vec3(0.5, 0.6, 0.8) * pow(1.0 - max(0.0, dot(n, V)), 5.0) * 0.14 * day;
+        c += vec3(0.5, 0.6, 0.8) * pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 5.0) * 0.14 * day;
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

@@ -299,7 +299,7 @@ function beamMaterial(uni, col, k = 0.08, opts = {}) {
         #include <logdepthbuf_fragment>
         float core = pow(abs(dot(normalize(vN), normalize(vV))), ${opts.coreExp ?? '2.0'});
         float y = vUv.y;                                  // 0 en la boca, 1 en la punta
-        float along = smoothstep(0.0, 0.04, y) * pow(1.0 - y, ${opts.tail ?? '1.6'});
+        float along = smoothstep(0.0, 0.04, y) * pow(max(1.0 - y, 0.0), ${opts.tail ?? '1.6'});
         ${opts.plume ? `float tb = bN(vec2(vUv.x * 7.0, y * 9.0 - uT * 0.9)) * 0.6 + bN(vec2(vUv.x * 19.0 + 3.0, y * 25.0 - uT * 1.7)) * 0.4;
         along *= 0.2 + 1.2 * tb * tb;` : 'along *= 0.85 + 0.15 * sin(vUv.x * 40.0 + y * 9.0 + uT * 0.3);'}
         float near = smoothstep(${opts.near ?? '6.0'}, ${opts.near2 ?? '60.0'}, vD)${opts.alt ? ` * smoothstep(${opts.alt[0].toFixed(1)}, ${opts.alt[1].toFixed(1)}, cameraPosition.y)` : ''};
@@ -337,7 +337,7 @@ function saturnMaterial(center, sun, tex, ringN, rr) {
         vec3 c = T * vec3(1.0, 0.94, 0.84) * day * 1.35 * sh;
         // luz de los anillos en la cara nocturna y halo fino de la atmósfera en el borde
         c += T * vec3(0.012, 0.011, 0.01) * (1.0 - day);
-        float rim = pow(1.0 - max(0.0, dot(n, V)), 6.0);
+        float rim = pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 6.0);
         c += vec3(1.0, 0.86, 0.62) * rim * smoothstep(-0.25, 0.2, lam) * 0.55;
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
@@ -382,7 +382,7 @@ function moonMaterial(center, sun, uni) {
         float lam = dot(n, uSun), day = smoothstep(-0.04, 0.2, lam) * max(lam, 0.0);
         vec3 c = col * (0.006 + 1.25 * day);
         c += vec3(1.0, 0.45, 0.15) * exp(-pow(d / 22.0, 2.0)) * pole * 1.2;
-        float rim = pow(1.0 - max(0.0, dot(n, V)), 5.0);
+        float rim = pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 5.0);
         c += vec3(0.5, 0.8, 1.0) * rim * smoothstep(-0.3, 0.3, lam) * 0.2;
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
