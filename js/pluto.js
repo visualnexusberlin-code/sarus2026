@@ -442,7 +442,9 @@ export function buildPluto(def, { world, own, srcMat }) {
     const { q } = nearIn(surfHash, x, z, 260); if (!q) return nat;
     const dx = x - q.p.x, dz = z - q.p.z, lat = Math.abs(dx * q.r.x + dz * q.r.z), along = dx * q.t.x + dz * q.t.z;
     if ((Math.abs(track.delta(sIn, q.s)) < 6 && along > 0) || (Math.abs(track.delta(sOut, q.s)) < 6 && along < 0)) return nat;
-    let ty = q.p.y - 1.6;
+    // bajo el tablero, siguiendo su peralte (con la cota del eje, el hielo asomaba en placas por el lado bajo de las curvas)
+    const latS = THREE.MathUtils.clamp(dx * q.r.x + dz * q.r.z, -(HW + 6), HW + 6);
+    let ty = q.p.y + q.r.y * latS - (lite ? 5 : 2.4);              // en ligera la malla es más gruesa: más margen
     if (inGap(q.s)) ty = q.p.y - 55 + 28 * sstep(HW + 4, HW + 40, lat);
     const w = lat < HW + 6 ? 1 : sstep(HW + 6 + Math.max(36, Math.abs(nat - ty) * 1.1), HW + 6, lat);
     return lerp(nat, ty, w);
@@ -470,7 +472,11 @@ export function buildPluto(def, { world, own, srcMat }) {
     }
   };
   const GRES = lite ? 16 : 9;
-  heightGrid(terrain, GRES, ground, !lite, [gx0, gx1, gz0, gz1]);
+  // bocas del túnel: se recortan las celdas que unen el suelo de la fosa con la ladera de encima (tapaban la boca)
+  const mouthF = [[sIn, 1], [sOut, -1]].map(([q, sg]) => { track.sample(q, F); const tH = F.tan.clone().setY(0).normalize(); return { p: F.pos.clone(), tH, rH: new THREE.Vector3().crossVectors(tH, new THREE.Vector3(0, 1, 0)).normalize(), sg }; });
+  const mouthHole = (x, z) => mouthF.some((f) => { const dx = x - f.p.x, dz = z - f.p.z; const lat = Math.abs(dx * f.rH.x + dz * f.rH.z), al = (dx * f.tH.x + dz * f.tH.z) * f.sg;
+    return lat < 30 && al > -GRES * 0.8 && al < GRES * 0.8; });
+  heightGrid(terrain, GRES, ground, !lite, [gx0, gx1, gz0, gz1], mouthHole);
   const OUT = 14000, ORES = lite ? 700 : 400;
   const inInner = (x, z) => x > gx0 + 2 && x < gx1 - 2 && z > gz0 + 2 && z < gz1 - 2;
   const PR = PLUTO_R, drop = (x, z) => PR - Math.sqrt(Math.max(0, PR * PR - x * x - z * z));
@@ -656,17 +662,19 @@ export function buildPluto(def, { world, own, srcMat }) {
   sweepHall((g) => [[-g.W, -g.D, 0], [g.W, -g.D, 1]], CF, false);
 
   // portales mineros: frente de hormigón y acero con franja ámbar (en el fondo de la fosa y en la pared de Elliot)
-  const portal = (q) => {
+  const portal = (q, sg) => {
     const g = gAt(q), top = Math.max(26, natural(g.p.x, g.p.z) + 6 - g.p.y);
+    // collar de hormigón hacia fuera: tapa el recorte del terreno junto a la boca
+    { const C = GRES * 1.2 + 8, gc = { ...g, p: g.p.clone().addScaledVector(g.tH, -sg * (C / 2 - 4)) };
+      for (const sd of [-1, 1]) { hbox(gc, sd * (HW + 0.5 + 15), (top - 40) / 2, 30, top + 40, C, arch.slab); hbox(gc, sd * (HW + 0.6), 3, 0.3, 0.6, C, arch.warm); } }
     const fw = 70, hw = 21, ht = 18;
     for (const [x, h, w, hh] of [[-(fw + hw) / 2, top / 2 - 4, fw - hw, top + 8], [(fw + hw) / 2, top / 2 - 4, fw - hw, top + 8], [0, (ht + top) / 2, hw * 2, top - ht]]) hbox(g, x, h, w, hh, 8, arch.slab);
     hbox(g, 0, ht + 2, hw * 2 + 10, 4, 10, arch.rust);
     hbox(g, 0, ht + 0.4, hw * 2, 0.4, 10.4, arch.warm);
     for (const x of [-hw - 2, hw + 2]) { hbox(g, x, ht / 2, 2.4, ht, 10.4, arch.steel); hbox(g, x, ht / 2, 0.4, ht, 10.8, arch.warm); }
     for (const x of [-hw - 10, hw + 10]) hbox(g, x, 1.5, 6, 3, 10.6, arch.hazard);
-    for (const sd of [-1, 1]) for (const k of [0, 1]) hbox(g, sd * (hw + 16 + k * 14), top * 0.35, 4, top * 0.7, 26, arch.slab, sd * -0.18);
   };
-  portal(sIn); portal(sOut);
+  portal(sIn, 1); portal(sOut, -1);
 
   // ── Vestido minero: pórticos grúa, cintas transportadoras, cabezas de tuneladora, pilares, cabinas, cables ──
   const beamsW = [];
@@ -711,7 +719,10 @@ export function buildPluto(def, { world, own, srcMat }) {
       hbox(g, sd * (g.W - w - 0.2), h + 0.5, 0.3, hh * 0.35, 8, h2(i, 12) > 0.8 ? arch.cold : arch.warm);
     }
     // quilla bajo el tablero y péndolas
-    if (i % 4 === 0 && g.D > 10) hbox(g, 0, -3.4, 8, 3.4, STEP * 4.05, arch.steel);
+    if (i % 4 === 0 && g.D > 10) {                                   // viga bajo el tablero: sigue la pendiente real (horizontal asomaba en escalera sobre la pista)
+      track.sample(g.q + STEP * 2, F); const bx = new THREE.BoxGeometry(8, 3.4, STEP * 4.05);
+      bx.applyMatrix4(new THREE.Matrix4().makeBasis(F.right, F.up, F.tan)); const c = F.pos.clone().addScaledVector(F.up, -3.6); bx.translate(c.x, c.y, c.z); arch.steel.push(bx);
+    }
     if (big && i % 6 === 3) for (const x of [-17.1, 17.1]) { const a = P3(g.q, x, -1.2), c = new THREE.Vector3(a.x, g.p.y + g.H, a.z); cyl(a, c, 0.22, arch.grey, 5); }
     // tramos estrechos: costillas de entibación de acero
     if (!big && i % 3 === 0) { hbox(g, -g.W + 0.8, (g.H - g.D) / 2, 1.2, g.H + g.D, 1.2, arch.steel); hbox(g, g.W - 0.8, (g.H - g.D) / 2, 1.2, g.H + g.D, 1.2, arch.steel); hbox(g, 0, g.H - 0.8, g.W * 2, 1.2, 1.2, arch.steel); if (i % 9 === 0) hbox(g, 0, g.H - 1.6, 4, 0.3, 0.6, arch.warm); }
@@ -796,6 +807,7 @@ export function buildPluto(def, { world, own, srcMat }) {
 
   // ── Respiraderos criovolcánicos en la fosa Virgil: penachos fríos y azulados junto a las paredes ──
   const vents = [];
+  const allHash = mkHash(smp);
   {
     const pm = plumeMaterial(uni); own.push(pm);
     const tubes = [];
@@ -806,6 +818,8 @@ export function buildPluto(def, { world, own, srcMat }) {
       if (vents.some((v) => Math.hypot(v.x - x, v.z - z) < 160)) continue;
       const gy = terrain(x, z) - 3, h = 160 + rnd() * 380;
       const pts = []; for (let j = 0; j <= 12; j++) { const t = j / 12; pts.push(new THREE.Vector3(x + 0.6 * h * t * t * 0.3, gy + h * t, z - 0.4 * h * t * t * 0.3)); }
+      // el penacho no puede cruzar la pista en ningún punto del circuito (antes, en las curvas, alguno quedaba en mitad del trazado)
+      if (pts.some((c, j) => { const { q: nq, d } = nearIn(allHash, c.x, c.z, 200); return nq && c.y < nq.p.y + 140 && d < 4 + 60 * Math.pow(j / 12, 1.4) + 40; })) continue;
       const curve = new THREE.CatmullRomCurve3(pts);
       const tg = new THREE.TubeGeometry(curve, 32, 1, 14, false);
       const pp = tg.attributes.position, uvp = tg.attributes.uv;

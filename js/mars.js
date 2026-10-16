@@ -3,6 +3,7 @@
 //  Circuito generado (no viene del GLB): trazado digitalizado de la referencia,
 //  cotas que siguen la montaña, dos saltos sobre grietas y un túnel dentro de una lengua de lava.
 // ─────────────────────────────────────────────────────────────
+import { REG_NOISE, regolithColor, REG_BUMP } from './regolith.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('olympus');                      // trazado en espejo (reshape.js)
@@ -352,7 +353,9 @@ function marsTerrainMaterial() {
       .replace('#include <common>', `#include <common>
         varying vec3 vMW; varying vec3 vMN;
         float mh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-        float mn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mh(i), mh(i+vec2(1,0)), f.x), mix(mh(i+vec2(0,1)), mh(i+vec2(1,1)), f.x), f.y); }`)
+        float mn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mh(i), mh(i+vec2(1,0)), f.x), mix(mh(i+vec2(0,1)), mh(i+vec2(1,1)), f.x), f.y); }
+        ${REG_NOISE}`)
+      .replace('void main() {', 'void main() {\n  float rgBump = 0.0;')
       .replace('#include <color_fragment>', `#include <color_fragment>
         {
           vec3 P = vMW; float up = normalize(vMN).y;
@@ -371,9 +374,12 @@ function marsTerrainMaterial() {
           float streak = mn(vec2(dot(P.xz, vec2(0.96, 0.28)) * 0.0009, dot(P.xz, vec2(-0.28, 0.96)) * 0.012));
           c *= 0.78 + 0.34 * streak;
           c *= 0.8 + 0.3 * n3;
+          ${regolithColor('c', 'P.xz', '1.0 - 0.45 * steep')}
           diffuseColor.rgb = c;
-        }`);
+        }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${REG_BUMP}`);
   };
+  m.customProgramCacheKey = () => 'marsRegolith';
   return m;
 }
 

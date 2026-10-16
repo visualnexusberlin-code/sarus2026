@@ -431,7 +431,9 @@ export function buildTriton(def, { world, own, srcMat }) {
     const { q } = nearIn(surfHash, x, z, 260); if (!q) return nat;
     const dx = x - q.p.x, dz = z - q.p.z, lat = Math.abs(dx * q.r.x + dz * q.r.z), along = dx * q.t.x + dz * q.t.z;
     if ((Math.abs(track.delta(sIn, q.s)) < 6 && along > 0) || (Math.abs(track.delta(sOut, q.s)) < 6 && along < 0)) return nat;
-    let ty = q.p.y - 1.6;
+    // bajo el tablero, siguiendo su peralte (con la cota del eje, el hielo asomaba en placas por el lado bajo de las curvas)
+    const latS = THREE.MathUtils.clamp(dx * q.r.x + dz * q.r.z, -(HW + 6), HW + 6);
+    let ty = q.p.y + q.r.y * latS - (lite ? 5 : 2.4);              // en ligera la malla es más gruesa: más margen
     if (inGap(q.s)) ty = q.p.y - 60 + 30 * sstep(HW + 4, HW + 40, lat);
     const w = lat < HW + 6 ? 1 : sstep(HW + 6 + Math.max(36, Math.abs(nat - ty) * 1.1), HW + 6, lat);
     return lerp(nat, ty, w);

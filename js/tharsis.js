@@ -4,6 +4,7 @@
 // una nave-palco suspendida sobre la recta y una ciudad de arquitectura escalonada con ventanales y franjas de luz.
 import * as THREE from 'three';
 import { QUALITY } from './quality.js';
+import { REG_NOISE, regolithColor, REG_BUMP } from './regolith.js';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('tharsis');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -74,7 +75,9 @@ function plazaMaterial(track) {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW; varying vec3 vMN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz; vMN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vMW; varying vec3 vMN;\n${GLSL_HASH}
-      float vn2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(hh(i), hh(i+vec2(1,0)), f.x), mix(hh(i+vec2(0,1)), hh(i+vec2(1,1)), f.x), f.y); }`)
+      float vn2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(hh(i), hh(i+vec2(1,0)), f.x), mix(hh(i+vec2(0,1)), hh(i+vec2(1,1)), f.x), f.y); }
+      ${REG_NOISE}`)
+      .replace('void main() {', 'void main() {\n  float rgBump = 0.0;')
       .replace('#include <color_fragment>', `#include <color_fragment>
       {
         vec2 p = vMW.xz; float up = normalize(vMN).y;
@@ -98,8 +101,16 @@ function plazaMaterial(track) {
         stone *= 1.0 - joint * 0.45 - joint2 * 0.18;
         float r = length(p - vec2(${track.cx.toFixed(1)}, ${track.cz.toFixed(1)}));
         float city = 1.0 - smoothstep(${(track.r0 + 200).toFixed(1)}, ${(track.r0 + 900).toFixed(1)}, r + (n - 0.5) * 500.0);
-        diffuseColor.rgb = mix(reg, stone, city * smoothstep(0.75, 0.9, up));
-      }`);
+        float cityK = city * smoothstep(0.75, 0.9, up);
+        ${regolithColor('reg', 'p', '1.0 - 0.45 * steep')}
+        float rgB1 = rgBump;
+        // en las losas de la ciudad, una capa ligera del mismo polvo (grano, manchas y relieve suaves)
+        ${regolithColor('stone', 'p', '0.3', '0.0')}
+        stone *= 1.0 - joint * 0.3 - joint2 * 0.1;                      // las juntas siguen leyéndose bajo el polvo
+        rgBump = mix(rgB1, rgBump, cityK);
+        diffuseColor.rgb = mix(reg, stone, cityK);
+      }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${REG_BUMP}`);
   };
   m.customProgramCacheKey = () => 'tharsisGround';
   return m;

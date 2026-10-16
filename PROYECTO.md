@@ -125,3 +125,8 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - **Intro (~29 s):** Plutón con la Ballena roja y el corazón blanco bajo Caronte, bajada rasante, picado sobre el cráter Elliot con la fosa cortando su borde, y llegada por detrás de la parrilla.
 - Música: *Velvet Velocity*. Nodo 13 en el Solar Map (Plutón con Caronte). El campeonato pasa a 15 carreras; las tres primeras no eliminan, así que el número total de cortes no cambia.
 - Cohetes acumulables hasta 9 (`maxAmmo` en circuits.js; cada pickup +1, anillo de cohetes +3, anillo completo +2). Música: Beneath the Ninth (`ninth`).
+- Bocas de las minas: collar de hormigón y recorte del terreno en la boca (como en Tritón); sin los contrafuertes inclinados que colgaban sobre el portal. Viga bajo el tablero en pendiente. Los penachos criovolcánicos se descartan si cruzan cualquier tramo de la pista.
+- Terreno bajo la pista (Tritón y Plutón): sigue el peralte del tablero; en calidad ligera, 5 m de margen.
+
+## Marte: regolito con textura (js/regolith.js)
+- El suelo de OLYMPUS y THARSIS SIERRA hereda el tratamiento de Belton Regio: paleta de tolinas sobre la luminosidad de base (las coladas de basalto siguen oscuras), ruido en tres escalas, crestas claras de Voronoi y relieve por derivadas. En Tharsis, el pavimento de la ciudad lleva una capa ligera del mismo polvo sin crestas y conserva las juntas.
