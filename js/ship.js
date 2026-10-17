@@ -15,6 +15,8 @@ const QT = 0.5;
 const WEAR = { UBIK: 0.3, RAMA: 0.25, VEGA: 0.4, LUDOX: 0.85, CALIBUR: 0.85, PHANTOM: 0.2, ANTARES: 0.15, 'PRIME-EX': 0.8, WOLFEN: 0.6, ADAX: 0.8, X3LEE: 0.45, NEXUS: 0.3, ILION: 0.35, MANTA: 0.35, 'HUE-MING': 0.3 };
 // Pulido: normales suavizadas por ángulo (quita el aspecto abollado de mallas generadas)
 const POLISH = {};
+// cabinas en gota (cristal propio, no recortado del casco): transparencia normal con esta opacidad
+const CANOPY_ALPHA = { ALTAIR_Canopy: 0.7 };
 const NO_WEAR = /cockpit|Cockpit|Ion|Hover|glass|Glass|canopy|Canopy|visor|Visor|HUD|PILOT|Name|LOGO|lamp|light|Light|Red|Cyan|Chrome/;
 // Cabina recortada por máscara: dentro del elipsoide, los píxeles con el color del cristal pintado
 // desaparecen del casco y solo esos se dibujan en el cristal (borde exacto, sin dientes de triángulo).
@@ -40,7 +42,7 @@ function addCanopy(mat, cfg, glass) {
       float gN = 0.55 + 0.45 * sin(vCP.x * 41.0 + sin(vCP.z * 17.0) * 2.0) * sin(vCP.z * 29.0 + vCP.y * 13.0);
       float grime = clamp(vRim * (0.75 + 0.5 * gN), 0.0, 1.0);
       diffuseColor.rgb = mix(vec3(0.16, 0.19, 0.2), vec3(0.17, 0.15, 0.12), grime);
-      diffuseColor.a = 1.0;` : 'if (isGlass) discard;'}`);
+      diffuseColor.a = ${cfg.alpha ? `mix(${(+cfg.alpha).toFixed(3)}, 0.95, grime)` : '1.0'};` : 'if (isGlass) discard;'}`);
     if (glass) {
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n      roughnessFactor = mix(roughnessFactor, 0.75, grime);')
@@ -163,13 +165,20 @@ export class Ship {
       if (WEAR[this.name] && !NO_WEAR.test(mat.name) && m.material.isMeshStandardMaterial) addWear(m.material, WEAR[this.name]);
       if (mat.userData.canopyCut) addCanopy(m.material, mat.userData.canopyCut, false);
       if (mat.userData.canopyGlass) {
-        addCanopy(m.material, mat.userData.canopyGlass, true);
+        const cfg = { ...mat.userData.canopyGlass, ...(CANOPY_ALPHA[mat.name] ? { alpha: CANOPY_ALPHA[mat.name] } : {}) };
+        addCanopy(m.material, cfg, true);
         Object.assign(m.material, { roughness: 0.06, depthWrite: true });
-        if (m.material.isMeshPhysicalMaterial) { m.material.transmission = 0.6; m.material.thickness = 0.02; m.material.clearcoat = 1; m.material.clearcoatRoughness = 0.05; }
+        if (cfg.alpha) {
+          // cristal con transparencia normal (sin transmisión): la transmisión, sobre una cabina hueca, mostraba
+          // el casco de detrás refractado y parpadeando. Una sola cara: sin pelea entre la cara interior y la exterior.
+          Object.assign(m.material, { transparent: true, depthWrite: false, side: THREE.FrontSide });
+          if (m.material.isMeshPhysicalMaterial) { m.material.transmission = 0; m.material.clearcoat = 1; m.material.clearcoatRoughness = 0.05; }
+          m.renderOrder = 2;
+        } else if (m.material.isMeshPhysicalMaterial) { m.material.transmission = 0.6; m.material.thickness = 0.02; m.material.clearcoat = 1; m.material.clearcoatRoughness = 0.05; }
       }
       m.castShadow = true; m.receiveShadow = true;
       m.material.envMapIntensity = 1.0;
-      m.material.side = THREE.DoubleSide;        // interiores de toberas y tomas visibles
+      if (!(mat.userData.canopyGlass && CANOPY_ALPHA[mat.name])) m.material.side = THREE.DoubleSide;        // interiores de toberas y tomas visibles
       if (/_Hover/.test(mat.name)) this.hoverMats = [...(this.hoverMats || []), m.material];
       if (ION_RE.test(mat.name)) {
         this.reactorMats.push(m.material);
