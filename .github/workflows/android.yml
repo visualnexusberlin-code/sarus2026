@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
   push:
     branches: [capacitor]
+permissions:
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -29,3 +31,9 @@ jobs:
           name: sarus-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+      - name: Publicar el APK como versión de prueba (pestaña Releases → «APK de prueba»)
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk sarus-prueba.apk
+          gh release delete apk-prueba --yes --cleanup-tag || true
+          gh release create apk-prueba sarus-prueba.apk --prerelease --target "$GITHUB_SHA" --title "APK de prueba" --notes "SARUS · APK de prueba (debug), compilado desde $GITHUB_REF_NAME @ ${GITHUB_SHA::7}. Para instalarlo en Android: descargar y abrir el archivo, permitiendo instalar desde esta fuente."
