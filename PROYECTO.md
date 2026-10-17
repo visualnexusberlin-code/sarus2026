@@ -155,3 +155,11 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - Carga de GLB: lectura normal de GLTFLoader en web/app; la conversión de texturas a base64 queda solo para el visor restringido (single.html). Menos memoria pico al cargar en el móvil.
 - Teclado: Espacio vuelve a activar el botón enfocado fuera de carrera; en carrera sigue siendo boost.
 - Pendiente para la fase Capacitor (de la misma auditoría): salida `dist` sin single.html, fuentes locales, avisos de licencia, política de privacidad, ciclo de vida Android (pausa, Atrás, audio en segundo plano) y guardado duradero del campeonato. Bloom ligero: se deja como está (a media resolución), porque reducirlo más reintroducía cuadros parpadeantes en el móvil.
+
+## App Android (Capacitor 8) — rama `capacitor`
+- Identificador: `berlin.plenum.sarus` (se puede cambiar hasta la primera subida a Google Play; después, no). Nombre: SARUS. API 36 (Android 16), mínimo Android 8 (API 26).
+- `node build.mjs --app` → `dist-app/`: la misma página sin `single.html`, con Michroma e IBM Plex Mono locales (sin Google Fonts), `THIRD_PARTY_NOTICES.txt` (three.js MIT, n8ao ISC, fuentes OFL) y `privacy.html`. Ajustes → Información abre Privacidad y Licencias dentro del juego. Comprobado sin red: cero peticiones externas.
+- Proyecto `android/`: horizontal (`sensorLandscape`), pantalla completa inmersiva, pantalla siempre encendida, sin permisos (ni Internet), icono adaptativo y pantalla de arranque con la marca SARUS sobre grafito (`assets/` → `@capacitor/assets`).
+- Ciclo de vida: al pasar a segundo plano se pausa la carrera y se suspende todo el audio (también en la web); Atrás = pausa/sigue en carrera, salta la intro, cierra paneles, vuelve al menú, y en el menú minimiza la app.
+- Campeonato duradero (`localStorage`, 30 días): punto de control tras cada carrera y al salir de la app; el menú ofrece «Continuar · CIRCUITO» aunque la app se haya cerrado.
+- APK de prueba: GitHub Actions («Android APK») al subir a la rama `capacitor`; se publica en Releases como «APK de prueba». La versión para Google Play (AAB firmado) se añade cuando exista la clave de firma.
