@@ -302,7 +302,7 @@ export class Ship {
           #include <logdepthbuf_fragment>
           float facing = abs(dot(normalize(vN), vV));
           float L = clamp(vL, 0.0, 1.0);
-          float flick = 0.85 + 0.15 * sin(uTime * 57.0 + vL * 23.0) * sin(uTime * 31.0);
+          float flick = 0.93 + 0.07 * sin(uTime * 14.0 + vL * 9.0) * sin(uTime * 8.0);   // lento: sin estroboscopia a 30 fps
           vec3 c;
           if (uOuter > 0.5) {
             float body = pow(facing, 0.9) * pow(max(1.0 - L, 0.0), 1.3);
@@ -569,7 +569,8 @@ export class Ship {
     const p2 = this.plumeMat.uniforms;
     p2.uPower.value = power; p2.uTime.value = this.t; p2.uBoost.value = u.uBoost.value;
     const len = 0.5 + power * 1.3 + (boostOn ? 1.0 : 0);
-    const flick = 0.92 + Math.random() * 0.16;
+    // vibración suave (antes aleatoria en cada fotograma: a 30 fps en el móvil se veía como un parpadeo)
+    const flick = 0.97 + 0.03 * Math.sin(this.t * 13.0 + (this.seedFl ??= Math.random() * 6.28)) * Math.sin(this.t * 7.3);
     for (const e of this.exhausts) { const r = e.userData.r * (0.85 + power * 0.25); e.scale.set(r, r, len); }
     for (const e of this.plumes) { const r = e.userData.r * (1.35 + power * 0.45 + u.uBoost.value * 0.3); e.scale.set(r, r, len * (1.9 + u.uBoost.value * 0.8) * flick); }
     for (const h of this.halos) { const r = h.userData.r * (1.7 + power * 1.5 + u.uBoost.value * 1.2) * flick; h.scale.set(r, r, 1); }
