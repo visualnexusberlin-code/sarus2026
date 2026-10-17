@@ -148,3 +148,10 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 ## SELENE (Luna): trazado en espejo y agujas
 - El GLB se monta en espejo (`mirror: true`): las curvas cambian de lado y se corre en sentido contrario a ARCADIA. Los rótulos (numerales del tablero, designaciones de los monolitos, boxes) se vuelven a reflejar para leerse bien.
 - `js/selene.js`: racimos de agujas habitadas a ambos lados (fustes negros escalonados con nervios, platillos de atraque con anillos cian/rosa, agujas con baliza, pasarelas iluminadas y miles de ventanucos), lejos de la pista y de las piezas del GLB.
+
+## Correcciones de la auditoría previa a Capacitor (17-10-2026)
+- Programas de shader: al cambiar de atmósfera se liberan (dispose) los materiales persistentes; ya no crecen al encadenar circuitos (medido: estable en 29–33).
+- Solar Map: los arcos de la ruta se crean una vez y solo se mueven sus vértices (antes, 12 TubeGeometry nuevas por fotograma).
+- Carga de GLB: lectura normal de GLTFLoader en web/app; la conversión de texturas a base64 queda solo para el visor restringido (single.html). Menos memoria pico al cargar en el móvil.
+- Teclado: Espacio vuelve a activar el botón enfocado fuera de carrera; en carrera sigue siendo boost.
+- Pendiente para la fase Capacitor (de la misma auditoría): salida `dist` sin single.html, fuentes locales, avisos de licencia, política de privacidad, ciclo de vida Android (pausa, Atrás, audio en segundo plano) y guardado duradero del campeonato. Bloom ligero: se deja como está (a media resolución), porque reducirlo más reintroducía cuadros parpadeantes en el móvil.

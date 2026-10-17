@@ -4,7 +4,9 @@ export class Input {
     this.keys = new Set();
     this.pressed = new Set();
     addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+      // fuera de carrera, Espacio/Intro sobre un botón enfocado lo activan (no se bloquean); en carrera son controles
+      const onCtl = e.target?.closest?.('button, input, select, textarea, [role="button"]') && !document.body.classList.contains('racing');
+      if (!onCtl && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) {
         this.pressed.add(e.code);
         // doble toque en una dirección → giro brusco

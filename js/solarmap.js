@@ -265,14 +265,37 @@ export class SolarMap {
 
   posOf(node, out) { return node.anchor.getWorldPosition(out); }
 
+  // arcos de la ruta: la malla de cada tubo se crea una vez y en cada fotograma solo se mueven sus vértices
+  // (antes se rehacía una TubeGeometry por tramo y fotograma)
   updateRoute() {
+    const NS = 48, NR = 5;
     for (const seg of this.route) {
-      const a = this.posOf(seg.a, new THREE.Vector3()), b = this.posOf(seg.b, new THREE.Vector3());
+      const a = this.posOf(seg.a, seg.pa || (seg.pa = new THREE.Vector3())), b = this.posOf(seg.b, seg.pb || (seg.pb = new THREE.Vector3()));
       const d = a.distanceTo(b);
-      const mid = a.clone().lerp(b, 0.5); mid.y += Math.min(14, d * 0.28) + 0.8;
-      seg.curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-      seg.mesh.geometry.dispose();
-      seg.mesh.geometry = new THREE.TubeGeometry(seg.curve, 48, seg.mesh.material === this.matOn ? 0.09 : 0.06, 5, false);
+      if (!seg.curve) seg.curve = new THREE.QuadraticBezierCurve3(a.clone(), new THREE.Vector3(), b.clone());
+      const C = seg.curve; C.v0.copy(a); C.v2.copy(b); C.v1.copy(a).lerp(b, 0.5); C.v1.y += Math.min(14, d * 0.28) + 0.8;
+      let g = seg.mesh.geometry;
+      if (!g.attributes.position) {
+        g.setAttribute('position', new THREE.BufferAttribute(new Float32Array((NS + 1) * (NR + 1) * 3), 3));
+        g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array((NS + 1) * (NR + 1) * 3), 3));
+        const idx = []; for (let i = 0; i < NS; i++) for (let j = 0; j < NR; j++) { const p = i * (NR + 1) + j, q = p + NR + 1; idx.push(p, q, p + 1, q, q + 1, p + 1); }
+        g.setIndex(idx);
+      }
+      const R = seg.mesh.material === this.matOn ? 0.09 : 0.06;
+      const P = g.attributes.position.array, N = g.attributes.normal.array, pt = this._p || (this._p = new THREE.Vector3()), tg = this._t || (this._t = new THREE.Vector3());
+      const nrm = this._n || (this._n = new THREE.Vector3()), bin = this._b || (this._b = new THREE.Vector3()), UP = this._u || (this._u = new THREE.Vector3(0, 1, 0));
+      for (let i = 0; i <= NS; i++) {
+        const t = i / NS; C.getPoint(t, pt); C.getTangent(t, tg);
+        nrm.crossVectors(tg, UP); if (nrm.lengthSq() < 1e-6) nrm.set(1, 0, 0); nrm.normalize(); bin.crossVectors(nrm, tg).normalize();
+        for (let j = 0; j <= NR; j++) {
+          const an = j / NR * Math.PI * 2, c = Math.cos(an), sn = Math.sin(an), o = (i * (NR + 1) + j) * 3;
+          const nx = nrm.x * c + bin.x * sn, ny = nrm.y * c + bin.y * sn, nz = nrm.z * c + bin.z * sn;
+          N[o] = nx; N[o + 1] = ny; N[o + 2] = nz; P[o] = pt.x + nx * R; P[o + 1] = pt.y + ny * R; P[o + 2] = pt.z + nz * R;
+        }
+      }
+      g.attributes.position.needsUpdate = true; g.attributes.normal.needsUpdate = true;
+      if (!g.boundingSphere) g.boundingSphere = new THREE.Sphere();
+      g.boundingSphere.center.copy(C.v1); g.boundingSphere.radius = d * 0.6 + 16;
     }
   }
 

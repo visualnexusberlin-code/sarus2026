@@ -63,10 +63,12 @@ export function applyAtmosphere(params, ...scenes) {
   Object.assign(A, params);
   atmosVersion++;
   installFogChunks();
-  for (const r of registry) { r.mat.fragmentShader = r.makeFragment(); r.mat.needsUpdate = true; }
+  // dispose() además de needsUpdate: three.js guarda en cada material los programas de todas las atmósferas
+  // por las que ha pasado; liberarlos evita que se acumulen al encadenar circuitos (el material se reinicia solo)
+  for (const r of registry) { r.mat.dispose(); r.mat.fragmentShader = r.makeFragment(); r.mat.needsUpdate = true; }
   for (const sc of scenes) sc?.traverse((o) => {
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-    for (const m of ms) m.needsUpdate = true;
+    for (const m of ms) { m.dispose(); m.needsUpdate = true; }
   });
 }
 

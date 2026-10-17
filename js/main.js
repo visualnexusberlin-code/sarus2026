@@ -311,7 +311,10 @@ function inlineImages(bytes) {
   return out;
 }
 
-async function parseGLB(bytes) {
+async function parseGLB(bytes, restricted = false) {
+  // web y app: carga normal de GLTFLoader (sin copiar cada textura a base64: en el móvil eso duplicaba
+  // decenas de MB en memoria durante la carga). La adaptación solo para el visor restringido (single.html).
+  if (!restricted) return new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
   bytes = inlineImages(bytes);
   // Texturas vía <img> (blob:) en lugar de fetch+createImageBitmap: más compatible con visores restringidos.
   const cib = window.createImageBitmap;
@@ -332,7 +335,7 @@ async function loadModel(src, label, p0, p1) {
     if (!res.ok) throw new Error(`${src.url}: ${res.status}`);
     bytes = new Uint8Array(await res.arrayBuffer());
   }
-  const gltf = await parseGLB(bytes);
+  const gltf = await parseGLB(bytes, !!el);
   prog.style.width = `${p1}%`;
   return gltf;
 }
