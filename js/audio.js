@@ -66,6 +66,19 @@ export class Audio {
     const p = this.track.play(); if (p && p.catch) p.catch(() => {});
   }
 
+  // segundo plano (app minimizada, pantalla bloqueada, pestaña oculta): silencio total y CPU de audio parada
+  suspend() {
+    if (this.suspended) return; this.suspended = true;
+    this.wasPlaying = !!(this.track && !this.track.paused);
+    this.track?.pause();
+    this.ctx?.suspend?.();
+  }
+  resume() {
+    if (!this.suspended) return; this.suspended = false;
+    this.ctx?.resume?.();
+    if (this.wasPlaying && this.track) { const p = this.track.play(); if (p && p.catch) p.catch(() => {}); }
+  }
+
   toggleMute() {
     this.muted = !this.muted;
     if (this.track) this.track.muted = this.muted || !this.musicOn;

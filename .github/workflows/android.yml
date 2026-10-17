@@ -1,0 +1,30 @@
+# App Android (Capacitor): compila un APK de prueba instalable (debug) con el juego entero dentro.
+# Se lanza a mano (Actions → Android APK → Run workflow) o al subir cambios a la rama capacitor.
+# Descarga: pestaña Actions → la ejecución → Artifacts → sarus-apk.
+name: Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [capacitor]
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Salida web para la app (dist-app)
+        run: node build.mjs --app
+      - run: npx cap sync android
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21, cache: gradle }
+      - uses: android-actions/setup-android@v3
+      - name: Compilar APK (debug)
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sarus-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

@@ -1,0 +1,11 @@
+{
+  "appId": "berlin.plenum.sarus",
+  "appName": "SARUS",
+  "webDir": "dist-app",
+  "backgroundColor": "#0c0d0e",
+  "android": {
+    "backgroundColor": "#0c0d0e",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

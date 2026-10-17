@@ -51,6 +51,7 @@ import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
 import { NODES, FAMILIES, LINEAGES, MOTTO } from './lore.js';
 import { SolarMap } from './solarmap.js';
+import { App as CapApp } from '@capacitor/app';
 import { Training } from './training.js';
 import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
@@ -222,9 +223,26 @@ document.querySelectorAll('.panel [data-key]').forEach((b) => b.addEventListener
   if (chip && LITE && !IS_TOUCH) { chip.hidden = false; chip.addEventListener('click', () => setQuality(false)); }
   sync();
 }
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && ['countdown', 'race'].includes(G.state) && !G.paused) input.pressed.add('KeyP');
-});
+// segundo plano: pausa la carrera y calla el audio (web y app); al volver, el audio sigue y la carrera queda en pausa
+function toBackground() {
+  if (['countdown', 'race'].includes(G.state) && !G.paused) input.pressed.add('KeyP');
+  audio.suspend();
+  if (G.cup && ['race', 'countdown', 'intro'].includes(G.state)) saveResume(G.circuitId, true);   // (en la clasificación ya hay punto de control)
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) toBackground(); else audio.resume(); });
+// App Android (Capacitor): ciclo de vida nativo y botón Atrás
+if (window.Capacitor?.isNativePlatform?.()) {
+  CapApp.addListener('appStateChange', ({ isActive }) => { if (!isActive) toBackground(); else audio.resume(); });
+  CapApp.addListener('pause', toBackground);
+  CapApp.addListener('backButton', () => {
+    if (!$('docView').hidden) { $('docView').querySelector('button').click(); return; }
+    if (['countdown', 'race'].includes(G.state)) { input.pressed.add('KeyP'); return; }    // pausa / sigue
+    if (G.state === 'intro') { input.pressed.add('Enter'); return; }                        // salta la intro
+    if (!$('settings').hidden) { $('settings').hidden = true; return; }
+    if (['select', 'map', 'finished'].includes(G.state)) { showMenu(); return; }
+    if (G.state === 'menu' || G.state === 'title') CapApp.minimizeApp();
+  });
+}
 const audio = new Audio();
 const G = { state: 'loading', track: null, ship: null, ships: [], ai: new Map(), chase: null, intro: null, hud: null, fx: {}, race: null, paused: false, time: 0, choice: DEFAULT_SHIP };
 window.__srs = G; // gancho de depuración
@@ -928,6 +946,12 @@ document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click'
 function begin() { if (G.state === 'menu' || G.state === 'title') menuAction('race'); }
 startBtn.addEventListener('click', begin);
 
+// ── Documentos (privacidad, licencias): dentro de la propia página, sin salir del juego ──
+document.querySelectorAll('[data-doc]').forEach((b) => b.addEventListener('click', () => {
+  const v = $('docView'); v.querySelector('iframe').src = b.dataset.doc; v.hidden = false; audio.beep(false);
+}));
+$('docView').querySelector('button').addEventListener('click', () => { const v = $('docView'); v.hidden = true; v.querySelector('iframe').src = 'about:blank'; });
+
 // ── Settings ──
 function openSettings() {
   $('settings').hidden = false;
@@ -1296,10 +1320,13 @@ function travel(id, then, rebuild = true, label) {
 // ── Reanudar tras recargar la página (móvil: la GPU se queda sin memoria tras varias carreras) ──
 const RESUME_KEY = 'srs-resume';
 const RELOAD_EVERY = 4;          // ligera: una recarga limpia cada 4 circuitos construidos, en la cortinilla
-function saveResume(pick) {
+const CUP_KEY = 'srs-cup';         // copia duradera del campeonato (sobrevive al cierre de la app)
+function saveResume(pick, durableOnly = false) {
   const cup = G.cup ? { round: G.cup.round, results: G.cup.results.map((m) => (m ? [...m] : null)), out: [...G.cup.out] } : null;
-  try { sessionStorage.setItem(RESUME_KEY, JSON.stringify({ pick, choice: Math.max(0, G.fleet.indexOf(G.ship)), cup, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
+  const data = JSON.stringify({ pick, choice: Math.max(0, G.fleet.indexOf(G.ship)), cup, t: Date.now() });
+  try { if (!durableOnly) sessionStorage.setItem(RESUME_KEY, data); if (cup) localStorage.setItem(CUP_KEY, data); } catch (e) { /* sin almacenamiento */ }
 }
+function clearCupSave() { try { localStorage.removeItem(CUP_KEY); } catch (e) { /* */ } }
 function reloadAndResume(pick) {
   if (G.reloading) return; G.reloading = true;
   saveResume(pick);
@@ -1307,10 +1334,17 @@ function reloadAndResume(pick) {
   $('travel').hidden = false;
   setTimeout(() => location.reload(), 250);
 }
-G.resume = (() => { try { const r = JSON.parse(sessionStorage.getItem(RESUME_KEY) || 'null'); return r && Date.now() - r.t < 6 * 3600e3 ? r : null; } catch (e) { return null; } })();
+G.resume = (() => {
+  try {
+    const r = JSON.parse(sessionStorage.getItem(RESUME_KEY) || 'null'); if (r && Date.now() - r.t < 6 * 3600e3) return r;
+    const d = JSON.parse(localStorage.getItem(CUP_KEY) || 'null'); if (d && d.cup && Date.now() - d.t < 30 * 86400e3) return d;   // campeonato a medias
+  } catch (e) { /* sin almacenamiento */ }
+  return null;
+})();
 function resumeRace() {
   const r = G.resume; G.resume = null;
   try { sessionStorage.removeItem(RESUME_KEY); } catch (e) { /* */ }
+  if (!circuitById(r.pick) || circuitById(r.pick).id !== r.pick) { clearCupSave(); showMenu(); return; }
   G.cup = r.cup ? { round: r.cup.round, results: r.cup.results.map((e) => (e ? new Map(e) : null)), out: new Set(r.cup.out) } : null;
   G.choice = Math.min(r.choice, G.fleet.length - 1);
   hideLayers();
@@ -1359,6 +1393,7 @@ function confirmChoice() {
   audio.beep(true);
   // el primer circuito de la ruta abre el campeonato; cualquier otro elegido suelto es una carrera independiente
   G.cup = G.pick === CIRCUITS[0].id ? { round: 0, results: [], out: new Set() } : null;
+  if (G.cup) clearCupSave();
   setPlayer(G.choice);
   travel(G.pick, startIntro, G.pick !== G.circuitId);
 }
@@ -1738,7 +1773,16 @@ function cutPreview() {
 }
 
 function cupPoints() {
-  if (G.cup) G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, racePts(sh, i)]));
+  if (!G.cup) return;
+  G.cup.results[G.cup.round] = new Map(G.order.map((sh, i) => [sh.name, racePts(sh, i)]));
+  // punto de control duradero: si la app se cierra en la clasificación, «Continuar» lleva a la carrera siguiente
+  const nx = nextCircuit();
+  if (!nx || G.cup.round >= CIRCUITS.length - 1) { clearCupSave(); return; }
+  try {
+    const out = new Set(G.cup.out); for (const sh of cutPreview()) out.add(sh.name);
+    localStorage.setItem(CUP_KEY, JSON.stringify({ pick: nx.id, choice: Math.max(0, G.fleet.indexOf(G.ship)), t: Date.now(),
+      cup: { round: G.cup.round + 1, results: G.cup.results.map((m) => (m ? [...m] : null)), out: [...out] } }));
+  } catch (e) { /* sin almacenamiento */ }
 }
 
 function cupTotals() {

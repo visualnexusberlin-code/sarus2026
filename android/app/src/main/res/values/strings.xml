@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SARUS</string>
+    <string name="title_activity_main">SARUS</string>
+    <string name="package_name">berlin.plenum.sarus</string>
+    <string name="custom_url_scheme">berlin.plenum.sarus</string>
+</resources>
