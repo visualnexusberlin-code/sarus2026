@@ -11,9 +11,11 @@ export const CIRCUITS = [
     id: 'saturn',
     name: 'SELENE',
     sub: L('Luna · órbita terrestre', 'Moon · Earth orbit'),
-    blurb: L('Luna · estación en el mar basáltico · la Tierra sobre la línea de salida', 'Moon · station on the basalt mare · Earth above the start line'),
+    blurb: L('Luna · agujas habitadas sobre el mar basáltico · trazado en espejo de ARCADIA · la Tierra sobre la salida', 'Moon · inhabited spires on the basalt mare · ARCADIA mirrored · Earth above the start'),
     earth: true,                     // la Tierra ocupa el lugar de la gran luna del GLB; sin lava ni satélite
     inSectorOrder: true,
+    mirror: true,                    // trazado en espejo respecto a ARCADIA (y en sentido contrario): las curvas cambian de lado
+    city: 'selene',                  // torres de la estación lunar (js/selene.js)
     relief: { amplify: 1.45, hills: [[18, 6, 0.7], [9, 11, 2.1]] },
     hoverMax: 5,
     // Luna: sin aire. Cielo negro con estrellas, sol duro y bajo (sombras largas), la Tierra en el cielo.

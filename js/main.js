@@ -45,6 +45,7 @@ import { buildEnceladus, enceladusSunDir } from './enceladus.js';
 import { buildMercury, mercurySunDir } from './mercury.js';
 import { buildTriton, tritonSunDir } from './triton.js';
 import { buildPluto, plutoSunDir } from './pluto.js';
+import { buildSelene } from './selene.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
@@ -410,7 +411,8 @@ function disposeWorld() {
   G.world.traverse((o) => {
     if (o.geometry) o.geometry.dispose();
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-    ms.forEach((m) => m.dispose());
+    // también las texturas (solo liberan la GPU: si el GLB del circuito las vuelve a usar, se suben de nuevo)
+    ms.forEach((m) => { for (const k in m) { const v = m[k]; if (v && v.isTexture && !v.isRenderTargetTexture && v !== scene.environment) v.dispose(); } m.dispose(); });
   });
   for (const d of G.disposables || []) d.dispose?.();
   // las naves sobreviven al cambio de circuito, pero sus programas de shader (con la atmósfera anterior) no:
@@ -455,6 +457,12 @@ function applyLook(def) {
   const L = def.light;
   sun.color.setHex(L.sun); hemi.color.setHex(L.hemiSky); hemi.groundColor.setHex(L.hemiGround);
   G.light = L;
+  // entornos: solo el del circuito actual y el del hangar (antes se acumulaban uno por circuito en la GPU)
+  for (const k of Object.keys(G.envs)) {
+    const e = G.envs[k];
+    if (k === def.id || e === G.showroom?.scene.environment) continue;
+    (e.userData.rt || e).dispose(); delete G.envs[k];
+  }
   if (!G.envs[def.id]) G.envs[def.id] = buildEnvironment(renderer);
   scene.environment = G.envs[def.id];
   setPaint(def.paint);
@@ -485,8 +493,31 @@ function pieceSeeds(g) {
   return new THREE.BufferAttribute(out, 1);
 }
 
+// Rótulos de un circuito en espejo: se reflejan otra vez sobre su propio eje de lectura para que no salgan al revés
+const MIRROR_TEXT = /deck numeral|MONOLITH \| designation|PITS \| identity/;
+function unmirrorText(g, track, onDeck) {
+  const P = g.attributes.position, N = g.attributes.normal;
+  g.computeBoundingBox(); const c = g.boundingBox.getCenter(new THREE.Vector3());
+  let ax;
+  if (onDeck) {                                   // pintado en el tablero: se lee de lado a lado de la pista
+    const o = track.orig; let bi = 0, bd = Infinity;
+    for (let i = 0; i < o.length; i++) { const d = (o[i].x - c.x) ** 2 + (o[i].z - c.z) ** 2; if (d < bd) { bd = d; bi = i; } }
+    const a = o[(bi + 1) % o.length], b = o[(bi - 1 + o.length) % o.length];
+    ax = new THREE.Vector3(-(a.z - b.z), 0, a.x - b.x).normalize();
+  } else {                                        // en un muro: el eje horizontal más largo del rótulo
+    let sxx = 0, szz = 0, sxz = 0;
+    for (let i = 0; i < P.count; i++) { const x = P.getX(i) - c.x, z = P.getZ(i) - c.z; sxx += x * x; szz += z * z; sxz += x * z; }
+    const th = 0.5 * Math.atan2(2 * sxz, sxx - szz); ax = new THREE.Vector3(Math.cos(th), 0, Math.sin(th));
+  }
+  const v = new THREE.Vector3();
+  for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); v.addScaledVector(ax, -2 * v.clone().sub(c).dot(ax)); P.setXYZ(i, v.x, v.y, v.z); }
+  if (N) for (let i = 0; i < N.count; i++) { v.fromBufferAttribute(N, i); v.addScaledVector(ax, -2 * v.dot(ax)); N.setXYZ(i, v.x, v.y, v.z); }
+  P.needsUpdate = true; if (N) N.needsUpdate = true;
+}
+
 function buildCircuit(def) {
   const t0 = performance.now();
+  G.builds = (G.builds || 0) + 1;
   disposeWorld();
   G.circuit = def;
   G.circuitId = def.id;
@@ -495,6 +526,7 @@ function buildCircuit(def) {
   G.circuitFx = null; G.introKeys = null; G.flyers?.dispose(); G.flyers = null;
   if (def.generated) return buildGenerated(def, own, t0);
   const circuit = G.circuitSrc.clone(true);
+  if (def.mirror) circuit.scale.x *= -1;          // SELENE: el trazado en espejo (las curvas cambian de lado respecto a ARCADIA)
   circuit.updateMatrixWorld(true);
   const arcadia = def.id === 'arcadia';
 
@@ -515,6 +547,9 @@ function buildCircuit(def) {
   });
   remove.forEach((o) => o.parent && o.parent.remove(o));
   circuit.updateMatrixWorld(true);
+  // huecos ocupados por las piezas del GLB (para no plantar torres encima)
+  const avoidBoxes = [];
+  if (def.city) circuit.traverse((o) => { if (o.isMesh && /^(MONOLITH|PITS|OVERPASS|Sector|CITY \| antenna|Pylon)/.test(normName(o))) avoidBoxes.push(new THREE.Box3().setFromObject(o)); });
 
   // Pista (antes de fusionar, necesita el mesh original del tablero)
   // Suelo bajo el trazado: rejilla de alturas máximas (8 m) de terreno, costa, ciudad y monolitos.
@@ -677,6 +712,10 @@ function buildCircuit(def) {
     const tm = arcadia ? themed(o, n) : null;
     if (tm?.userData.painted) g.setAttribute('aSeed', pieceSeeds(g));   // un color por pieza (no por celda del mundo)
     if (!g.index) { const idx = []; for (let i = 0; i < g.attributes.position.count; i++) idx.push(i); g.setIndex(idx); }
+    if (o.matrixWorld.determinant() < 0) {          // geometría horneada en espejo
+      if (MIRROR_TEXT.test(n)) unmirrorText(g, track, /deck numeral/.test(n));   // rótulos: segunda reflexión → se leen bien (y el sentido de los triángulos vuelve solo)
+      else { const ix = g.index.array.slice(); for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } g.setIndex(new THREE.BufferAttribute(ix, 1)); }
+    }
     let kind = null;
     let mat = land.includes(o) ? ground : themed(o, n);
     if (/racing deck/i.test(n)) kind = 'deck';
@@ -711,6 +750,7 @@ function buildCircuit(def) {
   world.add(water, padGroup);
   scene.add(world);
   G.structures = buildStructures(world, track, def.structures);
+  if (def.city === 'selene') buildSelene(world, track, own, avoidBoxes);
   G.structures.group.traverse((o) => { if (o.isMesh) own.push(o.geometry, o.material); });
   console.info('[SRS] túnel', G.structures.tunnel, 'puentes', G.structures.bridges);
 
@@ -861,7 +901,7 @@ function showMenu() {
   startBtn.hidden = true; prog.parentElement.hidden = true;
   $('menu').hidden = false;
   const c = lastUnlocked();
-  $('menuRaceSub').textContent = `${c.num} · ${c.name}`;
+  $('menuRaceSub').textContent = G.resume ? `${tr('Continuar', 'Continue')} · ${circuitById(G.resume.pick).name}` : `${c.num} · ${c.name}`;
   const open = NODES.filter((n) => n.circuits.some((id) => G.unlocked.has(id))).length;
   $('menuMapSub').textContent = `${open} / ${NODES.length} ${tr('nodos abiertos', 'nodes open')}`;
   if (!IS_TOUCH) document.querySelector('.mbtn.primary')?.focus();
@@ -871,6 +911,7 @@ function menuAction(k) {
   ensureStarted();
   audio.music();
   audio.beep(k === 'race');
+  if (k === 'race' && G.resume) { resumeRace(); return; }
   if (k === 'race') {
     G.pick = lastUnlocked().id;
     if (!store.get('sarus-trained', false)) startTraining('race'); else goSelect();
@@ -1235,13 +1276,53 @@ function travel(id, then, rebuild = true, label) {
   G.hud.show(false);
   audio.setEngines(false);                 // el hilo se bloquea al construir: que no quede un zumbido colgado
   setTimeout(async () => {
-    if (rebuild) buildCircuit(c);
-    await warmup();
-    then();
-    tick(0.0001);          // primer plano de la intro ya pintado bajo la cortinilla: no se cuela la cámara de parrilla
-    requestAnimationFrame(() => { $('travel').hidden = true; });
+    try {
+      if (rebuild) buildCircuit(c);
+      await warmup();
+      then();
+      tick(0.0001);          // primer plano de la intro ya pintado bajo la cortinilla: no se cuela la cámara de parrilla
+      requestAnimationFrame(() => { $('travel').hidden = true; });
+    } catch (e) {
+      // si la construcción falla (memoria del móvil, contexto WebGL perdido) no se queda colgado: recarga y sigue en esta carrera
+      console.error('[SRS] travel', e);
+      reloadAndResume(id);
+    }
   }, 60);
 }
+
+// ── Reanudar tras recargar la página (móvil: la GPU se queda sin memoria tras varias carreras) ──
+const RESUME_KEY = 'srs-resume';
+const RELOAD_EVERY = 4;          // ligera: una recarga limpia cada 4 circuitos construidos, en la cortinilla
+function saveResume(pick) {
+  const cup = G.cup ? { round: G.cup.round, results: G.cup.results.map((m) => (m ? [...m] : null)), out: [...G.cup.out] } : null;
+  try { sessionStorage.setItem(RESUME_KEY, JSON.stringify({ pick, choice: Math.max(0, G.fleet.indexOf(G.ship)), cup, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
+}
+function reloadAndResume(pick) {
+  if (G.reloading) return; G.reloading = true;
+  saveResume(pick);
+  $('travelLbl').textContent = tr('Preparando la siguiente carrera…', 'Preparing the next race…');
+  $('travel').hidden = false;
+  setTimeout(() => location.reload(), 250);
+}
+G.resume = (() => { try { const r = JSON.parse(sessionStorage.getItem(RESUME_KEY) || 'null'); return r && Date.now() - r.t < 6 * 3600e3 ? r : null; } catch (e) { return null; } })();
+function resumeRace() {
+  const r = G.resume; G.resume = null;
+  try { sessionStorage.removeItem(RESUME_KEY); } catch (e) { /* */ }
+  G.cup = r.cup ? { round: r.cup.round, results: r.cup.results.map((e) => (e ? new Map(e) : null)), out: new Set(r.cup.out) } : null;
+  G.choice = Math.min(r.choice, G.fleet.length - 1);
+  hideLayers();
+  setView(scene, camera);
+  G.pick = r.pick;
+  setPlayer(G.choice);
+  travel(r.pick, startIntro, true);
+}
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  console.warn('[SRS] contexto WebGL perdido');
+  const racing = ['travel', 'intro', 'countdown', 'race', 'finished'].includes(G.state);
+  if (racing) reloadAndResume(G.state === 'travel' ? G.pick : G.circuitId);
+  else setTimeout(() => location.reload(), 250);
+});
 
 // Calentamiento tras la cortinilla: compila todos los shaders y sube a la GPU geometría y texturas
 // de todo el circuito (un fotograma sin recorte de frustum). Así la intro y la carrera no se atascan
@@ -1260,7 +1341,7 @@ async function warmup() {
   for (const sh of G.ships) if (sh.lodMesh && !sh.lodMesh.visible) { hidden.push(sh.lodMesh); sh.lodMesh.visible = true; }
   setView(scene, camera);
   // compilación en paralelo si el navegador lo permite (KHR_parallel_shader_compile): la cortinilla no se congela
-  try { if (renderer.compileAsync && renderer.extensions.has('KHR_parallel_shader_compile')) await renderer.compileAsync(scene, camera); } catch (e) { console.warn('warmup async', e); }
+  try { if (renderer.compileAsync && renderer.extensions.has('KHR_parallel_shader_compile')) await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 8000))]); } catch (e) { console.warn('warmup async', e); }
   try { renderer.compile(scene, camera); composer.render(0.001); } catch (e) { console.warn('warmup', e); }
   culled.forEach((o) => { o.frustumCulled = true; });
   hidden.forEach((o) => { o.visible = false; });
@@ -1290,6 +1371,7 @@ function goNext() {
   }
   G.pick = nx.id;
   audio.beep(true);
+  if (LITE && (G.builds || 0) >= RELOAD_EVERY) { reloadAndResume(nx.id); return; }
   travel(nx.id, startIntro);
 }
 
@@ -1428,7 +1510,7 @@ function updateRace(dt) {
       G.training?.onPick(sh, it);
       if (sh === ship) {
         audio.chime(it.type === 'R');
-        hud.banner(it.type === 'G' ? 'Boost' : tr('Cohete listo', 'Rocket ready'), it.type === 'R' ? (IS_TOUCH ? tr('Pulsa COHETE', 'Tap ROCKET') : tr('F · disparar', 'F · fire')) : '', false, 1.2, true);
+        hud.banner(it.type === 'G' ? tr('Energía de boost +45 %', 'Boost energy +45%') : tr('Cohete listo', 'Rocket ready'), it.type === 'R' ? (IS_TOUCH ? tr('Pulsa COHETE', 'Tap ROCKET') : tr('F · disparar', 'F · fire')) : (IS_TOUCH ? tr('Toca BOOST para un impulso · mantén para más', 'Tap BOOST for a burst · hold for more') : tr('Espacio · boost', 'Space · boost')), false, 1.2, true);
       }
     });
     // anillos de carrera (EUROPA): reparan el blindaje, recargan dos cohetes y dan un empujón

@@ -339,5 +339,6 @@ export function buildEnvironment(renderer) {
   const rt = pmrem.fromScene(s, 0.02, 0.1, 5000);
   pmrem.dispose();
   sky.geometry.dispose(); sky.material.dispose();
+  rt.texture.userData.rt = rt;          // para liberar el render target entero al cambiar de circuito
   return rt.texture;
 }

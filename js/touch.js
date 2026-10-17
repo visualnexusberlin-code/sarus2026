@@ -68,7 +68,12 @@ export class TouchControls {
       b.addEventListener('pointercancel', off);
     };
     hold('[data-hold="brake"]', 'brake');
-    hold('[data-hold="boost"]', 'boost');
+    // boost: un toque da un impulso corto (0,9 s); mantenerlo lo alarga mientras quede energía
+    { const b = root.querySelector('[data-hold="boost"]'); let until = 0, tmr = null;
+      const on = (e) => { this.boost = true; until = performance.now() + 900; clearTimeout(tmr); b.classList.add('down'); b.setPointerCapture(e.pointerId); e.preventDefault(); };
+      const off = () => { const left = until - performance.now(); const stop = () => { this.boost = false; b.classList.remove('down'); };
+        if (left > 0) { tmr = setTimeout(stop, left); } else stop(); };
+      b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); }
     hold('[data-hold="abL"]', 'abL');
     hold('[data-hold="abR"]', 'abR');
 
@@ -104,5 +109,12 @@ export class TouchControls {
     if (this.abR) s.abR = 1;
   }
 
-  setBoost(v) { if (this.boostRing) this.boostRing.style.setProperty('--b', `${Math.round(v * 360)}deg`); }
+  setBoost(v) {
+    const r = this.boostRing; if (!r) return;
+    r.style.setProperty('--b', `${Math.round(v * 360)}deg`);
+    const pct = Math.round(v * 100);
+    if (pct !== this._pct) { this._pct = pct; if (!this.lbl) { r.innerHTML = '<span>Boost</span><small></small>'; this.lbl = r.querySelector('small'); } this.lbl.textContent = `${pct}%`; }
+    r.classList.toggle('empty', v < 0.12);       // sin energía: el botón se apaga (no hace nada)
+    r.classList.toggle('full', v > 0.97);        // lleno: late para invitar a usarlo
+  }
 }

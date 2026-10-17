@@ -140,3 +140,11 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 ## Plutón: bocas y llegada
 - Las bocas de las minas ya no tienen un frente plano que asomaba contra el cielo: marco de hormigón solo alrededor de la boca y, encima, una cara de roca con relieve que llega exactamente a la ladera (mismo material que el terreno).
 - Intro: el disco de terreno ya no aparece como un casquete negro sobre el globo (el suelo no recibe la niebla, cuyo color es el del espacio) y su borde se funde con el globo por tramado entre 9 y 13,6 km.
+
+## Móvil: estabilidad y boost (octubre 2026)
+- Tras varias carreras el móvil se quedaba congelado (la GPU se queda sin memoria y se pierde el contexto WebGL). Ahora: al cambiar de circuito se liberan las texturas del mundo y los entornos de los circuitos anteriores; si la construcción falla o se pierde el contexto, la página se recarga y la carrera continúa (campeonato, nave y puntos se guardan en la sesión). En calidad ligera se hace una recarga limpia cada 4 circuitos, en la cortinilla. Tras recargar, el menú muestra «Continuar · CIRCUITO».
+- Boost táctil: un toque da un impulso de 0,9 s; mantener lo alarga. El botón muestra la energía en %, se apaga sin energía y late cuando está lleno. Las esferas verdes dicen «Energía de boost +45 %».
+
+## SELENE (Luna): trazado en espejo y agujas
+- El GLB se monta en espejo (`mirror: true`): las curvas cambian de lado y se corre en sentido contrario a ARCADIA. Los rótulos (numerales del tablero, designaciones de los monolitos, boxes) se vuelven a reflejar para leerse bien.
+- `js/selene.js`: racimos de agujas habitadas a ambos lados (fustes negros escalonados con nervios, platillos de atraque con anillos cian/rosa, agujas con baliza, pasarelas iluminadas y miles de ventanucos), lejos de la pista y de las piezas del GLB.
