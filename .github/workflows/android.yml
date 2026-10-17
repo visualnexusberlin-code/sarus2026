@@ -19,7 +19,8 @@ jobs:
       - run: npx cap sync android
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21, cache: gradle }
-      - uses: android-actions/setup-android@v3
+      - name: SDK de Android (preinstalado en el runner) y plataforma 36
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true; "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" | tail -2
       - name: Compilar APK (debug)
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
