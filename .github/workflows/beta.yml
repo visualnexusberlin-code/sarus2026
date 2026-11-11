@@ -1,0 +1,25 @@
+# Versión beta en paralelo: cada push a una rama beta/* o claude/* se publica en un canal de vista previa de
+# Firebase Hosting (URL propia, caduca a los 30 días). La versión en vivo (canal live, rama main) no se toca.
+name: Beta SPEED RACING SKIES
+on:
+  push:
+    branches: ['beta/**', 'claude/**']
+  workflow_dispatch:
+jobs:
+  beta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - name: Publicar en el canal beta (la URL aparece en el registro de este paso)
+        if: ${{ vars.FIREBASE_PROJECT_ID != '' || vars.SARUS2026 != '' }}
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.SARUS2026 }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID || vars.SARUS2026 }}
+          channelId: beta
+          expires: 30d
