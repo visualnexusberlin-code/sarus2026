@@ -302,7 +302,7 @@ export function buildMars(def, { world, own, srcMat }) {
     const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setIndex(idx); gg.computeVertexNormals();
     return gg;
   })();
-  for (const gg of [geoNear, geoMid, far]) { const m = new THREE.Mesh(gg, tmat); m.receiveShadow = gg === geoNear; m.frustumCulled = gg === geoNear; world.add(m); }
+  for (const gg of [geoNear, geoMid, far]) { const m = new THREE.Mesh(gg, tmat); m.receiveShadow = gg === geoNear; m.frustumCulled = gg === geoNear; m.userData.chunkAnyway = true; world.add(m); }
 
   // ── Rocas oscuras sueltas (como en la referencia) ──
   {
@@ -322,7 +322,7 @@ export function buildMars(def, { world, own, srcMat }) {
       q.setFromEuler(new THREE.Euler(Math.random() * 0.4, Math.random() * 6.28, Math.random() * 0.4));
       m4.compose(ps, q, sc.set(s, s, s)); im.setMatrixAt(k++, m4);
     }
-    im.count = k; im.receiveShadow = true; im.castShadow = false; im.computeBoundingSphere();
+    im.count = k; im.receiveShadow = true; im.castShadow = false; im.computeBoundingSphere(); im.userData.chunkInst = true;
     world.add(im);
   }
 

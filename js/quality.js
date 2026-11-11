@@ -1,12 +1,14 @@
 // Calidad: «completa» (escritorio) o «ligera» (móviles y equipos modestos). Se decide al cargar:
 //   ?lite / ?full en la URL mandan; si no, la preferencia guardada; si no, detección automática
-//   (pantalla táctil sin 8 GB de memoria y 8 núcleos → ligera).
+//   (pantalla táctil → ligera siempre; la completa en un móvil o tableta se elige a mano en Ajustes).
+//   Antes, un táctil con 8 GB y 8 núcleos arrancaba en completa: es la ficha de casi cualquier Android de gama
+//   media de los últimos años (deviceMemory nunca informa de más de 8), y la completa le pide 20 naves con sombras
+//   y cristal con transmisión: 2–4 millones de triángulos y ~1.000 draw calls por fotograma.
 const q = new URLSearchParams(location.search);
 let pref = null;
 try { pref = localStorage.getItem('srs-quality'); } catch (e) { /* sin almacenamiento */ }
 const touch = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in globalThis;
-const mem = navigator.deviceMemory || 4, cores = navigator.hardwareConcurrency || 4;
-const auto = touch && !(mem >= 8 && cores >= 8);
+const auto = touch;
 export const LITE = q.has('lite') ? true : q.has('full') ? false : pref ? pref === 'lite' : auto;
 
 export const QUALITY = LITE

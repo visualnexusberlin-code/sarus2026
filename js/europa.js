@@ -675,7 +675,7 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
     }
     const im = new THREE.InstancedMesh(geo, mat, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
     list.forEach(([x, yy, z, r], i) => { q.setFromEuler(e.set((rnd() - 0.5) * 0.6, rnd() * 6.28, (rnd() - 0.5) * 0.6)); m4.compose(new THREE.Vector3(x, yy, z), q, new THREE.Vector3(r, r * (0.6 + rnd() * 0.8), r)); im.setMatrixAt(i, m4); });
-    im.instanceMatrix.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); world.add(im);
+    im.instanceMatrix.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); world.add(im); im.userData.chunkInst = true;
   }
 
   // ── Suelo: malla fina alrededor de la pista + llanura que llega al horizonte ──

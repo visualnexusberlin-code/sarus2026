@@ -455,6 +455,9 @@
   .mc-arch { border-top: 1px solid var(--fog-faint); padding-top: 12px; display: grid; gap: 6px; }
   .mc-arch p { margin: 0; font-size: 12px; line-height: 1.6; }
   .mc-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mc-track { margin: 0; border: 1px solid var(--fog-faint); background: rgba(216,213,205,.035); flex: none; }
+  .mc-track canvas { display: block; width: 100%; height: 170px; cursor: grab; }
+  .mc-track figcaption { display: flex; justify-content: space-between; gap: 10px; padding: 5px 8px; border-top: 1px solid var(--fog-faint); font-family: var(--display); font-size: 7px; letter-spacing: .22em; text-transform: uppercase; color: var(--fog-dim); }
   .map-card .row { justify-content: flex-start; margin-top: auto; }
   .mc-note { font-size: 11px; color: var(--fog-dim); margin: 0; }
   .mc-close { position: absolute; top: 10px; right: 12px; background: none; border: 0; color: var(--fog-dim); font-size: 18px; cursor: pointer; }
@@ -465,6 +468,7 @@
   @media (max-height: 500px) and (orientation: landscape) {
     .map-card { top: calc(var(--gutter) + 40px); bottom: var(--gutter); padding: 14px 16px; gap: 9px; width: min(320px, 42vw); }
     .mc-data { font-size: 10px; } .mc-arch p { font-size: 11px; line-height: 1.45; } .map-hint { display: none; }
+    .mc-track canvas { height: 104px; }
   }
 
   /* ---------- Training ---------- */

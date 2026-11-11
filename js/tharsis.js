@@ -351,7 +351,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
     for (let i = 0; i <= rings; i++) { const r = r0 * Math.pow(r1 / r0, i / rings); for (let j = 0; j <= segs; j++) { const a = j / segs * Math.PI * 2, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; fp.push(x, base(x, z) - 20, z); } }
     for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) { const a = i * (segs + 1) + j, b = a + 1, c = a + segs + 1, d = c + 1; fi.push(a, b, c, b, d, c); }
     const gFar = new THREE.BufferGeometry(); gFar.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); gFar.setIndex(fi); gFar.computeVertexNormals();
-    for (const gg of [gNear, gMid, gFar]) { const m = new THREE.Mesh(gg, pmat); m.receiveShadow = gg === gNear; m.frustumCulled = gg === gNear; world.add(m); own.push(gg); }
+    for (const gg of [gNear, gMid, gFar]) { const m = new THREE.Mesh(gg, pmat); m.receiveShadow = gg === gNear; m.frustumCulled = gg === gNear; m.userData.chunkAnyway = true; world.add(m); own.push(gg); }
   }
 
   // ── Tribunas cubiertas con público ──
@@ -478,7 +478,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
       m4.makeBasis(xx.multiplyScalar(sc), up.clone().multiplyScalar(sc), z).setPosition(p);
       im.setMatrixAt(i, m4); im.setColorAt(i, col.setHex(c).multiplyScalar(0.8 + h2(p.x * 3, p.z) * 0.35));
     });
-    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true;
+    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.userData.chunkInst = true;
     im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere();
     parent.add(im);
     return im;

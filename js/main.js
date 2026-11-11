@@ -47,6 +47,8 @@ import { buildTriton, tritonSunDir } from './triton.js';
 import { buildPluto, plutoSunDir } from './pluto.js';
 import { buildSelene } from './selene.js';
 import { buildDeckDetail } from './deckdetail.js';
+import { chunkWorld, thinInstances } from './chunks.js';
+import { TrackPreview, rememberShape, shapeFor, sampleShape } from './trackshape.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
 import { NODES, FAMILIES, LINEAGES, MOTTO } from './lore.js';
@@ -59,11 +61,16 @@ applyDom();   // textos fijos del HTML en el idioma elegido (antes de que el có
 
 installFogChunks();
 
+// ?nolog: prueba sin búfer de profundidad logarítmico (con él, cada píxel escribe su profundidad a mano y la GPU
+// del móvil no puede descartar pronto lo que queda tapado). Solo para medir en el dispositivo: puede dar parpadeos a lo lejos.
+const NOLOG = new URLSearchParams(location.search).has('nolog');
+const BUILD = document.querySelector('meta[name=build]')?.content || 'dev';
+console.info(`[SRS] build ${BUILD}`);
 // ── Renderer / escena ──
 const canvas = document.getElementById('view');
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: !NOLOG });
 } catch (e) {
   window.__srsFail?.(tr('Este visor no permite gráficos 3D (WebGL). Ábrelo en Chrome, Safari o Firefox, desde una web o el enlace del juego.', 'This viewer does not support 3D graphics (WebGL). Open it in Chrome, Safari or Firefox, from a website or the game link.'));
   throw e;
@@ -78,7 +85,7 @@ renderer.toneMappingExposure = CONFIG.atmosphere.exposure;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xcccccc, CONFIG.atmosphere.baseDensity);
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.25, 30000);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, NOLOG ? 0.6 : 0.25, 30000);
 scene.add(createSky());
 scene.environmentIntensity = 0.85;
 
@@ -181,6 +188,8 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+// estado de la resolución adaptativa (low: detalle reducido, se recuerda durante la sesión)
+const perf = { pr: renderer.getPixelRatio(), acc: 0, n: 0, last: 0, good: 0, low: (() => { try { return sessionStorage.getItem('srs-low') === '1'; } catch (e) { return false; } })() };
 // ── Estado global ──
 const input = new Input();
 input.touch = new TouchControls(input);
@@ -801,7 +810,9 @@ function finishCircuit(def, world, track, t0) {
   // lo que ya existía apunta a la pista nueva
   for (const sh of G.fleet || G.ships || []) { sh.track = track; sh.frame = track.frame(); }
   G.hud?.setTrack(track);
+  rememberShape(def.id, track, G.structures?.tunnel);          // trazado para la vista previa del Solar Map
   if (G.lens[def.id] !== Math.round(track.length)) { G.lens[def.id] = Math.round(track.length); store.set('sarus-len', G.lens); }
+  if (!new URLSearchParams(location.search).has('nochunk')) { const ck = chunkWorld(world, LITE ? { cell: 380 } : { cell: 480 }); G.chunkInfo = ck; console.info(`[SRS] mundo troceado: ${ck.meshes} mallas en ${ck.chunks} celdas`); if (perf.low) thinInstances(world); }
   console.info(`[SRS] ${def.name} construido en ${(performance.now() - t0).toFixed(0)} ms`);
 }
 
@@ -1148,6 +1159,8 @@ function goMap() {
   setTimeout(() => { if (G.state === 'map' && $('mapCard').hidden) selectNode(cur, G.pick); }, 900);
 }
 
+// desnivel del trazado (cota máxima − mínima del tablero), para el pie de la vista previa
+function shapeDrop(id) { const e = shapeFor(id).e; let lo = Infinity, hi = -Infinity; for (let i = 1; i < e.length; i += 3) { if (e[i] < lo) lo = e[i]; if (e[i] > hi) hi = e[i]; } return Math.round(hi - lo); }
 function selectNode(nd, circId) {
   G.map.focus(nd);
   G.map.nodes.forEach((n) => n.el.classList.toggle('sel', n === nd));
@@ -1168,6 +1181,7 @@ function selectNode(nd, circId) {
     <h2>${c ? c.name : nd.title}</h2>
     <span class="mc-loc">${nd.system} · ${nd.place}</span>
     ${ids.length > 1 ? `<div class="mc-tabs">${ids.map((x) => { const k = circuitById(x); return `<button class="chip" type="button" data-tab="${x}" aria-pressed="${x === id}">${k.num} ${k.name}</button>`; }).join('')}</div>` : ''}
+    ${c && shapeFor(c.id) ? `<figure class="mc-track"><canvas id="mcTrack" role="img" aria-label="${tr('Trazado del circuito en tres dimensiones, girando', 'Circuit layout in three dimensions, rotating')}"></canvas><figcaption><span>${tr('Trazado', 'Layout')} · ${tr('desnivel', 'elevation')} ${shapeDrop(c.id)} M</span><span>${tr('arrastra para girar', 'drag to rotate')}</span></figcaption></figure>` : ''}
     <dl class="mc-data">
       <dt>${tr('Gravedad', 'Gravity')}</dt><dd>${L.gravity || nd.gravity || '—'}</dd>
       ${c ? `<dt>${tr('Superficie', 'Surface')}</dt><dd>${L.surface}</dd>
@@ -1182,6 +1196,7 @@ function selectNode(nd, circId) {
     ${c ? `<div class="row"><button class="btn primary" type="button" id="mcGo" ${cs === 'locked' ? 'aria-disabled="true" style="opacity:.4"' : ''}>${tr('Correr', 'Race')} ▸</button></div>` : ''}`;
   card.hidden = false;
   mapShift();
+  { const cv = card.querySelector('#mcTrack'); if (cv) G.trackPreview = new TrackPreview(cv, shapeFor(c.id)); }
   card.querySelector('.mc-close').addEventListener('click', () => { card.hidden = true; mapShift(); G.map.overview(innerWidth / innerHeight); G.map.nodes.forEach((n) => n.el.classList.remove('sel')); });
   card.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { audio.beep(false); selectNode(nd, b.dataset.tab); }));
   card.querySelector('#mcGo')?.addEventListener('click', () => {
@@ -1903,7 +1918,7 @@ let selPrevSteer = 0;
 
 // Resolución adaptativa: si el equipo no llega a ~50 fps baja la densidad de píxeles, y la recupera si sobra
 const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? Math.min(1.5, QUALITY.prMax) : QUALITY.prMax), PR_MIN = Math.min(PR_MAX, QUALITY.prMin);
-const perf = { pr: renderer.getPixelRatio(), acc: 0, n: 0, last: 0, good: 0 };
+
 function adaptRes() {
   const now = performance.now(), d = now - perf.last; perf.last = now;
   if (d > 250 || !['intro', 'countdown', 'race', 'finished'].includes(G.state) || G.paused) return;
@@ -1912,6 +1927,11 @@ function adaptRes() {
   const avg = perf.acc / perf.n; perf.acc = 0; perf.n = 0;
   let pr = perf.pr;
   if (avg > 22 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.25); perf.good = 0; }
+  else if (avg > 26 && LITE && !perf.low) {   // ya en la resolución mínima y sigue por debajo de ~38 fps: menos geometría
+    perf.low = true; try { sessionStorage.setItem('srs-low', '1'); } catch (e) { /* sin almacenamiento */ }
+    if (G.world) thinInstances(G.world);
+    console.info('[SRS] detalle reducido');
+  }
   else if (avg > 24 && aoOn) { aoOn = false; setView(renderPass.scene, renderPass.camera); perf.good = 0; }   // último recurso: sin AO
   else if (avg < 13 && pr < PR_MAX) { if (++perf.good >= 3) { pr = Math.min(PR_MAX, pr + 0.25); perf.good = 0; } }
   else perf.good = 0;
@@ -1926,13 +1946,14 @@ function frame() {
 }
 
 // LOD de naves: a partir de cierta distancia de cámara, cada rival pasa a su malla ligera (1 draw call, ~1,8k triángulos).
-const LOD_D = LITE ? 42 : 85;
+const LOD_D = LITE ? 42 : 85, LOD_LOW = 26;
 function updateLods(inCircuit) {
   const cp = camera.position, zoom = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(35));
   for (const sh of G.ships) {
     if (!inCircuit || sh === G.ship) { sh.setFar(false); continue; }
     const d = sh.root.position.distanceTo(cp) / zoom;
-    sh.setFar(sh.far ? d > LOD_D * 0.88 : d > LOD_D * 1.12);
+    const D = perf.low ? LOD_LOW : LOD_D;
+    sh.setFar(sh.far ? d > D * 0.88 : d > D * 1.12);
   }
 }
 
@@ -2048,7 +2069,7 @@ function tick(dt) {
 
   if (CONFIG.debug) {
     fpsAcc += dt; fpsN++;
-    if (fpsAcc > 0.5) { fpsEl.textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris`; fpsAcc = 0; fpsN = 0; }
+    if (fpsAcc > 0.5) { fpsEl.textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · pr ${renderer.getPixelRatio().toFixed(2)}${perf.low ? ' · low' : ''}${LITE ? ' · lite' : ' · full'}${NOLOG ? ' · nolog' : ''} · ${BUILD}`; fpsAcc = 0; fpsN = 0; }
   }
 }
 // cabecera: la música arranca con el primer gesto (los navegadores no dejan sonar antes)
@@ -2057,7 +2078,7 @@ addEventListener('pointerdown', firstGesture); addEventListener('keydown', first
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
 G.showChoice = showChoice; G.begin = begin; G.goMap = goMap; G.menu = showMenu; G.train = startTraining; G.menuAction = menuAction; G.setFamily = setFamily; G.selectNode = (n, c) => selectNode(G.map.nodes[n - 1], c); G.store = store; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer; G.THREE = { Frustum: THREE.Frustum, Matrix4: THREE.Matrix4 };
-G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
+G.sampleShape = sampleShape; G.circuits = CIRCUITS; G.thin = () => thinInstances(G.world); G.perf = perf; G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };

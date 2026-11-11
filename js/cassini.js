@@ -242,7 +242,7 @@ export function buildCassini(def, { world, own, srcMat }) {
         const c = ICE[Math.floor(h2(p.z * 1.3, p.x) * ICE.length)];
         im.setColorAt(i, col.setRGB(c[0], c[1], c[2]));
       });
-      im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true;
+      im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.userData.chunkInst = true;
       im.castShadow = cast; im.receiveShadow = true; im.computeBoundingSphere();
       world.add(im);
     });

@@ -339,7 +339,7 @@ export function buildItaka(def, { world, own, srcMat }) {
         ps.set(x, ground(x, z) - 0.8, z);
         im.setMatrixAt(k++, m4.compose(ps, q.setFromEuler(new THREE.Euler(0, Math.random() * 6.28, 0)), sc.set(s, s * (0.85 + Math.random() * 0.4), s)));
       }
-      im.count = k; im.computeBoundingSphere(); im.receiveShadow = true; world.add(im);
+      im.count = k; im.computeBoundingSphere(); im.receiveShadow = true; world.add(im); im.userData.chunkInst = true;
     }
   }
 

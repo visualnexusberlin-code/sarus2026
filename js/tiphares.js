@@ -332,7 +332,7 @@ export function buildTiphares(def, { world, own, srcMat }) {
         im.setColorAt(j, col.setHex(fl ? flowers[i % flowers.length] : greens[i % greens.length]).multiplyScalar(0.85 + rnd() * 0.3));
       });
       i0 += list.length;
-      im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere();
+      im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); im.userData.chunkInst = true;
       world.add(im);
     }
   }
@@ -402,7 +402,7 @@ export function buildTiphares(def, { world, own, srcMat }) {
     }
     const im = new THREE.InstancedMesh(geo, mat, list.length), m4 = new THREE.Matrix4();
     list.forEach(([x, yy, z, r], i) => { m4.makeScale(r, r * 0.62, r).setPosition(x, yy, z); im.setMatrixAt(i, m4); });
-    im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); world.add(im);
+    im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); world.add(im); im.userData.chunkInst = true;
   }
 
   const fx = {
