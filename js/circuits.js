@@ -279,6 +279,7 @@ CIRCUITS.push({
   far: 420000,
   rockets: false,
   sunFrom: 'ceres',
+  mega: false,                                // circuito de lucha: sin esfera azul de mega turbo
   wallGrip: { slope: 0.62, v: 105 },          // THE WALL: por debajo de 380 km/h el imán no sujeta
   fallOff: true,                              // en los saltos no hay muros: quien despega torcido cae al vacío
   atmosphere: {
@@ -590,6 +591,7 @@ CIRCUITS.push({
   generated: 'pluto',
   music: 'ninth',                 // Beneath the Ninth (Dear)
   maxAmmo: 9,                      // cohetes acumulables hasta 9: más conflagración
+  mega: false,                     // circuito de lucha: sin esfera azul de mega turbo
   motes: false,
   inSectorOrder: false,
   hoverMax: 9,

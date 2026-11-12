@@ -164,4 +164,29 @@ export const SHIP_LORE = {
     lore: L('ORION desarrolla vehículos capaces de operar mucho tiempo lejos de cualquier infraestructura humana: en carrera, equilibrio y fiabilidad.', 'ORION builds vehicles able to operate for a long time far from any human infrastructure: in racing, balance and reliability.') },
 };
 
+// ── Láminas de archivo (pilots/<nodo>.webp): dónde está retratado el piloto de cada escudería ──
+const DOCKS = {
+  ILION_1: L('Astillero orbital · Marte', 'Orbital shipyard · Mars'),
+  SCUBA_2: L('Corteza de hielo · Europa', 'Ice crust · Europa'),
+  THULE_3: L('Puesto de carreras · Miranda', 'Racing outpost · Miranda'),
+  LUDOX_4: L('Campo de pruebas · Luna', 'Proving ground · Moon'),
+  PRIMEX_5: L('Hangar de lanzamiento · Órbita terrestre', 'Launch bay · Earth orbit'),
+  WOLFEN_6: L('Muelle de lanzamiento · Fobos', 'Launch berth · Phobos'),
+  ADAX_7: L('Laboratorio orbital · Venus', 'Orbital laboratory · Venus'),
+  NEXUS_8: L('Amanecer azul · Órbita terrestre', 'Blue dawn · Earth orbit'),
+  MANTA_9: L('Hangar orbital · Ceres', 'Orbital hangar · Ceres'),
+  BERLIN_10: L('Muelle orbital · Tierra', 'Orbital dock · Earth'),
+  X3LEE_11: L('Sala de exposición · Venus', 'Showroom · Venus'),
+  HUEMING_12: L('Sala de calibración · Luna', 'Calibration bay · Moon'),
+  VEGA_13: L('Bajo los anillos · Saturno', 'Beneath the rings · Saturn'),
+  RAMA_14: L('Atelier orbital · Tierra', 'Orbital atelier · Earth'),
+  UBIK_15: L('Acantilados de hielo · Miranda', 'Ice cliffs · Miranda'),
+  ALTAIR_16: L('Plataforma orbital · Marte', 'Orbital deck · Mars'),
+  KIBEROS_17: L('Órbita de Fobos', 'Phobos orbit'),
+  ORION_18: L('Muelle de Ceres', 'Ceres dock'),
+  PHANTOM_19: L('Anillos de Saturno', 'Saturn’s rings'),
+  ANTARES_20: L('Puerto de hielo · Saturno', 'Ice port · Saturn'),
+};
+for (const k in DOCKS) if (SHIP_LORE[k]) SHIP_LORE[k].dock = DOCKS[k];
+
 export const MOTTO = L('SARUS no enfrenta veinte naves. Enfrenta veinte filosofías tecnológicas.', 'SARUS does not pit twenty ships against each other. It pits twenty technological philosophies.');

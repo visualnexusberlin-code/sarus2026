@@ -1,8 +1,43 @@
-// Esferas de energía sobre la pista (verde = boost, roja = cohete) y cohetes teledirigidos.
+// Esferas de energía sobre la pista (verde = boost, roja = cohete, azul = mega turbo) y cohetes teledirigidos.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
-const COLORS = { G: new THREE.Color(0.22, 1.0, 0.36), R: new THREE.Color(1.0, 0.1, 0.04) };
+const COLORS = { G: new THREE.Color(0.22, 1.0, 0.36), R: new THREE.Color(1.0, 0.1, 0.04), B: new THREE.Color(0.1, 0.5, 1.0) };
+
+// Dónde va la esfera azul: en el primer tramo de la recta más larga del circuito (devuelve { s, straight } o null).
+// «Recta»: tramo donde el radio no baja de 300 m y el rumbo no gira más de 11° en total, sin saltos, vuelo libre,
+// obstáculos ni rampas de más del 30 %. Un salto justo al final de la recta suma (se llega a él lanzado).
+export function megaSpot(track, opt = {}) {
+  const M = CONFIG.mega;
+  if (!M || opt.mega === false) return null;
+  const F = track.frame();
+  const clearAt = (s) => !(track.gapAt && track.gapAt(s) >= 0) && !(track.flightAt && track.flightAt(s) > 0);
+  const run = (s0) => {
+    let L = 0, turn = 0;
+    for (; L < 1600; L += 10) {
+      track.sample(s0 + L, F); turn += F.kappa * 10;
+      if (Math.abs(F.kappa) > 1 / 300 || Math.abs(turn) > 0.19 || Math.abs(F.tan.y) > 0.3 || !clearAt(s0 + L)) break;
+      if (track.obstacles?.some((o) => Math.abs(track.delta(o.s, s0 + L)) < 12)) break;
+    }
+    return L;
+  };
+  let best = null;
+  if (Number.isFinite(opt.megaAt)) best = { s: track.wrap(opt.megaAt), straight: run(opt.megaAt) };
+  else {
+    for (let s = 200; s < track.length - 200; s += 20) {
+      const L = run(s);
+      if (L < M.minStraight) continue;
+      const jump = track.gapAt && track.gapAt(s + L + 20) >= 0 ? 200 : 0;
+      if (!best || L + jump > best.score) best = { s, straight: L, score: L + jump };
+    }
+    if (!best) return null;
+    best.s += Math.max(60, Math.min(120, best.straight * 0.2));   // ya dentro de la recta: da tiempo a centrarse al salir de la curva
+    // si cae junto a una fila de esferas, va 70 m después: primero la fila, luego la azul
+    const P = CONFIG.pickups, k = Math.round((best.s - P.firstAt) / P.every), row = P.firstAt + k * P.every;
+    if (k >= 0 && Math.abs(best.s - row) < 70 && run(row + 70) >= M.minStraight - 80) best.s = row + 70;
+  }
+  return best;
+}
 const PATTERNS = ['GRG', 'GGG', 'RGR', 'GGR', 'GRG', 'RGG', 'GGG', 'GRR'];
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
@@ -69,7 +104,7 @@ function haloMaterial(color, size) {
 }
 
 export class Pickups {
-  constructor(scene, track) {
+  constructor(scene, track, opt = {}) {
     this.track = track;
     const C = CONFIG.pickups;
     this.items = [];
@@ -82,11 +117,15 @@ export class Pickups {
       const wq = Math.min(1, track.wAt ? track.wAt(s) : 1);
       C.lanes.forEach((x, i) => this.items.push({ s, x: x * wq, type: pat[i], active: true, t: 0, pop: 1, seed: Math.random() * 10 }));
     }
+    // esfera azul de mega turbo: una, en el centro, al principio de la recta más larga
+    this.mega = megaSpot(track, opt);
+    if (this.mega) this.items.push({ s: this.mega.s, x: 0, type: 'B', big: 1.7, active: true, t: 0, pop: 1, seed: Math.random() * 10 });
+    this.types = this.mega ? ['G', 'R', 'B'] : ['G', 'R'];
     this.meshes = {};
     const geo = new THREE.IcosahedronGeometry(1.25, 3);
     const quad = new THREE.PlaneGeometry(1, 1);
     const ring = new THREE.TorusGeometry(1.85, 0.045, 6, 48);
-    for (const type of ['G', 'R']) {
+    for (const type of this.types) {
       const list = this.items.filter((i) => i.type === type);
       const core = new THREE.InstancedMesh(geo, coreMaterial(COLORS[type]), list.length);
       const halo = new THREE.InstancedMesh(quad, haloMaterial(COLORS[type], 11), list.length);
@@ -108,7 +147,7 @@ export class Pickups {
       if (!it.active || (it.type === 'R' && !wantRed)) continue;
       const d = this.track.delta(ship.s, it.s);
       if (d > 12 && d < range) {
-        const score = d + Math.abs(it.x - ship.x) * 4 - (it.type === 'G' ? 15 : 0);
+        const score = d + Math.abs(it.x - ship.x) * 4 - (it.type === 'B' ? 60 : it.type === 'G' ? 15 : 0);
         if (score < bd) { bd = score; best = it; }
       }
     }
@@ -117,28 +156,29 @@ export class Pickups {
 
   update(dt, ships, onPick) {
     this.t += dt;
-    const tr = this.track, respawn = CONFIG.pickups.respawn;
+    const tr = this.track, respawn = CONFIG.pickups.respawn, megaRespawn = CONFIG.mega?.respawn ?? respawn;
     for (const it of this.items) {
       if (!it.active) { it.t -= dt; if (it.t <= 0) { it.active = true; it.pop = 0; } continue; }
       it.pop = Math.min(1, it.pop + dt * 2.5);
       for (const sh of ships) {
         if (sh.dead > 0) continue;
         const d = tr.delta(sh.s, it.s);
-        if (Math.abs(d) < sh.length * 0.5 + 1.2 && Math.abs(sh.x - it.x) < sh.halfWidthGeo + 1.3) {
-          it.active = false; it.t = respawn;
+        const big = it.big || 1;
+        if (Math.abs(d) < sh.length * 0.5 + 1.2 * big && Math.abs(sh.x - it.x) < sh.halfWidthGeo + 1.3 * big) {
+          it.active = false; it.t = it.type === 'B' ? megaRespawn : respawn;
           onPick?.(sh, it);
           break;
         }
       }
     }
-    for (const type of ['G', 'R']) {
+    for (const type of this.types) {
       const { core, halo, rings, list } = this.meshes[type];
       core.material.uniforms.uTime.value = this.t;
       halo.material.uniforms.uTime.value = this.t;
       for (const it of list) {
         tr.sample(it.s, this.F);
-        const sc = it.active ? (1 - Math.pow(1 - it.pop, 3)) * (1 + 0.06 * Math.sin(this.t * 4 + it.seed)) : 0;
-        _v.copy(this.F.pos).addScaledVector(this.F.right, it.x).addScaledVector(this.F.up, 2.3 + Math.sin(this.t * 1.8 + it.seed) * 0.25);
+        const sc = it.active ? (1 - Math.pow(1 - it.pop, 3)) * (1 + 0.06 * Math.sin(this.t * 4 + it.seed)) * (it.big || 1) : 0;
+        _v.copy(this.F.pos).addScaledVector(this.F.right, it.x).addScaledVector(this.F.up, (it.big ? 3.1 : 2.3) + Math.sin(this.t * 1.8 + it.seed) * 0.25);
         _q.setFromAxisAngle(this.F.up, this.t * 1.3 + it.seed);
         _m.compose(_v, _q, _s.setScalar(Math.max(sc, 1e-4)));
         core.setMatrixAt(it.idx, _m); halo.setMatrixAt(it.idx, _m);

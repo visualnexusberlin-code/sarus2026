@@ -155,3 +155,22 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - Carga de GLB: lectura normal de GLTFLoader en web/app; la conversión de texturas a base64 queda solo para el visor restringido (single.html). Menos memoria pico al cargar en el móvil.
 - Teclado: Espacio vuelve a activar el botón enfocado fuera de carrera; en carrera sigue siendo boost.
 - Pendiente para la fase Capacitor (de la misma auditoría): salida `dist` sin single.html, fuentes locales, avisos de licencia, política de privacidad, ciclo de vida Android (pausa, Atrás, audio en segundo plano) y guardado duradero del campeonato. Bloom ligero: se deja como está (a media resolución), porque reducirlo más reintroducía cuadros parpadeantes en el móvil.
+
+## Hangar: láminas de pilotos (noviembre 2026)
+- `pilots/`: una lámina por escudería (imágenes de Dear, generadas con IA), en WebP: `<nodo>.webp` (1280 × 720) y `<nodo>-s.webp` (640 × 360), más `houses.webp` (cabecera). 41 archivos, 1,9 MB; se cargan bajo demanda, no en el arranque. El nombre es el nodo del GLB en minúsculas (`manta_9` es la nave que el juego llama X3LEE y `x3lee_11` la que llama MANTA).
+- **Al elegir nave:** lámina del piloto abajo a la derecha (arriba a la izquierda en vertical) con escudería y lugar (`dock` en `lore.js`). Al pulsarla se amplía; Esc, Enter o un toque la cierran.
+- **Ficha general de escuderías:** cabecera con lámina, los cuatro linajes y una tesela por escudería; pulsar una tesela lleva a esa nave. Sale la primera vez y después desde el botón «Escuderías» del hangar.
+- Sustituir una lámina: mismo nombre de archivo en `pilots/`. Si falta un archivo, la lámina o la tesela no se muestran y el resto sigue igual (es lo que ocurre en `dist/single.html`).
+
+## Restos de naves eliminadas: ya no encajan a nadie contra el muro (noviembre 2026)
+- **Causa** (`resolveCollisions` en `js/ai.js`): al tocar unos restos, la nave viva se empujaba siempre hacia su propio lado. Si estaba entre los restos y el guardarraíl y no cabía, el choque la metía en el muro, el muro la devolvía contra los restos y le quitaba velocidad en cada frame. Era común a todos los circuitos.
+- **Arreglo:** el lado de salida es el suyo solo si cabe entre los restos y el muro; si no, se la saca por el lado abierto (1,2 m por frame como máximo). Si no cabe por ninguno, los restos no bloquean.
+- **Válvula de seguridad:** una nave que lleva más de 1,2 s por debajo de 12 m/s contra restos los atraviesa durante 2,5 s (`wreckT`, `wreckFree`). Cubre el bolsillo entre dos restos. Vale también para los rivales.
+- **Prueba:** 36 colocaciones contra restos pegados al muro, acelerando desde parado, en ARCADIA, THARSIS SIERRA, CALORIS y VIRGIL-CTHULHU ABYSS. Antes: 7 de 36 atrapadas tras 8 s (ARCADIA). Ahora: 0, salida en 1,75 s como máximo; bolsillo de dos restos, 3 s como máximo.
+
+## Esfera azul: mega turbo (noviembre 2026)
+- **Qué hace:** 2,8 s de empuje propio (se pise o no el acelerador) con la punta 62 m/s por encima de la del boost; llena la energía de boost. Medido: de ~600 a ~900–940 km/h y 180–290 m ganados en 6 s. Parámetros en `CONFIG.mega` (`config.js`).
+- **Dónde va** (`megaSpot` en `pickups.js`): una por circuito, en el centro, 60–120 m dentro de la recta más larga (radio ≥ 300 m, giro total ≤ 11°, sin saltos, vuelo libre, obstáculos ni rampas > 30 %; mínimo 300 m). Si cae junto a una fila de esferas, va 70 m después. Reaparece a los 4 s.
+- **Por circuito** (`circuits.js`): `mega: false` la quita (CERES TRANSIT y VIRGIL-CTHULHU ABYSS, circuitos de lucha); `megaAt: <metros>` fija el sitio a mano.
+- **Rivales:** van a por ella y, mientras dura (y 3 s después), no frenan por exceso de velocidad en recta; las curvas siguen mandando (`ai.js`).
+- **Sitios actuales (metros desde la salida · recta):** ARCADIA 4400 · 640 | SELENE 1780 · 650 | TIPHARES 1740 · 750 | CALORIS 5800 · 1600 | NUEVA ITAKA 9842 · 510 | OLYMPUS 4392 · 560 | THARSIS 330 · 1000 | PHOBOS 5294 · 570 | EUROPA 5960 · 790 | CASSINI 5490 · 850 | ENCELADUS 8660 · 1230 | MIRANDA 6060 · 750 | TRITON 8960 · 910.

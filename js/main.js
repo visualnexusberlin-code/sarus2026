@@ -795,7 +795,7 @@ function finishCircuit(def, world, track, t0) {
   const dd = buildDeckDetail(world, track, def.deckDetail || {}, { skip: [[track.length - 140, track.length], ...(tn && !def.deckInTunnel ? [[tn.s, tn.s + tn.len]] : [])] });
   console.info(`[SRS] relieve del tablero: ${dd.pieces} piezas`);
   if (!G.fx.rockets) G.fx.rockets = new Rockets(scene, []);
-  G.pickups = new Pickups(world, track);
+  G.pickups = new Pickups(world, track, { mega: def.mega, megaAt: def.megaAt });
   G.missiles = new Missiles(world, track, { sparks: G.fx.sparks, smoke: G.fx.rockets.smoke });
 
   // lo que ya existía apunta a la pista nueva
@@ -975,6 +975,7 @@ function goSelect() {
   setView(G.showroom.scene, G.showroom.camera);
   prewarmHangar();
   renderFamilies();
+  $('plateBox').hidden = true;
   showChoice(G.choice);
   if (!store.get('sarus-lineage', false)) showLineage();
 }
@@ -1038,7 +1039,36 @@ function showChoice(i) {
   $('selLen').textContent = `${(sh.length / (CONFIG.shipScale || 1)).toFixed(1).replace('.', DEC)} m`;
   const lin = LINEAGES[d.lineage];
   $('selLore').innerHTML = `<span class="label">${lin ? lin.label : ''}</span><p>${d.lore || ''}</p><span class="label">${tr('En pista', 'On track')}</span><p>${d.tag}</p>`;
+  setPlate(d);
 }
+
+// Lámina de archivo: el piloto de la escudería elegida (pilots/<nodo>-s.webp; la grande se pide solo al ampliar).
+// Si el archivo no está (visor de un solo archivo), la lámina no se muestra.
+const plateSrc = (d, small) => `pilots/${d.node.toLowerCase()}${small ? '-s' : ''}.webp`;
+const plateAlt = (d) => `${tr('Piloto de', 'Pilot of')} ${d.house || d.name}`;
+function setPlate(d) {
+  const b = $('selPlate'), img = $('selPlateImg');
+  b.classList.remove('on'); b.hidden = false;
+  $('selPlateHouse').textContent = d.house || d.name;
+  $('selPlateDock').textContent = d.dock || '';
+  img.alt = plateAlt(d);
+  img.src = plateSrc(d, true);
+}
+$('selPlateImg').addEventListener('load', () => $('selPlate').classList.add('on'));
+$('selPlateImg').addEventListener('error', () => { $('selPlate').hidden = true; });
+function openPlate() {
+  const d = G.fleet[G.choice].def, lin = LINEAGES[d.lineage];
+  $('plateBoxImg').src = plateSrc(d, false); $('plateBoxImg').alt = plateAlt(d);
+  $('plateBoxLin').textContent = lin ? lin.label : '';
+  phrases($('plateBoxHouse'), [d.house || d.name, d.model], ' · ');
+  $('plateBoxDock').textContent = d.dock || '';
+  $('plateBox').hidden = false;
+  audio.beep(false);
+}
+function closePlate() { $('plateBox').hidden = true; $('plateBoxImg').removeAttribute('src'); }
+$('selPlate').addEventListener('click', openPlate);
+$('plateBox').addEventListener('click', closePlate);
+$('selHouses').addEventListener('click', () => { audio.beep(false); showLineage(); });
 $('selPrev').addEventListener('click', () => stepChoice(-1));
 $('selNext').addEventListener('click', () => stepChoice(1));
 $('selGo').addEventListener('click', () => confirmChoice());
@@ -1047,11 +1077,12 @@ $('selMap').addEventListener('click', () => { audio.beep(false); goMap(); });
 $('selMore').addEventListener('click', () => {
   const open = $('selLore').hidden;
   $('selLore').hidden = !open; $('selMore').setAttribute('aria-expanded', String(open));
+  $('select').classList.toggle('lore-open', open);   // en vertical, el texto ampliado ocupa el sitio de la lámina
   audio.beep(false);
 });
 {
   let x0 = null;
-  $('select').addEventListener('pointerdown', (e) => { if (!e.target.closest('button, .sel-panel, .lineage')) x0 = e.clientX; });
+  $('select').addEventListener('pointerdown', (e) => { if (!e.target.closest('button, .sel-panel, .lineage, .platebox')) x0 = e.clientX; });
   $('select').addEventListener('pointerup', (e) => {
     if (x0 === null) return;
     const dx = e.clientX - x0; x0 = null;
@@ -1059,14 +1090,27 @@ $('selMore').addEventListener('click', () => {
   });
 }
 
-// primera visita al hangar: los cuatro linajes corporativos
+// Ficha general de escuderías (primera visita al hangar, y después desde el botón «Escuderías»):
+// los cuatro linajes corporativos, con la lámina del piloto de cada casa. Pulsar una lámina lleva a su nave.
 function showLineage() {
   const el = $('lineage');
-  const byLin = (k) => G.fleet.filter((s) => s.def.lineage === k).map((s) => s.def.house).join(' · ');
-  el.innerHTML = `<span class="label">${tr('SARUS · Escuderías', 'SARUS · Racing houses')}</span><h3>${MOTTO}</h3><dl>${Object.entries(LINEAGES).map(([k, l]) => `<div><dt>${l.label}</dt><dd>${l.text}<br><em>${byLin(k)}</em></dd></div>`).join('')}</dl><div class="row" style="justify-content:flex-start"><button class="btn primary" type="button" id="linOk">${tr('Entrar al hangar', 'Enter hangar')}</button></div>`;
-  el.hidden = false;
-  $('linOk').addEventListener('click', () => { el.hidden = true; store.set('sarus-lineage', true); audio.beep(false); });
+  const tiles = (k) => G.fleet.map((s, i) => [s.def, i]).filter(([d]) => d.lineage === k)
+    .map(([d, i]) => `<button class="lin-tile" type="button" data-ship="${i}" title="${d.house} · ${d.model}"><img src="${plateSrc(d, true)}" alt="${plateAlt(d)}" width="640" height="360" loading="lazy" decoding="async"><span>${d.house}</span></button>`).join('');
+  el.innerHTML = `<div class="lin-head"><img src="pilots/houses.webp" alt="" width="1200" height="400"><div><span class="label">${tr('SARUS · Escuderías', 'SARUS · Racing houses')}</span><h3>${MOTTO}</h3></div></div>`
+    + `<dl>${Object.entries(LINEAGES).map(([k, l]) => `<div><dt>${l.label}</dt><dd>${l.text}<div class="lin-tiles">${tiles(k)}</div></dd></div>`).join('')}</dl>`
+    + `<div class="lin-ok"><button class="btn primary" type="button" id="linOk">${tr('Entrar al hangar', 'Enter hangar')}</button></div>`;
+  el.hidden = false; el.scrollTop = 0;
+  const close = () => { el.hidden = true; el.innerHTML = ''; store.set('sarus-lineage', true); audio.beep(false); };
+  $('linOk').addEventListener('click', close);
+  el.querySelectorAll('.lin-tile').forEach((b) => b.addEventListener('click', () => {
+    const i = +b.dataset.ship;
+    close();
+    if (G.family && G.fleet[i].def.family !== G.family) setFamily(null);
+    showChoice(i);
+  }));
 }
+// sin archivos de láminas (visor de un solo archivo): la ficha queda solo con texto
+$('lineage').addEventListener('error', (e) => { if (e.target.tagName === 'IMG') e.target.remove(); }, true);
 
 function renderCircuitChips() {
   const c = circuitById(G.pick);
@@ -1509,6 +1553,11 @@ function updateRace(dt) {
   }
   if (running) {
     G.pickups.update(dt, G.ships, (sh, it) => {
+      if (it.type === 'B') {
+        sh.megaPad();
+        if (sh === ship) { audio.chime(false); audio.ring?.(); ringFilm([70, 150, 255]); G.chase.addShake(0.5); hud.banner(tr('Mega turbo', 'Mega turbo'), tr('Esfera azul · agárrate', 'Blue sphere · hold on'), false, 1.8, true); }
+        return;
+      }
       if (it.type === 'G') sh.boostPad(); else sh.ammo = Math.min(CONFIG.maxAmmo ?? 2, sh.ammo + 1);
       G.training?.onPick(sh, it);
       if (sh === ship) {
@@ -1590,7 +1639,7 @@ function updateRace(dt) {
       const p = a.root.position.clone().lerp(b.root.position, 0.5);
       G.fx.sparks.burst(p, ship.velocity.clone().normalize().multiplyScalar(0.2), 16, 8 + impact * 0.3);
     }
-  });
+  }, dt);
   for (const sh of G.ships) sh.updateTransform();
 
   if (running) {
@@ -1946,6 +1995,7 @@ function tick(dt) {
   if (G.state === 'menu' && $('settings').hidden && input.hit('PadA', 'PadStart')) menuAction('race');
   else if (G.state === 'menu' && !$('settings').hidden && input.hit('Escape', 'PadB')) $('settings').hidden = true;
   else if (G.state === 'map' && input.hit('Escape', 'PadB')) showMenu();
+  else if (G.state === 'select' && !$('plateBox').hidden) { if (input.hit('Escape', 'Enter', 'Space', 'PadA', 'PadB', 'PadStart')) closePlate(); }
   else if (G.state === 'select') {
     const st = Math.round(input.state.steer);
     if (input.hit('ArrowLeft', 'KeyA') || (st < 0 && selPrevSteer >= 0 && !input.keys.size)) stepChoice(-1);
@@ -2039,7 +2089,7 @@ function tick(dt) {
   const sp = !inCircuit ? 0 : Math.min(1, G.ship.v / G.ship.C.vmaxBoost);
   const boostOn = inCircuit && (G.ship.boosting || G.ship.boostKick > 0);
   grade.uniforms.uTime.value = G.time;
-  grade.uniforms.uAberr.value += ((sp * sp * 0.006 + (boostOn ? 0.008 : 0)) - grade.uniforms.uAberr.value) * Math.min(1, dt * 4);
+  grade.uniforms.uAberr.value += ((sp * sp * 0.006 + (boostOn ? 0.008 : 0) + (inCircuit && G.ship.mega > 0 ? 0.008 : 0)) - grade.uniforms.uAberr.value) * Math.min(1, dt * 4);
   grade.uniforms.uBlur.value += (((boostOn ? 1 : 0) * sp) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
 
   updateLods(inCircuit);

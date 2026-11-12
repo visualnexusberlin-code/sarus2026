@@ -89,6 +89,10 @@ export class AIDriver {
     // ── Velocidad: la más baja que exija cualquier curva dentro de la distancia de frenada ──
     const rTot = C.turnHigh * (C.turnMult || 1) + C.airbrakeTurn * 0.85;
     let vt = C.vmax * (0.82 + 0.18 * skill) * this.pace;
+    // Mega turbo: mientras dura (y 3 s después, mientras la nave pierde sola la velocidad de más) no frena por ir «demasiado rápido»
+    // en recta; las curvas siguen mandando.
+    this.megaT = sh.mega > 0 ? 3 : Math.max(0, (this.megaT || 0) - dt);
+    if (this.megaT > 0) vt = Math.max(vt, v + 6);
     let straight = true;
     const scan = Math.min(480, 40 + v * 2.7);
     for (let d = 0; d <= scan; d += 8) {
@@ -124,7 +128,8 @@ export class AIDriver {
 }
 
 // Choques entre naves en espacio de pista: separación lateral y transferencia de velocidad.
-export function resolveCollisions(ships, track, onHit) {
+export function resolveCollisions(ships, track, onHit, dt = 1 / 60) {
+  for (const sh of ships) { if (sh.wreckFree > 0) sh.wreckFree -= dt; sh.wreckHit = false; }
   for (let i = 0; i < ships.length; i++) {
     for (let j = i + 1; j < ships.length; j++) {
       const a = ships[i], b = ships[j];
@@ -142,11 +147,22 @@ export function resolveCollisions(ships, track, onHit) {
       if (a.out || b.out) {
         // restos: masa muerta. Desvían a quien los toca y le roban velocidad; ellos apenas se mueven
         const w = a.out ? a : b, l = a.out ? b : a;
-        const sgn = Math.sign(l.x - w.x) || 1;
-        if (overlapX < overlapS * 0.6 || l !== back) { l.x += sgn * (overlapX + 0.05); l.phi *= 0.5; impact = Math.abs(l.v * Math.sin(l.phi)) + 3; }
+        if (l.wreckFree > 0) continue;
+        // Válvula de seguridad: una nave viva que lleva más de 1,2 s casi parada contra restos los atraviesa durante 2,5 s
+        // (dos restos juntos pueden formar un bolsillo del que no hay salida lateral).
+        l.wreckHit = true;
+        if (l.v < 12) { l.wreckT = (l.wreckT || 0) + dt; if (l.wreckT > 1.2) { l.wreckT = 0; l.wreckFree = 2.5; continue; } }
+        // Lado de salida: el suyo, salvo que entre los restos y el muro no quepa; entonces sale por el lado abierto.
+        // (Antes se la empujaba siempre hacia su lado: contra el muro quedaba encajada, y el muro le quitaba la velocidad cada frame.)
+        const lim = Math.max(l.C.wallAt * track.wAt(l.s) - l.halfWidthGeo * 0.85, (track.flightAt ? track.flightAt(l.s) : 0) * (track.flightR || 26) * 1.92);   // mismo límite que el muro en ship.js
+        const fits = (sg) => Math.abs(w.x + sg * (wid + 0.05)) <= lim;
+        let sgn = Math.sign(l.x - w.x) || 1, cross = false;
+        if (!fits(sgn)) { if (!fits(-sgn)) continue; sgn = -sgn; cross = true; }   // sin hueco por ningún lado: los restos no bloquean
+        const clear = Math.abs(w.x + sgn * (wid + 0.05) - l.x);                    // lo que falta para quedar libre por ese lado
+        if (overlapX < overlapS * 0.6 || l !== back) { l.x += sgn * (cross ? Math.min(clear, 1.2) : clear); l.phi *= 0.5; impact = Math.abs(l.v * Math.sin(l.phi)) + 3; }
         else {
           impact = l.v - w.v;
-          l.x += sgn * Math.min(overlapX + 0.05, 1.2);
+          l.x += sgn * Math.min(clear, 1.2);
           l.s = track.wrap(l.s - overlapS * (l === back ? 1 : -1));
           if (impact > 0) { w.v = Math.max(w.v, l.v * 0.35); l.v *= 0.62; l.spin = Math.max(l.spin, 0.5); }
         }
@@ -176,4 +192,5 @@ export function resolveCollisions(ships, track, onHit) {
       if (impact > 1.5) { a.bump = b.bump = 1; onHit?.(a, b, impact); }
     }
   }
+  for (const sh of ships) if (!sh.wreckHit && sh.wreckT > 0) sh.wreckT = Math.max(0, sh.wreckT - dt);
 }

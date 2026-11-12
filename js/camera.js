@@ -60,7 +60,7 @@ export class ChaseCamera {
     this.dir.lerp(_t, kYaw).normalize();
     this.up.lerp(_t2.copy(ship.upv).lerp(WORLD_UP, 0.45 * (1 - (ship.flyW || 0))).normalize(), kUp).normalize();
     // tirón de aceleración
-    const pullT = THREE.MathUtils.clamp(ship.accel * 0.035, -0.6, 1.8) + (ship.boosting ? 1.4 : 0);
+    const pullT = THREE.MathUtils.clamp(ship.accel * 0.035, -0.6, 1.8) + (ship.boosting ? 1.4 : 0) + (ship.mega > 0 ? 1.6 : 0);
     this.pull += (pullT - this.pull) * (1 - Math.exp(-dt * 2.5));
 
     const pos = new THREE.Vector3(), look = new THREE.Vector3();
@@ -80,7 +80,7 @@ export class ChaseCamera {
     this.cam.up.copy(_v);
     this.cam.lookAt(look);
 
-    const fovT = CC.fovBase + spd * CC.fovSpeed + (ship.boosting || ship.boostKick > 0 ? CC.fovBoost : 0);
+    const fovT = CC.fovBase + spd * CC.fovSpeed + (ship.boosting || ship.boostKick > 0 ? CC.fovBoost : 0) + (ship.mega > 0 ? CC.fovBoost * 1.1 * Math.min(1, ship.mega / 0.5) : 0);
     this.fov += (fovT - this.fov) * (instant ? 1 : 1 - Math.exp(-dt * 3));
     this.cam.fov = this.fov;
     this.cam.updateProjectionMatrix();

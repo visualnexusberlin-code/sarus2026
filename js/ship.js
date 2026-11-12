@@ -362,7 +362,7 @@ export class Ship {
     this.x = x; this.psi = 0; this.phi = 0; this.v = 0; this.omega = 0;
     this.h = this.C.hover; this.hv = 0;
     this.roll = 0; this.pitch = 0; this.yawVis = 0;
-    this.boost = 1; this.boosting = false; this.boostKick = 0;
+    this.boost = 1; this.boosting = false; this.boostKick = 0; this.mega = 0;
     this.throttle = 0; this.accel = 0;
     this.distance = 0;
     this.wallHit = 0; this.scraping = 0; this.bump = 0;
@@ -402,12 +402,17 @@ export class Ship {
     if (this.boosting) this.boost = Math.max(0, this.boost - C.boostDrain * dt);
     else this.boost = Math.min(1, this.boost + C.boostRegen * dt);
     this.boostKick = Math.max(0, this.boostKick - dt);
-    const boostOn = this.boosting || this.boostKick > 0;
+    // Mega turbo (esfera azul): unos segundos de empuje propio, pise o no el acelerador, con la punta muy por encima de la del boost
+    this.mega = ctl ? 0 : Math.max(0, this.mega - dt);
+    const MG = this.mega > 0 ? CONFIG.mega : null;
+    const megaK = MG ? Math.min(1, this.mega / 0.5) : 0;                       // se apaga en el último medio segundo
+    const boostOn = this.boosting || this.boostKick > 0 || !!MG;
     const dr = CONFIG.draft;
-    const vmax = (boostOn ? C.vmaxBoost : C.vmax) * (1 + dr.vmax * this.draft) * (1 - 0.1 * this.dmg);   // tocada: pierde punta
+    const vmax = ((boostOn ? C.vmaxBoost : C.vmax) + (MG ? MG.vmax * megaK : 0)) * (1 + dr.vmax * this.draft) * (1 - 0.1 * this.dmg);   // tocada: pierde punta
 
     // Velocidad longitudinal
     let a = thr * C.accel * (1 + dr.accel * this.draft) * Math.max(0, 1 - this.v / vmax) * (1 + (boostOn ? C.boostAccel / C.accel : 0));
+    if (MG) a += MG.accel * megaK * Math.max(0, 1 - this.v / vmax);
     if (this.v > vmax) a -= (this.v - vmax) * 0.8;
     a -= brk * C.brake;
     a -= (thr < 0.05 ? C.coastDrag : 0.01) * this.v;
@@ -637,7 +642,7 @@ export class Ship {
     this.fallGap = g || { s0: this.s - 200 };
     this.fall = 1e-4; this.fallY = 0; this.fallVy = 2; this.fallVx = -this.v * Math.sin(this.phi);
     this.fallRoll = (this.x > 0 ? 1 : -1) * (1.2 + Math.random()); this.invuln = 4;
-    this.boosting = false; this.boostKick = 0; this.fallEvent = 'fell';
+    this.boosting = false; this.boostKick = 0; this.mega = 0; this.fallEvent = 'fell';
   }
   fallUpdate(dt) {
     this.fall += dt;
@@ -668,7 +673,7 @@ export class Ship {
     this.hull -= 1;
     if (this.hull <= 0) {                                 // eliminada: sin reconstrucción
       this.hull = 0; this.out = true; this.dead = 1e9; this.outAt = this.t;
-      this.boost = 0; this.ammo = 0; this.boosting = false; this.boostKick = 0; this.draft = 0;
+      this.boost = 0; this.ammo = 0; this.boosting = false; this.boostKick = 0; this.mega = 0; this.draft = 0;
       this.v *= 0.55; this.spin = 1; this.hv += 4 / this.C.mass;
       this.wreckRoll = (Math.random() < 0.5 ? -1 : 1) * (0.32 + Math.random() * 0.2);
       this.setDamage();
@@ -678,7 +683,7 @@ export class Ship {
     this.v *= 0.38;
     this.spin = 1; this.stun = 0.7;
     this.hv += 3.5 / this.C.mass;
-    this.boostKick = 0; this.boosting = false;
+    this.boostKick = 0; this.boosting = false; this.mega = 0;
     return 'hit';
   }
 
@@ -726,6 +731,13 @@ export class Ship {
   boostPad() {
     this.boost = Math.min(1, this.boost + 0.45);
     this.boostKick = Math.max(this.boostKick, 0.9 * (this.C.kick || 1));
+  }
+
+  // Esfera azul: mega turbo. Llena la energía de boost y lanza la nave unos segundos
+  megaPad() {
+    this.boost = 1;
+    this.mega = CONFIG.mega.time;
+    this.boostKick = Math.max(this.boostKick, CONFIG.mega.time);
   }
 
   worldPoint(local, out) { return out.copy(local).applyMatrix4(this.model.matrixWorld); }

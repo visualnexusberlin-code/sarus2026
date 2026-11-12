@@ -31,6 +31,10 @@ export const CONFIG = {
   draft: { min: 6, max: 50, lateral: 3.2, vmax: 0.06, accel: 0.15 },   // rebufo: hasta +6 % de punta pegado a otra nave
   respawn: { time: 3.0, back: 60, invuln: 2.5 },                          // nave destruida: fuera 3 s, reaparece 60 m atrás
   pickups: { every: 430, firstAt: 260, respawn: 6, lanes: [-8.5, 0, 8.5] },
+  // Esfera azul (mega turbo): una por circuito, al principio de la recta más larga. time: duración · vmax: punta extra sobre la del boost
+  // · accel: empuje extra · minStraight: recta mínima para que el circuito tenga esfera · respawn: segundos hasta que reaparece.
+  // Por circuito (circuits.js): mega: false la quita; megaAt: <metros> fija el sitio a mano.
+  mega: { time: 2.8, vmax: 62, accel: 85, minStraight: 300, respawn: 4 },
   gridOffset: 30,
   shipScale: 1.5,            // las naves de Blender miden ~5,5 m; en pista se ven a 1,5×            // metros por detrás de la línea de salida (Sector 01)
 
