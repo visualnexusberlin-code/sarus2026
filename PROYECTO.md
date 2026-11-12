@@ -174,3 +174,9 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - **Por circuito** (`circuits.js`): `mega: false` la quita (CERES TRANSIT y VIRGIL-CTHULHU ABYSS, circuitos de lucha); `megaAt: <metros>` fija el sitio a mano.
 - **Rivales:** van a por ella y, mientras dura (y 3 s después), no frenan por exceso de velocidad en recta; las curvas siguen mandando (`ai.js`).
 - **Sitios actuales (metros desde la salida · recta):** ARCADIA 4400 · 640 | SELENE 1780 · 650 | TIPHARES 1740 · 750 | CALORIS 5800 · 1600 | NUEVA ITAKA 9842 · 510 | OLYMPUS 4392 · 560 | THARSIS 330 · 1000 | PHOBOS 5294 · 570 | EUROPA 5960 · 790 | CASSINI 5490 · 850 | ENCELADUS 8660 · 1230 | MIRANDA 6060 · 750 | TRITON 8960 · 910.
+
+## Marco de archivo de las láminas (noviembre 2026)
+- `plateDeco(d)` en `main.js` dibuja un SVG con viewBox fijo 1728 × 1028 sobre `.pframe` (misma proporción; la imagen va en 64,64 · 1600 × 900): esquinas escalonadas art déco con doble línea (la interior en bermellón), clave superior, pistas de circuito bermellón que entran en la imagen terminando en nodos, regla, abanico, viñeta y líneas de barrido tenues.
+- Se usa en la lámina del hangar, en la ampliación y en las teselas de la ficha de escuderías. Trazos de 1 px a cualquier tamaño (`vector-effect: non-scaling-stroke`); el brillo bermellón es un filtro SVG único (`#pfGlow`).
+- Detalle según tamaño (container queries): por debajo de 250 px, solo esquinas, marco y pistas sin brillo; desde 560 px, textos (N° de nodo y escudería en la clave; «SARUS · ARCHIVO DE PILOTOS» en vertical).
+- Al cambiar de nave o al ampliar, el marco se dibuja de izquierda a derecha en 0,7 s (sin animación con «reducir movimiento»).

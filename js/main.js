@@ -1046,6 +1046,49 @@ function showChoice(i) {
 // Si el archivo no está (visor de un solo archivo), la lámina no se muestra.
 const plateSrc = (d, small) => `pilots/${d.node.toLowerCase()}${small ? '-s' : ''}.webp`;
 const plateAlt = (d) => `${tr('Piloto de', 'Pilot of')} ${d.house || d.name}`;
+
+// Marco de archivo SARUS (art déco técnico): esquinas escalonadas, clave superior con el número de nodo,
+// pistas de circuito bermellón que entran en la imagen, regla y abanico. Coordenadas en el viewBox 1728 × 1028
+// (imagen en 64,64 · 1600 × 900). Lo fino (.pf-fine) y los textos (.pf-t) solo se ven si el marco es grande.
+function plateDeco(d) {
+  const W = 1728, Hh = 1028, cx = W / 2;
+  const num = String((d.node.match(/_(\d+)$/) || [0, ''])[1]).padStart(2, '0');
+  const corner = '<path class="pf-l" d="M24 240V64L64 24H240"/><path class="pf-a" d="M38 150V78L78 38H150"/>'
+    + '<rect class="pf-f" x="21" y="252" width="6" height="6"/><rect class="pf-f" x="252" y="21" width="6" height="6"/>'
+    + '<path class="pf-l pf-fine" d="M24 268V300M268 24H300"/>';
+  const corners = [[1, 1, 0, 0], [-1, 1, W, 0], [1, -1, 0, Hh], [-1, -1, W, Hh]]
+    .map(([sx, sy, tx, ty]) => `<g transform="translate(${tx} ${ty}) scale(${sx} ${sy})">${corner}</g>`).join('');
+  // pistas: tres por la izquierda (bajan y entran en la imagen a 45°) y tres por abajo a la derecha
+  let traces = '', nodes = '';
+  [22, 34, 46].forEach((x, i) => {
+    const y1 = 700 + i * 26, y2 = y1 + (64 - x);
+    traces += `<path class="pf-a" d="M${x} ${330 + i * 22}V${y1}L64 ${y2}"/>`;
+    nodes += `<circle class="pf-no" cx="${x}" cy="${330 + i * 22}" r="5"/><circle class="pf-n" cx="64" cy="${y2}" r="5"/>`;
+  });
+  [984, 996, 1008].forEach((y, i) => {
+    const x0 = 960 - i * 46, xe = 1300 + i * 18, xd = xe + (y - 964);
+    traces += `<path class="pf-a pf-fine" d="M${x0} ${y}H${xe}L${xd} 964"/>`;
+    nodes += `<g class="pf-fine"><circle class="pf-no" cx="${x0}" cy="${y}" r="5"/><circle class="pf-n" cx="${xd}" cy="964" r="5"/></g>`;
+  });
+  let ticks = '';
+  for (let k = 0; k <= 24; k++) { const x = 340 + k * 16, h = k % 6 ? 8 : 18; ticks += `M${x} ${1000 - h}V1000`; }
+  let fan = '';
+  for (let k = -4; k <= 4; k++) fan += `M${cx} 1018L${cx + k * 26} 972`;
+  const ink = d.house || d.name;
+  return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none" aria-hidden="true">`
+    + `<path class="pf-o" d="M56 8H${W - 56}L${W - 8} 56V${Hh - 56}L${W - 56} ${Hh - 8}H56L8 ${Hh - 56}V56Z"/>`
+    + `<rect class="pf-i" x="64" y="64" width="1600" height="900"/>`
+    + `<path class="pf-g pf-fine" d="M104 82H${W - 104}L${W - 82} 104V${Hh - 104}L${W - 104} ${Hh - 82}H104L82 ${Hh - 104}V104Z"/>`
+    + corners
+    + `<path class="pf-l pf-fine" d="${ticks}"/><path class="pf-l pf-fine" style="opacity:.55" d="${fan}"/>`
+    + `<g class="pf-fine pf-bars"><rect class="pf-f" x="${W - 33}" y="${Hh / 2 - 46}" width="6" height="6"/><rect class="pf-f" x="${W - 33}" y="${Hh / 2 - 26}" width="6" height="6"/><rect class="pf-f" x="${W - 33}" y="${Hh / 2 - 6}" width="6" height="6"/></g>`
+    + `<g class="pf-acc">${traces}${nodes}</g>`
+    + `<path class="pf-k" d="M${cx - 210} 8H${cx + 210}L${cx + 176} 52H${cx - 176}Z"/>`
+    + `<g class="pf-bars"><rect class="pf-f" x="${cx - 33}" y="21" width="6" height="18"/><rect class="pf-f" x="${cx - 3}" y="21" width="6" height="18"/><rect class="pf-f" x="${cx + 27}" y="21" width="6" height="18"/></g>`
+    + `<text class="pf-t" x="${cx}" y="37" text-anchor="middle">N° ${num} · ${ink}</text>`
+    + `<text class="pf-t pf-tv" transform="translate(${W - 26} ${Hh / 2}) rotate(90)" text-anchor="middle">SARUS · ${tr('ARCHIVO DE PILOTOS', 'PILOT ARCHIVE')} · N° ${num}</text>`
+    + '</svg>';
+}
 function setPlate(d) {
   const b = $('selPlate'), img = $('selPlateImg');
   b.classList.remove('on'); b.hidden = false;
@@ -1053,12 +1096,14 @@ function setPlate(d) {
   $('selPlateDock').textContent = d.dock || '';
   img.alt = plateAlt(d);
   img.src = plateSrc(d, true);
+  $('selPlateDeco').innerHTML = plateDeco(d);   // se reconstruye en cada cambio: así el marco se vuelve a encender
 }
 $('selPlateImg').addEventListener('load', () => $('selPlate').classList.add('on'));
 $('selPlateImg').addEventListener('error', () => { $('selPlate').hidden = true; });
 function openPlate() {
   const d = G.fleet[G.choice].def, lin = LINEAGES[d.lineage];
   $('plateBoxImg').src = plateSrc(d, false); $('plateBoxImg').alt = plateAlt(d);
+  $('plateBoxDeco').innerHTML = plateDeco(d);
   $('plateBoxLin').textContent = lin ? lin.label : '';
   phrases($('plateBoxHouse'), [d.house || d.name, d.model], ' · ');
   $('plateBoxDock').textContent = d.dock || '';
@@ -1095,7 +1140,7 @@ $('selMore').addEventListener('click', () => {
 function showLineage() {
   const el = $('lineage');
   const tiles = (k) => G.fleet.map((s, i) => [s.def, i]).filter(([d]) => d.lineage === k)
-    .map(([d, i]) => `<button class="lin-tile" type="button" data-ship="${i}" title="${d.house} · ${d.model}"><img src="${plateSrc(d, true)}" alt="${plateAlt(d)}" width="640" height="360" loading="lazy" decoding="async"><span>${d.house}</span></button>`).join('');
+    .map(([d, i]) => `<button class="lin-tile" type="button" data-ship="${i}" title="${d.house} · ${d.model}"><span class="pframe"><img src="${plateSrc(d, true)}" alt="${plateAlt(d)}" width="640" height="360" loading="lazy" decoding="async"><span class="pf-deco">${plateDeco(d)}</span></span><span>${d.house}</span></button>`).join('');
   el.innerHTML = `<div class="lin-head"><img src="pilots/houses.webp" alt="" width="1200" height="400"><div><span class="label">${tr('SARUS · Escuderías', 'SARUS · Racing houses')}</span><h3>${MOTTO}</h3></div></div>`
     + `<dl>${Object.entries(LINEAGES).map(([k, l]) => `<div><dt>${l.label}</dt><dd>${l.text}<div class="lin-tiles">${tiles(k)}</div></dd></div>`).join('')}</dl>`
     + `<div class="lin-ok"><button class="btn primary" type="button" id="linOk">${tr('Entrar al hangar', 'Enter hangar')}</button></div>`;

@@ -421,25 +421,59 @@
   .lineage dt { font-family: var(--display); font-size: 9px; letter-spacing: .24em; color: #19e0cc; }
   .lineage dd { margin: 2px 0 0; font-size: 11px; color: var(--fog-dim); line-height: 1.5; }
   .lin-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; margin-top: 8px; }
-  .lin-tile { display: grid; padding: 0; border: 1px solid var(--fog-faint); background: #0c0d0e; color: var(--fog); cursor: pointer; text-align: left; min-width: 0; }
-  .lin-tile:hover, .lin-tile:focus-visible { border-color: var(--fog); outline: none; }
-  .lin-tile img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
-  .lin-tile span { font-family: var(--display); font-size: 7px; letter-spacing: .14em; padding: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lin-tile { display: grid; padding: 0; border: 0; background: none; color: var(--fog); cursor: pointer; text-align: left; min-width: 0; }
+  .lin-tile:focus-visible { outline: none; }
+  .lin-tile > span { font-family: var(--display); font-size: 7px; letter-spacing: .14em; padding: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lin-ok { position: sticky; bottom: 0; padding: 14px 22px 16px; background: linear-gradient(rgba(12,13,14,0), rgba(12,13,14,.96) 40%); }
   @media (orientation: portrait) { .lineage dl { grid-template-columns: minmax(0, 1fr); } .lin-head img { aspect-ratio: 3 / 1; } }
 
   /* ---------- Hangar: lámina de archivo del piloto de la escudería elegida ---------- */
   .sel-top .chip { margin-left: auto; padding: 6px 9px; font-size: 8px; }
   .plate { position: fixed; right: calc(var(--gutter) + env(safe-area-inset-right, 0px)); bottom: calc(var(--gutter) + env(safe-area-inset-bottom, 0px));
-    width: min(340px, 30vw); display: grid; padding: 0; border: 1px solid var(--fog-faint); background: rgba(12,13,14,.82); color: var(--fog);
+    width: min(360px, 31vw); display: grid; gap: 3px; padding: 0; border: 0; background: none; color: var(--fog);
     text-align: left; cursor: zoom-in; opacity: 0; transition: opacity .35s; }
   .plate.on { opacity: 1; }
-  .plate:hover, .plate:focus-visible { border-color: var(--fog); outline: none; }
-  .plate img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
-  .plate-cap { display: grid; gap: 2px; padding: 7px 10px 8px; font-size: 10px; letter-spacing: .06em; line-height: 1.4; color: var(--fog-dim); }
-  .plate-cap b { font-family: var(--display); font-weight: 400; font-size: 8px; letter-spacing: .24em; color: var(--fog); }
+  .plate:focus-visible { outline: none; }
+  .plate-cap { display: grid; gap: 3px; padding: 7px 12px 8px; background: rgba(12,13,14,.88); font-size: 10px; line-height: 1.4; color: var(--fog-dim);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%); }
+  .plate-cap b, .platebox figcaption b { font-family: var(--display); font-weight: 400; font-size: 8px; letter-spacing: .24em; color: var(--fog); }
+  .plate-cap b::before, .platebox figcaption b::before { content: ''; display: inline-block; width: 16px; height: 1px; margin: 0 9px 0 0; vertical-align: middle; background: var(--vermilion); }
+  .plate-cap span, .platebox figcaption > span:last-child { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; }
+
+  /* Marco de archivo SARUS: art déco técnico. Un SVG con viewBox fijo (1728 × 1028) sobre una caja de la misma proporción,
+     así nada se deforma; los trazos no escalan (1 px en cualquier tamaño). El detalle fino solo aparece cuando hay sitio. */
+  .pframe { position: relative; display: block; width: 100%; aspect-ratio: 1728 / 1028; container-type: inline-size; background: rgba(12,13,14,.88);
+    clip-path: polygon(3.24% 0, 96.76% 0, 100% 5.45%, 100% 94.55%, 96.76% 100%, 3.24% 100%, 0 94.55%, 0 5.45%); }
+  .pframe > img, .pframe::after { position: absolute; left: 3.7037%; top: 6.2257%; width: 92.5926%; height: 87.5486%; }
+  .pframe > img { display: block; object-fit: cover; }
+  .pframe::after { content: ''; pointer-events: none;   /* viñeta y líneas de barrido muy tenues: la lámina como pantalla de archivo */
+    background: radial-gradient(ellipse at 50% 46%, rgba(8,9,10,0) 58%, rgba(8,9,10,.5) 100%), repeating-linear-gradient(0deg, rgba(0,0,0,.1) 0 1px, rgba(0,0,0,0) 1px 3px); }
+  .pf-deco, .pf-deco svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: visible; }
+  .pf-deco * { vector-effect: non-scaling-stroke; }
+  .pf-o { fill: none; stroke: rgba(216,213,205,.3); }
+  .pf-l { fill: none; stroke: rgba(216,213,205,.62); }
+  .pf-i { fill: none; stroke: rgba(216,213,205,.38); }
+  .pf-g { fill: none; stroke: rgba(216,213,205,.16); }
+  .pf-k { fill: #141617; stroke: rgba(216,213,205,.62); }
+  .pf-f { fill: var(--fog); }
+  .pf-a { fill: none; stroke: var(--vermilion); stroke-width: 1.4; transition: stroke .25s; }
+  .pf-n { fill: var(--vermilion); }
+  .pf-no { fill: #0c0d0e; stroke: var(--vermilion); }
+  .pf-acc { filter: url(#pfGlow); }
+  .pf-t { display: none; font-family: var(--display); font-size: 19px; letter-spacing: .32em; fill: var(--fog); }
+  .pf-tv { font-size: 15px; fill: rgba(216,213,205,.55); }
+  .pf-fine { display: none; }
+  @container (min-width: 250px) { .pf-fine { display: inline; } }
+  @container (min-width: 560px) { .pf-t { display: inline; } .pf-bars { display: none; } }
+  @container (max-width: 249px) { .pf-acc { filter: none; } .pf-a { stroke-width: 1; } }
+  .plate:hover .pf-a, .plate:focus-visible .pf-a, .lin-tile:hover .pf-a, .lin-tile:focus-visible .pf-a { stroke: #ff6a4a; }
+  .plate:hover .pf-o, .plate:focus-visible .pf-o, .lin-tile:hover .pf-o, .lin-tile:focus-visible .pf-o { stroke: var(--fog); }
+  /* encendido: el marco se dibuja de izquierda a derecha al cambiar de nave o al ampliar */
+  .plate .pf-deco svg, .platebox .pf-deco svg { animation: pfOn .7s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes pfOn { from { clip-path: inset(0 100% 0 0); opacity: .35; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .plate .pf-deco svg, .platebox .pf-deco svg { animation: none; } }
   @media (orientation: portrait) {
-    .plate { right: auto; bottom: auto; left: calc(var(--gutter) + env(safe-area-inset-left, 0px)); top: calc(var(--gutter) + env(safe-area-inset-top, 0px)); width: min(150px, 38vw); }
+    .plate { right: auto; bottom: auto; left: calc(var(--gutter) + env(safe-area-inset-left, 0px)); top: calc(var(--gutter) + env(safe-area-inset-top, 0px)); width: min(160px, 40vw); }
     .plate-cap, #select.lore-open .plate { display: none; }
   }
   @media (max-height: 430px) and (orientation: landscape) { .plate { width: min(210px, 25vw); } .plate-cap span { display: none; } }
@@ -447,10 +481,10 @@
     display: grid; place-content: center; justify-items: start; gap: 12px; padding: var(--gutter); }
   body:has(#lineage:not([hidden])) #rotate, body:has(#plateBox:not([hidden])) #rotate { display: none; }   /* el aviso de girar el móvil no pisa la ficha ni la lámina ampliada */
   @media (max-height: 500px) { .lin-head img { aspect-ratio: 9 / 1; } .lin-head div { padding-top: 14px; } }
-  .platebox figure { margin: 0; display: grid; gap: 10px; }
-  .platebox img { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100dvh - 2 * var(--gutter) - 110px); border: 1px solid var(--fog-faint); }
-  .platebox figcaption { display: grid; gap: 4px; font-size: 12px; letter-spacing: .06em; color: var(--fog-dim); }
-  .platebox figcaption b { font-family: var(--display); font-weight: 400; font-size: 12px; letter-spacing: .2em; color: var(--fog); }
+  .platebox figure { margin: 0; display: grid; gap: 12px; width: min(calc(100vw - 2 * var(--gutter)), calc((100dvh - 2 * var(--gutter) - 120px) * 1.681)); }
+  .platebox figcaption { display: grid; gap: 5px; padding: 0 3.7%; font-size: 12px; letter-spacing: .06em; color: var(--fog-dim); }
+  .platebox figcaption b { font-size: 12px; letter-spacing: .2em; }
+  .platebox figcaption > span:last-child { font-size: 10px; }
   @media (max-height: 500px) { .sel-meta, .sel-house { font-size: 10px; } .fam .chip { padding: 4px 7px; } .sel-lore { font-size: 11px; } }
 
   /* ---------- Solar Map ---------- */
@@ -705,10 +739,13 @@
     <div class="sel-circ-row"><span class="label" data-en="Circuit">Circuito</span><b id="selCirc">01 · ARCADIA</b><button class="chip" type="button" id="selMap" data-en="Solar Map">Mapa solar</button></div>
     <span class="label desk-only"><span class="ph" data-en="← → ship ·">← → nave ·</span> <span class="ph" data-en="↑ ↓ family ·">↑ ↓ familia ·</span> <span class="ph" data-en="M map ·">M mapa ·</span> <span class="ph" data-en="Enter race">Enter correr</span></span>
   </div>
-  <button class="plate" type="button" id="selPlate" hidden aria-label="Ampliar la lámina del piloto" data-en-aria="Enlarge the pilot plate"><img id="selPlateImg" alt="" width="640" height="360" decoding="async"><span class="plate-cap"><b id="selPlateHouse"></b><span id="selPlateDock"></span></span></button>
+  <button class="plate" type="button" id="selPlate" hidden aria-label="Ampliar la lámina del piloto" data-en-aria="Enlarge the pilot plate"><span class="pframe"><img id="selPlateImg" alt="" width="640" height="360" decoding="async"><span class="pf-deco" id="selPlateDeco"></span></span><span class="plate-cap"><b id="selPlateHouse"></b><span id="selPlateDock"></span></span></button>
   <div class="lineage" id="lineage" hidden></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+    <filter id="pfGlow" filterUnits="userSpaceOnUse" x="-60" y="-60" width="1848" height="1148"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs></svg>
   <div class="platebox" id="plateBox" hidden role="dialog" aria-modal="true" aria-labelledby="plateBoxHouse">
-    <figure><img id="plateBoxImg" alt="" width="1280" height="720"><figcaption><span class="label" id="plateBoxLin"></span><b id="plateBoxHouse"></b><span id="plateBoxDock"></span></figcaption></figure>
+    <figure><span class="pframe"><img id="plateBoxImg" alt="" width="1280" height="720"><span class="pf-deco" id="plateBoxDeco"></span></span><figcaption><span class="label" id="plateBoxLin"></span><b id="plateBoxHouse"></b><span id="plateBoxDock"></span></figcaption></figure>
     <button class="btn sm" type="button" id="plateBoxClose" data-en="Close">Cerrar</button>
   </div>
 </div>
