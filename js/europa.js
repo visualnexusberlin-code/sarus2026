@@ -222,6 +222,8 @@ function iceMaterial(tex) {
           // hielo blanco-azulado, cada placa con su tono
           vec3 ice = mix(vec3(0.5, 0.6, 0.74), vec3(0.8, 0.86, 0.94), f1 * 0.6 + T.b * 0.4);
           ice *= 0.93 + 0.1 * f2;
+          ice = mix(ice, ice * vec3(0.7, 0.82, 1.0), 0.35);                                                   // más azul en conjunto
+          ice = mix(ice, vec3(0.6, 0.4, 0.32), smoothstep(0.6, 0.82, inn(p.xz * 0.007 + 7.0)) * 0.3);          // manchas pardas amplias
           // vetas claras (hielo recongelado) y, de cerca, la red fina
           float fade = 1.0 - smoothstep(60.0, 260.0, camD);
           float v2 = fade > 0.0 ? texture2D(uIceTex, mat2(0.8, 0.6, -0.6, 0.8) * p.xz / 116.0).g * 0.5 : 1.0;
@@ -244,6 +246,18 @@ function iceMaterial(tex) {
           iGlint = step(0.9985, ih(floor(p.xz * 2.3))) * (1.0 - iSteep) * fade;
         }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(mix(0.32, 0.18, iVein), 0.6, iCrack); roughnessFactor = mix(roughnessFactor, 0.2, iSteep);')
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        {
+          // microrrelieve: nieve granulada y escarcha, solo de cerca (se apaga con la distancia para no centellear)
+          float cd = length(cameraPosition - vIW), k = (1.0 - smoothstep(120.0, 650.0, cd)) * (1.0 - iSteep * 0.6);
+          if (k > 0.0) {
+            vec2 q = vIW.xz; const float e = 0.35;
+            #define IH(v) (inn((v) * 0.21) * 1.0 + inn((v) * 0.63 + 3.7) * 0.5 + inn((v) * 1.9 + 9.1) * 0.22)
+            float h0 = IH(q), hx = IH(q + vec2(e, 0.0)), hz = IH(q + vec2(0.0, e));
+            vec3 g = vec3(h0 - hx, 0.0, h0 - hz) / e;
+            normal = normalize(normal + mat3(viewMatrix) * g * 1.5 * k);
+          }
+        }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += vec3(0.08, 0.5, 1.0) * smoothstep(0.02, 0.7, iDep) * (0.5 + 0.9 * iStreak) * 1.7;
         totalEmissiveRadiance += vec3(0.05, 0.08, 0.13) * (1.0 - iSteep) * (1.0 - iCrack);
@@ -251,7 +265,7 @@ function iceMaterial(tex) {
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
         { float cd = length(cameraPosition - vIW); float k = smoothstep(80.0, 900.0, cd); reflectedLight.directSpecular *= mix(1.0, 0.04, k); reflectedLight.indirectSpecular *= mix(1.0, 0.12, k); }`);
   };
-  m.customProgramCacheKey = () => 'euIce4';
+  m.customProgramCacheKey = () => 'euIce5';
   return m;
 }
 
@@ -368,9 +382,23 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
 
   // ── Suelo: llanura de hielo (las placas y grietas las dibuja el shader), montículo, simas y fisuras ──
+  // Relieve (prueba visual): crestas y lomos de hielo que crecen al alejarse de la pista (nada bajo el tablero),
+  // para que la llanura deje de ser un plano y la pista se lea encajada en el terreno.
+  const CELL = 170, pathGrid = new Map();
+  S.forEach((p) => { const k = Math.floor(p.x / CELL) + ',' + Math.floor(p.z / CELL); let l = pathGrid.get(k); if (!l) pathGrid.set(k, l = []); l.push(p.x, p.z); });
+  const pathDist = (x, z) => {
+    const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL); let d2 = CELL * CELL;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const l = pathGrid.get((cx + i) + ',' + (cz + j)); if (!l) continue; for (let q = 0; q < l.length; q += 2) { const dx = l[q] - x, dz = l[q + 1] - z, d = dx * dx + dz * dz; if (d < d2) d2 = d; } }
+    return Math.sqrt(d2);
+  };
+  const relief = (x, z) => {
+    const m = sstep(30, 150, pathDist(x, z)); if (m <= 0) return 0;
+    const r1 = 1 - Math.abs(2 * vn(x / 95 + 3.1, z / 95 - 1.7) - 1), r2 = 1 - Math.abs(2 * vn(x / 38 - 7.3, z / 38 + 4.4) - 1);
+    return m * (15 * r1 * r1 * (0.35 + 0.65 * vn(x / 420, z / 420)) + 4.5 * r2 * r2 + 2.2 * (vn(x / 11, z / 11) - 0.5));
+  };
   const surf = (x, z) => {
     const dm = Math.hypot(x - citadel.x, z - citadel.z);
-    return 1.6 * (vn(x / 140, z / 140) - 0.5) + 0.35 * (vn(x / 17, z / 17) - 0.5) + (dm < 600 ? 74 * Math.exp(-((dm / 185) ** 2)) * (0.85 + 0.3 * vn(x / 40, z / 40)) : 0);
+    return relief(x, z) + 1.6 * (vn(x / 140, z / 140) - 0.5) + 0.35 * (vn(x / 17, z / 17) - 0.5) + (dm < 600 ? 74 * Math.exp(-((dm / 185) ** 2)) * (0.85 + 0.3 * vn(x / 40, z / 40)) : 0);
   };
   const chasmT = (x, z) => {
     let t = 0;
@@ -441,7 +469,7 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
 
   // ── Tablero: grafito y plata, quilla con luz azul (la pista flota sobre las simas) ──
   const M = {
-    deck: deckMaterial(srcMat('S6 | UV worn technology', (m) => m.color.setHex(0x5a6068))),
+    deck: deckMaterial(srcMat('S6 | UV worn technology', (m) => m.color.setHex(0x646a72)), { wet: { rings: rings.map((f) => f * L) } }),
     guard: guardMaterial(srcMat('S6 | Pale mineral track', (m) => m.color.setHex(0xe6ecf2))),
     rib: srcMat('S6 | Ash concrete', (m) => m.color.setHex(0xc9d1da)),
     frame: srcMat('S6 | Charcoal structure', (m) => m.color.setHex(0xd4dbe3)),
@@ -744,7 +772,7 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
 
   // ── Anillos de carrera ──
-  const rr = buildRaceRings(world, track, rings.map((f) => f * L), own);
+  const rr = buildRaceRings(world, track, rings.map((f) => f * L), own, { style: 'arch' });
   const gates = rr.gates;
 
   const fx = {

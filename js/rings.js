@@ -69,7 +69,12 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
     silver: new THREE.MeshStandardMaterial({ color: 0xdfe5ec, roughness: 0.28, metalness: 0.6 }),
     cyan: new THREE.MeshStandardMaterial({ color: 0x0a2030, emissive: 0x5fe0ff, emissiveIntensity: 3.0 }),
     star: new THREE.MeshStandardMaterial({ color: 0x404850, emissive: 0xeaf6ff, emissiveIntensity: 5.0 }),
+    warm: new THREE.MeshStandardMaterial({ color: 0x2a1a10, emissive: 0xffb070, emissiveIntensity: 4.0 }),
   };
+  if (opts.style === 'arch') {
+    M.silver = new THREE.MeshStandardMaterial({ color: 0xb9c2cc, roughness: 0.34, metalness: 0.55, emissive: 0x0d1420 });
+    M.star = new THREE.MeshStandardMaterial({ color: 0x404850, emissive: 0xdff0ff, emissiveIntensity: 3.2 });
+  }
   Object.values(M).forEach((m) => own.push(m));
   const gates = [];
   for (const s of sList) {
@@ -77,7 +82,25 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
     const grp = new THREE.Group();
     grp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.right.clone().negate(), F.up, F.tan));
     grp.position.copy(F.pos).addScaledVector(F.up, RC);
-    const gp = { metal: [], silver: [], cyan: [], star: [] };
+    const gp = { metal: [], silver: [], cyan: [], star: [], warm: [] };
+    if (opts.style === 'arch') {
+      // Arco monumental (prueba visual): aro ancho de acero claro, tres paneles de luz blanca por dentro
+      // separados por dos abrazaderas, costillas y balizas cálidas en el canto.
+      const DEG = Math.PI / 180;
+      gp.silver.push(new THREE.TorusGeometry(RR + 1.2, 3.6, 12, 140).scale(1, 1, 2.3));                 // aro: sección elíptica, 16 m de fondo
+      gp.metal.push(new THREE.TorusGeometry(RR + 4.6, 0.5, 6, 140).translate(0, 0, 5.4), new THREE.TorusGeometry(RR + 4.6, 0.5, 6, 140).translate(0, 0, -5.4));
+      for (const [c, span] of [[162, 70], [90, 44], [18, 70]]) {                                          // paneles de luz
+        gp.star.push(new THREE.TorusGeometry(RR - 2.5, 1.25, 8, 48, span * DEG).scale(1, 1, 3.4).rotateZ((c - span / 2) * DEG));
+      }
+      for (const c of [123, 57]) {                                                                         // abrazaderas
+        const a = c * DEG; gp.metal.push(new THREE.BoxGeometry(6.5, 2.6, 13).rotateZ(a).translate(Math.cos(a) * (RR - 3.2), Math.sin(a) * (RR - 3.2), 0));
+      }
+      for (let k = 0; k < 28; k++) {                                                                       // costillas y balizas
+        const a = (k + 0.5) / 28 * Math.PI * 2;
+        gp.metal.push(new THREE.BoxGeometry(8.2, 0.7, 17.4).rotateZ(a).translate(Math.cos(a) * (RR + 1.4), Math.sin(a) * (RR + 1.4), 0));
+        if (k % 2 === 0) gp.warm.push(new THREE.BoxGeometry(0.9, 0.9, 0.5).rotateZ(a).translate(Math.cos(a) * (RR + 3.4), Math.sin(a) * (RR + 3.4), -8.5));
+      }
+    } else {
     gp.metal.push(new THREE.TorusGeometry(RR, 2.6, 14, 120));
     gp.cyan.push(new THREE.TorusGeometry(RR - 2.7, 0.42, 8, 120));
     gp.star.push(new THREE.TorusGeometry(RR + 2.9, 0.22, 6, 120));
@@ -88,7 +111,9 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
       (big ? gp.silver : gp.metal).push(b);
       if (big) gp.cyan.push(new THREE.BoxGeometry(0.5, 2.6, 6.6).rotateZ(a).translate(Math.cos(a) * (RR - 3.75), Math.sin(a) * (RR - 3.75), 0));
     }
+    }
     for (const [k, l] of Object.entries(gp)) {
+      if (!l.length) continue;
       const mg = mergeGeometries(l.map((g) => { g.deleteAttribute('uv'); return g; }), false); l.forEach((gq) => gq.dispose());
       const mesh = new THREE.Mesh(mg, M[k]); mesh.castShadow = k === 'metal' || k === 'silver'; mesh.receiveShadow = true; grp.add(mesh); own.push(mg);
     }

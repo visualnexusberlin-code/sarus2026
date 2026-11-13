@@ -429,6 +429,7 @@ CIRCUITS.push({
   blurb: L('Europa · noche sobre el hielo bajo Júpiter · simas azules y anillos que reparan, recargan y empujan', 'Europa · night on the ice beneath Jupiter · blue chasms and rings that repair, recharge and push'),
   unlockAfter: 'tiphares',
   generated: 'europa',
+  cine: true,                      // prueba visual: desenfoque radial continuo con la velocidad (no solo con el boost)
   music: 'horizon',
   inSectorOrder: false,
   hoverMax: 6,

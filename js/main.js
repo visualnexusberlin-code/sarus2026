@@ -2135,7 +2135,7 @@ function tick(dt) {
   const boostOn = inCircuit && (G.ship.boosting || G.ship.boostKick > 0);
   grade.uniforms.uTime.value = G.time;
   grade.uniforms.uAberr.value += ((sp * sp * 0.006 + (boostOn ? 0.008 : 0) + (inCircuit && G.ship.mega > 0 ? 0.008 : 0)) - grade.uniforms.uAberr.value) * Math.min(1, dt * 4);
-  grade.uniforms.uBlur.value += (((boostOn ? 1 : 0) * sp) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
+  grade.uniforms.uBlur.value += ((Math.max(boostOn ? sp : 0, inCircuit && G.circuit?.cine ? 0.5 * sp * sp : 0)) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
 
   updateLods(inCircuit);
   if (!G.noRender) { if (CONFIG.post) composer.render(dt); else renderer.render(renderPass.scene, renderPass.camera); }
