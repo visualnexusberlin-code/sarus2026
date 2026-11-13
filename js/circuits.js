@@ -448,7 +448,7 @@ CIRCUITS.push({
     },
     clouds: null,
   },
-  light: { sun: 0xffe6cc, sunI: 1.15, hemiSky: 0x4a6288, hemiGround: 0x233046, hemiI: 0.75, env: 0.5 },
+  light: { sun: 0xfff0e2, sunI: 2.2, hemiSky: 0x40587e, hemiGround: 0x1c2638, hemiI: 0.4, env: 0.5 },   // prueba visual: luz principal dura, relleno bajo (antes sunI 1.15 · hemiI 0.75)
   grade: { tint: [0.98, 1.0, 1.04], vignette: 0.48, grain: 0.035, contrast: 0.3 },
   paint: {
     edge: [0.45, 0.85, 1.0], chev: [0.3, 0.75, 1.0], lane: [0.85, 0.9, 0.95],

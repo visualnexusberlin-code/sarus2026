@@ -166,7 +166,7 @@ const ICE_BAKE = /* glsl */`
 // Júpiter: mapa equirectangular (u = longitud, v = latitud), ruido periódico en longitud
 const JUP_BAKE = /* glsl */`
   vec3 band(float lat, float t){
-    vec3 zone = vec3(0.93, 0.88, 0.8), belt = vec3(0.66, 0.46, 0.33), polar = vec3(0.55, 0.56, 0.6);
+    vec3 zone = vec3(0.95, 0.9, 0.8), belt = vec3(0.7, 0.43, 0.26), polar = vec3(0.55, 0.56, 0.6);
     float d = lat * 57.3, b = 0.0;
     b += smoothstep(4.0, 9.0, d) * (1.0 - smoothstep(16.0, 20.0, d));
     b += (smoothstep(-20.0, -16.0, d) - smoothstep(-8.0, -5.0, d)) * 0.9;
@@ -183,13 +183,26 @@ const JUP_BAKE = /* glsl */`
     float u = vUv.x, lat = (vUv.y - 0.5) * 3.14159265, lon = (u - 0.5) * 6.2831853;
     vec2 w = vec2(fP(vec2(u * 25.0, lat * 26.0), 25.0), fP(vec2(u * 33.0, lat * 34.0) + 5.2, 33.0));
     float latW = lat + (w.y - 0.5) * 0.05 + (fP(vec2(u * 88.0, lat * 90.0), 88.0) - 0.5) * 0.012;
+    // turbulencia en los bordes de banda: ondas y remolinos que rompen las líneas rectas
+    float tb = fP(vec2(u * 44.0 + w.y * 3.0, lat * 30.0) + 21.0, 44.0), tb2 = fP(vec2(u * 150.0 + tb * 5.0, lat * 110.0) + 3.0, 150.0);
+    latW += (tb - 0.5) * 0.045 + (tb2 - 0.5) * 0.014;
     float t = fP(vec2(u * 57.0 + w.x * 2.0, lat * 60.0), 57.0);
     vec3 col = band(latW, t);
+    // filamentos: vetas claras y oscuras muy estiradas en longitud, arrastradas por la turbulencia
+    float fil = fP(vec2(u * 26.0 + tb * 2.5, latW * 260.0), 26.0), fil2 = fP(vec2(u * 64.0 + tb2 * 3.0, latW * 520.0) + 8.0, 64.0);
+    col = mix(col, col * vec3(1.14, 1.04, 0.9), smoothstep(0.52, 0.72, fil) * 0.55);
+    col = mix(col, col * vec3(0.72, 0.6, 0.52), smoothstep(0.56, 0.78, fil2) * 0.5);
+    // festones azulados que cuelgan del cinturón ecuatorial norte
+    float fest = smoothstep(0.62, 0.8, fP(vec2(u * 34.0 + lat * 9.0, lat * 22.0) + 31.0, 34.0)) * (1.0 - smoothstep(0.0, 0.11, abs(lat - 0.07)));
+    col = mix(col, vec3(0.5, 0.55, 0.66), fest * 0.45);
     col *= 0.88 + 0.16 * (sin(latW * 140.0 + (w.x - 0.5) * 3.0) * 0.5 + 0.5);
     col = mix(col, col * vec3(1.08, 1.02, 0.95), smoothstep(0.55, 0.8, fP(vec2(u * 138.0 + w.y * 6.0, latW * 160.0), 138.0)) * 0.6);
     col = mix(col, col * vec3(0.8, 0.68, 0.6), smoothstep(0.6, 0.85, fP(vec2(u * 75.0, latW * 90.0) + 4.0, 75.0)) * 0.5);
     col *= 0.9 + 0.2 * fP(vec2(u * 251.0 + w.x * 4.0, latW * 400.0), 251.0);
     col = mix(col, vec3(0.97, 0.95, 0.9), smoothstep(0.72, 0.8, fP(vec2(u * 38.0, lat * 26.0) + 13.0, 38.0)) * 0.6 * step(0.25, abs(lat)));
+    // óvalos blancos en cadena (lat −33°) y barcazas oscuras (lat +16°)
+    { vec2 o = vec2((fract(u * 11.0 + 0.27) - 0.5) / 0.17, (lat + 0.58) / 0.026); col = mix(col, vec3(0.97, 0.94, 0.88), (1.0 - smoothstep(0.55, 1.0, length(o))) * 0.8); }
+    { vec2 o = vec2((fract(u * 7.0 + 0.61) - 0.5) / 0.2, (lat - 0.285) / 0.016); col = mix(col, vec3(0.42, 0.24, 0.16), (1.0 - smoothstep(0.5, 1.0, length(o))) * 0.6); }
     // Gran Mancha Roja (lat −22°)
     vec2 g = vec2((lon + 0.42) / 0.2, (lat + 0.385) / 0.085);
     float r = length(g), ang = atan(g.y, g.x) + r * 2.4;
@@ -309,7 +322,8 @@ function planetMaterial(center, sunDir, kind, tex) {
           col = texture2D(uMap, vec2(fract(lon / 6.2831853 + 0.5), lat / 3.14159265 + 0.5)).rgb;
         #endif
         float limb = pow(max(0.0, dot(n, V)), 0.35);
-        vec3 c = col * (0.015 + 0.62 * day * (0.35 + 0.65 * max(lam, 0.0))) * (0.55 + 0.45 * limb);
+        col = mix(vec3(dot(col, vec3(0.3, 0.55, 0.15))), col, 1.25);   // algo más de saturación
+        vec3 c = col * (0.015 + 0.6 * day * (0.35 + 0.65 * max(lam, 0.0))) * (0.55 + 0.45 * limb);
         c += vec3(0.5, 0.6, 0.8) * pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 5.0) * 0.14 * day;
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
@@ -467,9 +481,10 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   const trackPts = []; for (let s = 0; s < L; s += 10) { track.sample(s, F); trackPts.push([F.pos.x, F.pos.z, F.pos.y]); }
   const clear = (x, z) => { let d = Infinity; for (const [px, pz] of trackPts) d = Math.min(d, (px - x) ** 2 + (pz - z) ** 2); return Math.sqrt(d); };
 
+  const shipGlow = { value: Array.from({ length: 6 }, () => new THREE.Vector4(-1e6, 0, 0, 0)) };   // reflejo de motores (dressing.js)
   // ── Tablero: grafito y plata, quilla con luz azul (la pista flota sobre las simas) ──
   const M = {
-    deck: deckMaterial(srcMat('S6 | UV worn technology', (m) => m.color.setHex(0x646a72)), { wet: { rings: rings.map((f) => f * L) } }),
+    deck: deckMaterial(srcMat('S6 | UV worn technology', (m) => m.color.setHex(0x646a72)), { wet: { rings: rings.map((f) => f * L), ships: shipGlow } }),
     guard: guardMaterial(srcMat('S6 | Pale mineral track', (m) => m.color.setHex(0xe6ecf2))),
     rib: srcMat('S6 | Ash concrete', (m) => m.color.setHex(0xc9d1da)),
     frame: srcMat('S6 | Charcoal structure', (m) => m.color.setHex(0xd4dbe3)),
@@ -629,7 +644,7 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
 
   // ── Ciudad azul dentro de las simas: fustes de cristal con discos, haces de luz ──
-  const beams = [];
+  const beams = [], spires = [];
   for (const c of chasms) {
     const n = Math.round((c.a * c.b) / 2600);
     for (let k = 0, tries = 0; k < n && tries < 200; tries++) {
@@ -669,8 +684,69 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
   // haces de luz que suben de las simas
   {
-    const geos = beams.map(([x, yy, z]) => new THREE.CylinderGeometry(1.6, 4.5, 700, 10, 1, true).translate(x, yy + 350, z));
-    if (false && geos.length) { const gg = mergeGeometries(geos, false); const bm = new THREE.Mesh(gg, PM.beam); bm.frustumCulled = false; world.add(bm); own.push(gg); }
+    // prueba visual: pilares de luz finos que suben de las simas y, sobre todo, del horizonte
+    let sd = 977; const rl = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };   // azar propio: no altera el resto del escenario
+    const cols = beams.map(([x, yy, z]) => [x, yy, z, 520, 16]);
+    for (let i = 0; i < 34; i++) {
+      const a = rl() * Math.PI * 2, r = 2600 + rl() * 4400, x = centroid.x + Math.cos(a) * r, z = centroid.z + Math.sin(a) * r;
+      if (clear(x, z) < 900 || chasmT(x, z) > 0.01) continue;
+      cols.push([x, surf(x, z), z, 260 + rl() * 420, 22 + rl() * 26]);
+    }
+    const geos = cols.map(([x, yy, z, hh, rr0]) => new THREE.CylinderGeometry(rr0 * 0.35, rr0, hh, 10, 1, true).translate(x, yy + hh / 2, z));
+    if (geos.length) {
+      const bmat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+        vertexShader: /* glsl */`
+          #include <common>
+          #include <logdepthbuf_pars_vertex>
+          varying float vH; varying vec3 vN; varying vec3 vV;
+          void main(){ vH = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv;
+            #include <logdepthbuf_vertex>
+          }`,
+        fragmentShader: /* glsl */`
+          #include <common>
+          #include <logdepthbuf_pars_fragment>
+          varying float vH; varying vec3 vN; varying vec3 vV;
+          void main(){
+            #include <logdepthbuf_fragment>
+            float f = pow(abs(dot(normalize(vN), normalize(vV))), 2.2);        // se apaga en los cantos: sin silueta de cilindro
+            float a = f * pow(1.0 - vH, 2.4) * smoothstep(0.0, 0.03, vH) * 0.2;
+            gl_FragColor = vec4(vec3(0.62, 0.84, 1.0) * a, 1.0);
+          }`,
+      });
+      const gg = mergeGeometries(geos, false); geos.forEach((g2) => g2.dispose());
+      const bm = new THREE.Mesh(gg, bmat); bm.frustumCulled = false; bm.renderOrder = 2; world.add(bm); own.push(gg, bmat);
+    }
+    // agujas de hielo y arcos menores junto a la pista (dan escala y parallax a la velocidad)
+    const arcS = [], arcL = [];
+    for (let s = 150; s < L - 100; s += 300 + rl() * 240) {
+      track.sample(s, F);
+      const side = rl() < 0.5 ? -1 : 1, off = side * (62 + rl() * 80), x = F.pos.x + F.right.x * off, z = F.pos.z + F.right.z * off;
+      if (clear(x, z) < 52 || chasmT(x, z) > 0.01 || fissT(x, z) > 0.01) continue;
+      if (rings.some((f) => Math.abs(track.delta(f * L, s)) < 140)) continue;
+      const gy = surf(x, z);
+      if (rl() < 0.62) {
+        // aguja: tres cuerpos de hielo apilados, cada uno más estrecho y girado
+        const hh = 34 + rl() * 70, w0 = 9 + rl() * 9, yaw = rl() * Math.PI;
+        let y0 = gy - 6;
+        [[1.0, 0.5], [0.72, 0.3], [0.46, 0.2]].forEach(([k, hf], i) => {
+          const h3 = hh * hf + 6 * (i === 0), w3 = w0 * k;
+          const g3 = new THREE.BoxGeometry(w3, h3, w3 * (0.7 + rl() * 0.5), 1, 3, 1);
+          const p3 = g3.attributes.position; for (let q = 0; q < p3.count; q++) { const yy2 = p3.getY(q) / h3 + 0.5, tp2 = 1 - 0.22 * yy2; p3.setX(q, p3.getX(q) * tp2 + (rl() - 0.5) * 0.9); p3.setZ(q, p3.getZ(q) * tp2 + (rl() - 0.5) * 0.9); }
+          g3.rotateY(yaw + i * 0.5 + rl() * 0.3).translate(x + (rl() - 0.5) * w0 * 0.2, y0 + h3 / 2, z + (rl() - 0.5) * w0 * 0.2); g3.computeVertexNormals();
+          spires.push(g3); y0 += h3 - 1.5;
+        });
+      } else {
+        const R2 = 11 + rl() * 7, yaw = Math.atan2(F.tan.x, F.tan.z) + (rl() - 0.5) * 0.9;
+        arcS.push(new THREE.TorusGeometry(R2, 1.7, 8, 56).scale(1, 1, 1.8).rotateY(yaw).translate(x, gy + R2 * 0.18, z));
+        arcL.push(new THREE.TorusGeometry(R2 - 1.5, 0.5, 6, 40, Math.PI * 0.9).rotateZ(Math.PI * 0.05).scale(1, 1, 2.2).rotateY(yaw).translate(x, gy + R2 * 0.18, z));
+      }
+    }
+    for (const [l, mat, cast] of [[arcS, PM.silver, true], [arcL, PM.star, false]]) {
+      if (!l.length) continue;
+      const gg = mergeGeometries(l.map((g2) => { g2.deleteAttribute('uv'); return g2; }), false); l.forEach((g2) => g2.dispose());
+      const m2 = new THREE.Mesh(gg, mat); m2.castShadow = cast; m2.receiveShadow = true; world.add(m2); own.push(gg);
+    }
   }
   // destellos en las linternas de las torres
   {
@@ -749,7 +825,12 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   // ── Júpiter, Io y estrellas ──
   const realSun = JUP_DIR.clone().negate().add(new THREE.Vector3(0, 0.18, 0)).add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(MX).multiplyScalar(-0.42)).normalize();
   const jc = centroid.clone().addScaledVector(JUP_DIR, JUP_D).setY(JUP_D * JUP_EL);
-  const jupRT = gpuBake(renderer, 2048, 1024, JUP_BAKE, false); own.push(jupRT);
+  if (spires.length) {
+    const gg = mergeGeometries(spires.map((g2) => { g2.deleteAttribute('uv'); return g2.toNonIndexed(); }), false); spires.forEach((g2) => g2.dispose()); gg.computeVertexNormals();
+    const m2 = new THREE.Mesh(gg, iceMat); m2.castShadow = true; m2.receiveShadow = true; world.add(m2); own.push(gg);
+  }
+  const jupBig = renderer.capabilities.maxTextureSize >= 8192 && !('ontouchstart' in window);   // escritorio: mapa al doble de resolución
+  const jupRT = gpuBake(renderer, jupBig ? 4096 : 2048, jupBig ? 2048 : 1024, JUP_BAKE, false); own.push(jupRT);
   const jm = planetMaterial(jc, realSun, 0, jupRT.texture); jm.userData.tag = 'jup'; own.push(jm);
   const jup = new THREE.Mesh(new THREE.SphereGeometry(JUP_R, 128, 96), jm); jup.position.copy(jc); jup.scale.y = 0.935; jup.frustumCulled = false; world.add(jup); own.push(jup.geometry);
   const ioC = centroid.clone().add(new THREE.Vector3(-JUP_DIR.z, 0, JUP_DIR.x).multiplyScalar(MX).multiplyScalar(-90000)).addScaledVector(JUP_DIR, 140000).setY(60000);
@@ -777,10 +858,19 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
 
   const fx = {
     t: 0, gates,
-    update(dt) {
+    update(dt, camera, G) {
       this.t += dt;
       jm.uniforms.uT.value = this.t;
       rr.update(dt);
+      // las seis naves más cercanas a la del jugador dejan su reflejo de motor en el asfalto
+      if (G?.ships && G.ship) {
+        const near = G.ships.filter((s) => !s.out && !(s.dead > 0)).map((s) => [Math.abs(track.delta(G.ship.s, s.s)), s]).sort((a, b) => a[0] - b[0]);
+        for (let i = 0; i < 6; i++) {
+          const e = near[i], v = shipGlow.value[i];
+          if (e && e[0] < 700) v.set(e[1].s, e[1].x, 0.55 + 0.45 * Math.min(1, e[1].v / 120), e[1].length * 0.5);
+          else v.set(-1e6, 0, 0, 0);
+        }
+      }
     },
     passRings: (ships, onPass) => rr.passRings(ships, onPass),
     reset: () => rr.reset(),

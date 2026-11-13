@@ -77,7 +77,7 @@ const COMMON_V = (vs) => vs
 // charcos de brillo), juntas de placa, y el reflejo de cada arco de luz estirado sobre el asfalto (opts.wet.rings:
 // posiciones en metros, hasta 4). No usa texturas ni pasadas extra: son unas pocas operaciones más por píxel.
 const WET_GLSL = /* glsl */`
-  uniform vec4 uWetRings; uniform vec3 uWetCol;
+  uniform vec4 uWetRings; uniform vec3 uWetCol; uniform vec4 uWetShips[6];
   float wh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float wn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(wh(i), wh(i+vec2(1,0)), f.x), mix(wh(i+vec2(0,1)), wh(i+vec2(1,1)), f.x), f.y); }
   float wetK = 0.0, wetStreak = 0.0;`;
@@ -92,6 +92,7 @@ export function deckMaterial(base, opts = {}) {
       const r = wet.rings || [];
       sh.uniforms.uWetRings = { value: new THREE.Vector4(r[0] ?? -1e6, r[1] ?? -1e6, r[2] ?? -1e6, r[3] ?? -1e6) };
       sh.uniforms.uWetCol = { value: new THREE.Color(...(wet.color || [0.5, 0.78, 1.0])) };
+      sh.uniforms.uWetShips = wet.ships || { value: Array.from({ length: 6 }, () => new THREE.Vector4(-1e6, 0, 0, 0)) };   // (s, x, intensidad) de las naves cercanas
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\n' + WET_GLSL)
         .replace('#include <color_fragment>', `#include <color_fragment>
@@ -107,7 +108,9 @@ export function deckMaterial(base, opts = {}) {
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.78, 0.86, 1.0) * 0.8, wetK * 0.5);      // lo húmedo, más oscuro y frío
         }`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(mix(0.46, 0.1, wetK) + (wn(vec2(vTrack.y * 9.0, vTrack.x * 1.3)) - 0.5) * 0.1, 0.06, 1.0);`)
+        roughnessFactor = clamp(mix(0.48, 0.2, wetK) + (wn(vec2(vTrack.y * 9.0, vTrack.x * 1.3)) - 0.5) * 0.1, 0.14, 1.0);`)
+        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        reflectedLight.directSpecular = min(reflectedLight.directSpecular, vec3(0.5));   // el reflejo del sol es un brillo, no un fogonazo`)
         .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
         metalnessFactor = mix(0.15, 0.5, wetK);`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
@@ -120,6 +123,14 @@ export function deckMaterial(base, opts = {}) {
             glow += exp(-ad / 60.0) * (1.0 - smoothstep(3.0, 14.0, ax)) + 0.8 * exp(-ad / 10.0) * (1.0 - smoothstep(10.0, 17.0, ax));
           }
           totalEmissiveRadiance += uWetCol * glow * (0.04 + 0.26 * wetK) * (0.45 + 0.8 * wetStreak);
+          // motores: charco de luz cálida bajo la popa de cada nave cercana, estirado hacia atrás
+          for (int i = 0; i < 6; i++) {
+            vec4 w = uWetShips[i]; if (w.z <= 0.0) continue;
+            float d = s - w.x; d -= uLen * floor(d / uLen + 0.5);
+            float q = d + w.w, dx = vTrack.y - w.y;
+            float fall = q < 0.0 ? exp(q / 3.2) : exp(-q * q / 4.0);
+            totalEmissiveRadiance += vec3(1.0, 0.56, 0.24) * w.z * fall * exp(-dx * dx / 5.0) * (0.3 + 0.7 * wetK) * (0.5 + 0.8 * wetStreak) * 0.28;
+          }
           // brillo rasante: el asfalto pulido devuelve la claridad del hielo y del cielo cuando se mira a lo lejos
           float fres = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 5.0);
           totalEmissiveRadiance += vec3(0.34, 0.46, 0.62) * fres * (0.12 + 0.5 * wetK) * (0.5 + 0.7 * wetStreak);
@@ -145,7 +156,7 @@ export function deckMaterial(base, opts = {}) {
           totalEmissiveRadiance += amber * edge * uGlow.x + verm * chev * uGlow.y * pulse;
         }`);
   };
-  if (wet) m.customProgramCacheKey = () => 'deckWet2';
+  if (wet) m.customProgramCacheKey = () => 'deckWet5';
   return m;
 }
 

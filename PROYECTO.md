@@ -180,3 +180,13 @@ Ajuste fino jugando (dificultad Normal como referencia), sonido por nave, escudo
 - Se usa en la lámina del hangar, en la ampliación y en las teselas de la ficha de escuderías. Trazos de 1 px a cualquier tamaño (`vector-effect: non-scaling-stroke`); el brillo bermellón es un filtro SVG único (`#pfGlow`).
 - Detalle según tamaño (container queries): por debajo de 250 px, solo esquinas, marco y pistas sin brillo; desde 560 px, textos (N° de nodo y escudería en la clave; «SARUS · ARCHIVO DE PILOTOS» en vertical).
 - Al cambiar de nave o al ampliar, el marco se dibuja de izquierda a derecha en 0,7 s (sin animación con «reducir movimiento»).
+
+## EUROPA: prueba visual (rama `claude/europa-visual`, noviembre 2026)
+Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de esto está en `main`.
+- **Asfalto** (`deckMaterial(base, { wet })`, `dressing.js`): rugosidad variable (regueros y charcos), juntas, brillo rasante, reflejo de los arcos (`wet.rings`) y charco cálido bajo los motores de las seis naves más cercanas (`wet.ships`, lo actualiza `fx.update` en `europa.js`). El reflejo especular del sol está acotado para que no queme.
+- **Arcos** (`buildRaceRings(..., { style: 'arch' })`, `rings.js`): aro ancho de acero, tres paneles de luz, abrazaderas, costillas y balizas cálidas.
+- **Terreno** (`europa.js`): `relief()` añade crestas y lomos que crecen de 30 a 150 m de la pista; hielo más azul, manchas pardas y microrrelieve en la normal; agujas de hielo y arcos menores cada 300–540 m; pilares de luz suaves en el horizonte.
+- **Luz** (`circuits.js`): sol 2,2 y relleno 0,4 (antes 1,15 y 0,75).
+- **Júpiter**: turbulencia en los bordes de banda, filamentos, festones, óvalos y barcazas; mapa de 4096 × 2048 en escritorio.
+- **`cine: true`**: desenfoque radial continuo con la velocidad (`main.js`).
+- Pendiente: probar fluidez en móvil y decidir qué se lleva a `main` y a otros circuitos.
