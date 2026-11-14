@@ -14,23 +14,58 @@ const add = await io.read(process.env.MODEL);
 const S = +(process.env.S || 3.3), NODE = 'VOSTOK_21', TAG = 'VOSTOK';
 const ION = [0.22, 0.42, 1.0];
 
-// ── 1. Texturas: casco oscuro (hierro antiguo con cantos gastados), metal en el canal azul del mapa MR ──
+// ── 1. Texturas: acero de cañón gastado. Base más clara y fría que el original oscurecido, paneles con ligera variación,
+// arañazos en haces y desconchones horneados en UV: en el desgaste el metal queda desnudo, brillante y pulido.
+// (En los circuitos espaciales el entorno es negro: un casco todo metálico se ve negro. Por eso la base es solo medio metálica
+// y lo que brilla es el desgaste, que recoge el sol.)
 const mat0 = add.getRoot().listMaterials()[0];
-const raw = async (tex, ch) => sharp(Buffer.from(tex.getImage())).removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
+const raw = async (tex) => sharp(Buffer.from(tex.getImage())).removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
 const bc = await raw(mat0.getBaseColorTexture()), mr = await raw(mat0.getMetallicRoughnessTexture());
 const W = bc.info.width, H = bc.info.height, nC = bc.info.channels, nM = mr.info.channels;
+const { data: g8, info: gi } = await sharp(Buffer.from(mat0.getBaseColorTexture().getImage())).greyscale().raw().toBuffer({ resolveWithObject: true });
+const img = { d: g8, w: gi.width, h: gi.height };   // luminancia ORIGINAL: la usa la selección de cabina
+let seed = 2117; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+const wearSvg = (kind) => {
+  let out = '';
+  if (kind === 'scratch') {
+    for (let b = 0; b < 520; b++) {                       // haces de arañazos casi paralelos
+      const cx = rnd() * W, cy = rnd() * H, th = rnd() * Math.PI, n = 3 + Math.floor(rnd() * 10);
+      for (let i = 0; i < n; i++) {
+        const L = 6 + rnd() ** 2.5 * 90, t2 = th + (rnd() - 0.5) * 0.18, ox = cx + (rnd() - 0.5) * 40, oy = cy + (rnd() - 0.5) * 40;
+        const dx = Math.cos(t2) * L / 2, dy = Math.sin(t2) * L / 2;
+        out += `<line x1="${(ox - dx).toFixed(1)}" y1="${(oy - dy).toFixed(1)}" x2="${(ox + dx).toFixed(1)}" y2="${(oy + dy).toFixed(1)}" stroke-width="${(0.45 + rnd() * 0.6).toFixed(2)}" stroke-opacity="${(0.18 + rnd() * 0.5).toFixed(2)}"/>`;
+      }
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#000"/><g stroke="#fff" stroke-linecap="round">${out}</g></svg>`;
+  }
+  for (let c = 0; c < 1700; c++) {                          // desconchones: polígonos pequeños e irregulares
+    const cx = rnd() * W, cy = rnd() * H, r = 1.2 + rnd() ** 3 * 7, k = 4 + Math.floor(rnd() * 4);
+    const pts = [...Array(k).keys()].map((i) => { const a = i / k * Math.PI * 2 + rnd() * 0.6, rr = r * (0.5 + rnd() * 0.7); return `${(cx + Math.cos(a) * rr).toFixed(1)},${(cy + Math.sin(a) * rr).toFixed(1)}`; }).join(' ');
+    out += `<polygon points="${pts}" fill-opacity="${(0.55 + rnd() * 0.45).toFixed(2)}"/>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#000"/><g fill="#fff">${out}</g></svg>`;
+};
+const grey = async (svg) => (await sharp(Buffer.from(svg)).greyscale().raw().toBuffer({ resolveWithObject: true })).data;
+const SCR = await grey(wearSvg('scratch')), CHP = await grey(wearSvg('chips'));
+const hsh = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+const vnz = (x, y) => { const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy), a = hsh(i, j), b = hsh(i + 1, j), c = hsh(i, j + 1), d = hsh(i + 1, j + 1); return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy; };
 const outBC = Buffer.alloc(W * H * 3), outMR = Buffer.alloc(W * H * 3);
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const TINT = [0.98, 0.97, 0.95];
+const TINT = [0.94, 0.97, 1.0], BARE = [0.66, 0.68, 0.71];
 for (let i = 0; i < W * H; i++) {
+  const x = i % W, y = (i / W) | 0;
   const r = bc.data[i * nC] / 255, g = bc.data[i * nC + 1] / 255, b = bc.data[i * nC + 2] / 255;
   const lum = 0.3 * r + 0.55 * g + 0.15 * b, edge = ss(0.62, 0.9, lum);
-  for (let k = 0; k < 3; k++) outBC[i * 3 + k] = Math.round(Math.min(1, Math.pow([r, g, b][k], 1.35) * 0.9 * TINT[k]) * 255);
-  const j = (i % W) + Math.floor(i / W) * mr.info.width;   // mismo tamaño
-  const rough0 = mr.data[j * nM + 1] / 255;
-  outMR[i * 3] = mr.data[j * nM];
-  outMR[i * 3 + 1] = Math.round(Math.min(0.85, Math.max(0.22, rough0 * 0.92 - 0.22 * edge)) * 255);
-  outMR[i * 3 + 2] = Math.round((0.55 + 0.4 * edge) * 255);
+  const blot = vnz(x / 90, y / 90) * 0.7 + vnz(x / 23, y / 23) * 0.3;          // paneles más claros u oscuros
+  const sc = SCR[i] / 255, ch = CHP[i] / 255, bare = Math.max(sc * 0.55, ch * 0.8, edge * 0.4);
+  for (let k = 0; k < 3; k++) {
+    const base = ([r, g, b][k] * 0.95 + 0.03) * TINT[k] * (0.88 + 0.24 * blot);
+    outBC[i * 3 + k] = Math.round(Math.min(1, base + (BARE[k] - base) * bare) * 255);
+  }
+  const rough0 = mr.data[i * nM + 1] / 255;
+  outMR[i * 3] = mr.data[i * nM];
+  outMR[i * 3 + 1] = Math.round(Math.min(0.8, Math.max(0.16, (0.42 + rough0 * 0.25 + 0.1 * (1 - blot)) * (1 - 0.5 * Math.max(sc, ch * 0.8)) - 0.12 * edge)) * 255);
+  outMR[i * 3 + 2] = Math.round(Math.min(1, 0.12 + 0.1 * blot + 0.75 * Math.max(sc, ch * 0.9, edge * 0.5)) * 255);
 }
 const jpg = (buf, q = 90) => sharp(buf, { raw: { width: W, height: H, channels: 3 } }).jpeg({ quality: q, chromaSubsampling: '4:4:4' }).toBuffer();
 mat0.getBaseColorTexture().setImage(new Uint8Array(await jpg(outBC))).setMimeType('image/jpeg').setURI('');
@@ -41,8 +76,6 @@ mat0.setName(`${TAG} | Ancient armor`).setMetallicFactor(1).setRoughnessFactor(1
 
 // ── 2. Cabina: canal alargado (con el parabrisas) y ventana de la caja de popa, en un material pulido ──
 const prim = add.getRoot().listMeshes()[0].listPrimitives()[0];
-const { data: g8, info: gi } = await sharp(Buffer.from(mat0.getBaseColorTexture().getImage())).greyscale().raw().toBuffer({ resolveWithObject: true });
-const img = { d: g8, w: gi.width, h: gi.height };
 const PA = prim.getAttribute('POSITION'), UV = prim.getAttribute('TEXCOORD_0'), IDX = prim.getIndices().getArray();
 const RT = [];   // triángulos en espacio original, para proyectar el nombre
 const hullI = [], cockI = [];
@@ -54,8 +87,7 @@ const hullI = [], cockI = [];
     const c = [0, 1, 2].map((a) => (p[0][a] + p[1][a] + p[2][a]) / 3);
     const e1 = p[1].map((v, a) => v - p[0][a]), e2 = p[2].map((v, a) => v - p[0][a]);
     let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const L = Math.hypot(...n) || 1; n = n.map((v) => v / L);
-    // la luminancia se mide en la textura original (antes de oscurecer): umbrales de sel.mjs
-    const lum = lumAt(img, (u[0][0] + u[1][0] + u[2][0]) / 3, (u[0][1] + u[1][1] + u[2][1]) / 3) ** (1 / 1.35) / 0.93;
+    const lum = lumAt(img, (u[0][0] + u[1][0] + u[2][0]) / 3, (u[0][1] + u[1][1] + u[2][1]) / 3);   // textura original
     (SEL.channel(c, n, lum) || SEL.rear(c, n, lum) ? cockI : hullI).push(IDX[t], IDX[t + 1], IDX[t + 2]);
   }
 }
@@ -207,6 +239,30 @@ const ray = (o, d) => {           // Möller–Trumbore contra el casco original
     console.log('nombre lado', side, 'sin impacto', miss, 'de', (NU + 1) * (NV + 1));
   }
   V.addChild(doc.createNode(NODE + '_name').setMesh(doc.createMesh(NODE + '_name').addPrimitive(mkPrim(nm, pos, nrm, idx, uv))));
+}
+
+// ── 8. Pilotos de posición: luces rojo-anaranjadas en las esquinas de las góndolas y en la popa del cuerpo ──
+{
+  const lm = doc.createMaterial(`${TAG} | Running lamps red`).setBaseColorFactor([1, 0.22, 0.06, 1]).setEmissiveFactor([1, 0.22, 0.05]).setMetallicFactor(0).setRoughnessFactor(0.4);
+  const pos = [], nrm = [], idx = [], SEG = 10, R = 0.013, T = 0.006;
+  const lamp = (hit, out) => {   // disco cilíndrico corto que asoma del casco en la dirección «out» (eje x original)
+    const c0 = hit.map((v, k) => v + out[k] * 0.001), c1 = hit.map((v, k) => v + out[k] * T);
+    const b = pos.length / 3;
+    for (const [cc, n] of [[c1, out]]) { pos.push(...sh(cc)); nrm.push(...shN(n)); for (let k = 0; k <= SEG; k++) { const a = k / SEG * Math.PI * 2; pos.push(...sh([cc[0], cc[1] + Math.cos(a) * R, cc[2] + Math.sin(a) * R])); nrm.push(...shN(n)); } }
+    for (let k = 1; k <= SEG; k++) idx.push(b, b + k, b + k + 1, b, b + k + 1, b + k);
+    const r0 = pos.length / 3;
+    for (let k = 0; k <= SEG; k++) { const a = k / SEG * Math.PI * 2, cy = Math.cos(a), cz = Math.sin(a); for (const cc of [c0, c1]) { pos.push(...sh([cc[0], cc[1] + cy * R, cc[2] + cz * R])); nrm.push(...shN([0, cy, cz])); } }
+    for (let k = 0; k < SEG; k++) { const a = r0 + k * 2; idx.push(a, a + 1, a + 3, a, a + 3, a + 2, a, a + 3, a + 1, a, a + 2, a + 3); }
+  };
+  let n = 0;
+  for (const side of [1, -1]) for (const [x0, dx] of [[1, -1], [-1, 1]]) for (const [yy, zz] of [[0.09, 0.6], [0.09, 0.755], [-0.13, 0.755]]) {
+    if (dx > 0 && yy < 0) continue;                       // proa: solo las dos de arriba
+    const o = [x0, yy, zz * side], d = [dx, 0, 0], t = ray(o, d); if (!isFinite(t)) continue;
+    lamp(o.map((v, k) => v + d[k] * t), [-dx, 0, 0]); n++;
+  }
+  for (const zz of [0.33, -0.33]) { const o = [1, 0.02, zz], d = [-1, 0, 0], t = ray(o, d); if (isFinite(t)) { lamp(o.map((v, k) => v + d[k] * t), [1, 0, 0]); n++; } }
+  V.addChild(doc.createNode(NODE + '_lamps').setMesh(doc.createMesh(NODE + '_lamps').addPrimitive(mkPrim(lm, pos, nrm, idx))));
+  console.log('pilotos', n);
 }
 
 await doc.transform(prune(), unpartition());
