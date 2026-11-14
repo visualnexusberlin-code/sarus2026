@@ -63,7 +63,18 @@ const abuf = add.getRoot().listBuffers()[0];
 prim.setIndices(add.createAccessor().setArray(new Uint32Array(hullI)).setType('SCALAR').setBuffer(abuf));
 const cc = add.createExtension(KHRMaterialsClearcoat).createClearcoat().setClearcoatFactor(0.8).setClearcoatRoughnessFactor(0.14);
 const cockMat = mat0.clone().setNormalTexture(null).setName(`${TAG} | Polished cockpit`).setBaseColorFactor([0.78, 0.82, 0.9, 1]).setRoughnessFactor(0.42).setExtension('KHR_materials_clearcoat', cc);
-add.getRoot().listMeshes()[0].addPrimitive(prim.clone().setMaterial(cockMat).setIndices(add.createAccessor().setArray(new Uint32Array(cockI)).setType('SCALAR').setBuffer(abuf)));
+// cabina con normales planas: placas de cristal blindado nítidas (con normales suavizadas el reflejo ondulaba como papel)
+{
+  const cp = [], cn = [], cu = [], ci = [], a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0], ua = [0, 0];
+  for (let t = 0; t < cockI.length; t += 3) {
+    PA.getElement(cockI[t], a); PA.getElement(cockI[t + 1], b); PA.getElement(cockI[t + 2], c);
+    const e1 = b.map((v, k) => v - a[k]), e2 = c.map((v, k) => v - a[k]);
+    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const L = Math.hypot(...n) || 1; n = n.map((v) => v / L);
+    for (const [k, p] of [[0, a], [1, b], [2, c]]) { cp.push(...p); cn.push(...n); UV.getElement(cockI[t + k], ua); cu.push(...ua); ci.push(ci.length); }
+  }
+  const acc = (arr, ty) => add.createAccessor().setArray(arr).setType(ty).setBuffer(abuf);
+  add.getRoot().listMeshes()[0].addPrimitive(add.createPrimitive().setMaterial(cockMat).setAttribute('POSITION', acc(new Float32Array(cp), 'VEC3')).setAttribute('NORMAL', acc(new Float32Array(cn), 'VEC3')).setAttribute('TEXCOORD_0', acc(new Float32Array(cu), 'VEC2')).setIndices(acc(new Uint32Array(ci), 'SCALAR')));
+}
 console.log('casco', hullI.length / 3, 'tris · cabina', cockI.length / 3, 'tris');
 
 // ── 3. Fusionar en la flota y montar el nodo con la orientación del juego (morro −X → +Z, base a y = −0,2) ──
