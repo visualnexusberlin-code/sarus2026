@@ -10,13 +10,13 @@ Cada cambio en la rama `main` reconstruye el juego y lo publica en Firebase (pes
 | Archivo | Qué es |
 |---|---|
 | `saturn6.glb` | Circuito SATURN-6 (también base de ARCADIA-2) |
-| `ships8.glb` | Flota de 12 naves |
+| `ships45.glb` | Flota de 21 naves (y `ships45_lite.glb`, la versión para móviles) |
 | `music.mp3` | Tema musical |
 
 OLYMPUS-3 no usa GLB: se genera en `js/mars.js`.
 
 ## Reglas para que la nave siga funcionando al exportar desde Blender
-- Un objeto raíz por nave con el nombre de la flota (`ILION_1`, `SCUBA_2`, `THULE_3`… `HUEMING_12`; ver `js/fleet.js`).
+- Un objeto raíz por nave con el nombre de la flota (`ILION_1`, `SCUBA_2`, `THULE_3`… `VOSTOK_21`; ver `js/fleet.js`).
 - Morro hacia +Z (hacia −Y en Blender antes de exportar con +Y arriba), escala real (~5,5 m de largo).
 - Materiales con estos sufijos, que el juego reconoce: `_Hover` (emisores de levitación), `_Ion` (toberas).
 - Logo del hangar: objeto `LOGO_NOMBRE` (p. ej. `LOGO_ILION`).

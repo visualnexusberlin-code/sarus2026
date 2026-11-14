@@ -246,8 +246,10 @@ export class Ship {
     } else {
       this.nozzles.push({ pos: new THREE.Vector3(0, 0.1, -this.length / 2), r: 0.2 });
     }
-    // que la llama y el halo nazcan fuera del casco: detrás del punto más retrasado del casco a la altura de cada tobera
+    // que la llama y el halo nazcan fuera del casco: detrás del punto más retrasado del casco a la altura de cada tobera.
+    // Naves ventrales (def.ventral): las toberas miran al suelo; la llama sale hacia abajo y atrás desde los bajos.
     for (const n of this.nozzles) {
+      if (this.def.ventral) { n.dir = new THREE.Vector3(0, -0.55, -1).normalize(); n.pos.y -= 0.02; continue; }
       let zMin = n.pos.z;
       for (const m of this.meshes) {
         const p = m.geometry.attributes.position;
@@ -337,7 +339,8 @@ export class Ship {
     for (const n of this.nozzles) {
       const core = new THREE.Mesh(geo, this.exhaustMat); core.position.copy(n.pos); core.userData.r = n.r; core.frustumCulled = false;
       const plume = new THREE.Mesh(geo, this.plumeMat); plume.position.copy(n.pos); plume.userData.r = n.r; plume.frustumCulled = false; plume.renderOrder = 2;
-      const h = new THREE.Sprite(this.haloMat); h.position.copy(n.pos).add(new THREE.Vector3(0, 0, -0.05)); h.userData.r = n.r;
+      const h = new THREE.Sprite(this.haloMat); h.position.copy(n.pos).add(n.dir ? n.dir.clone().multiplyScalar(0.05) : new THREE.Vector3(0, 0, -0.05)); h.userData.r = n.r;
+      if (n.dir) { const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), n.dir); core.quaternion.copy(q); plume.quaternion.copy(q); }
       this.model.add(core, plume, h);
       this.exhausts.push(core); this.plumes.push(plume); this.halos.push(h);
     }
@@ -348,7 +351,8 @@ export class Ship {
   addEngineLight() {
     if (this.engineLight) return;
     this.engineLight = new THREE.PointLight(this.ionColor.clone(), 0, 14, 2);
-    this.engineLight.position.set(0, 0.3, this.nozzles[0].pos.z - 0.6);
+    if (this.def.ventral) this.engineLight.position.set(0, this.nozzles[0].pos.y - 0.4, this.nozzles.reduce((a, n) => a + n.pos.z, 0) / this.nozzles.length - 0.8);   // bajo la nave: ilumina la pista
+    else this.engineLight.position.set(0, 0.3, this.nozzles[0].pos.z - 0.6);
     this.model.add(this.engineLight);
   }
   removeEngineLight() {
@@ -582,7 +586,7 @@ export class Ship {
     this.power = power;
     const p2 = this.plumeMat.uniforms;
     p2.uPower.value = power; p2.uTime.value = this.t; p2.uBoost.value = u.uBoost.value;
-    const len = 0.5 + power * 1.3 + (boostOn ? 1.0 : 0);
+    const len = (0.5 + power * 1.3 + (boostOn ? 1.0 : 0)) * (this.def.ventral ? 0.55 : 1);   // ventrales: llama corta, no atraviesa el tablero
     // vibración suave (antes aleatoria en cada fotograma: a 30 fps en el móvil se veía como un parpadeo)
     const flick = 0.97 + 0.03 * Math.sin(this.t * 13.0 + (this.seedFl ??= Math.random() * 6.28)) * Math.sin(this.t * 7.3);
     for (const e of this.exhausts) { const r = e.userData.r * (0.85 + power * 0.25); e.scale.set(r, r, len); }

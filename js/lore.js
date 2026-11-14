@@ -158,6 +158,10 @@ export const SHIP_LORE = {
     sector: L('Ingeniería criogénica de cascos', 'Cryogenic Hull Engineering'), origin: L('Astilleros de las lunas heladas del sistema exterior', 'Ice-moon shipyards of the outer system'),
     doctrine: L('Fricción cero.', 'Zero friction.'),
     lore: L('ANTARES nació en los astilleros de las lunas heladas, donde el casco se pule a temperaturas cercanas al cero absoluto. Lleva el nombre del corazón rojo del Escorpión: un núcleo de fuego dentro de una carrocería de hielo.', 'ANTARES was born in the shipyards of the ice moons, where hulls are polished at temperatures close to absolute zero. It is named after the red heart of Scorpius: a core of fire inside a body of ice.') },
+  VOSTOK_21: { house: 'VOSTOK PATROLS', model: 'SENTINEL', family: 'heavy', lineage: 'outer', cls: L('PESADA / PATRULLA', 'HEAVY / PATROL'),
+    sector: L('Blindaje y vigilancia de estaciones', 'Station armor and surveillance'), origin: L('Talleres de la sima de hielo de Tritón', 'Ice-chasm workshops of Triton'),
+    doctrine: L('Nada pasa.', 'Nothing gets through.'),
+    lore: L('VOSTOK nació en los talleres excavados en la sima de Tritón, bajo Neptuno, para patrullar la última estación de la ruta. Sus naves se forjan con placas de blindaje recuperadas de estructuras anteriores a SARUS: oscuras, gastadas y casi imposibles de romper. Llevan dos cabinas: el piloto delante, bajo la cubierta alargada, y un vigía en la caja de popa que no pierde de vista lo que queda atrás. Toma su nombre de la estación más fría de la vieja Tierra.', 'VOSTOK was born in the workshops dug into Triton\'s chasm, under Neptune, to patrol the last station on the route. Its ships are forged from armor plates salvaged from pre-SARUS structures: dark, worn and almost impossible to break. They carry two cockpits: the pilot up front, under the long canopy, and a lookout in the rear box who never loses sight of what is behind. It takes its name from the coldest station of old Earth.') },
   ORION_18: { house: 'ORION AERONAUTICS', model: 'HUNTER', family: 'balanced', lineage: 'outer', cls: L('EQUILIBRADA / EXPLORACIÓN', 'BALANCED / EXPLORATION'),
     sector: L('Sistemas de espacio profundo', 'Deep Space Systems'), origin: L('Exploración y búsqueda de largo alcance', 'Long-range exploration and search'),
     doctrine: L('Persecución y equilibrio ofensivo.', 'Pursuit and offensive balance.'),
@@ -186,7 +190,8 @@ const DOCKS = {
   ORION_18: L('Muelle de Ceres', 'Ceres dock'),
   PHANTOM_19: L('Anillos de Saturno', 'Saturn’s rings'),
   ANTARES_20: L('Puerto de hielo · Saturno', 'Ice port · Saturn'),
+  VOSTOK_21: L('Sima de hielo · Tritón', 'Ice chasm · Triton'),
 };
 for (const k in DOCKS) if (SHIP_LORE[k]) SHIP_LORE[k].dock = DOCKS[k];
 
-export const MOTTO = L('SARUS no enfrenta veinte naves. Enfrenta veinte filosofías tecnológicas.', 'SARUS does not pit twenty ships against each other. It pits twenty technological philosophies.');
+export const MOTTO = L('SARUS no enfrenta veintiuna naves. Enfrenta veintiuna filosofías tecnológicas.', 'SARUS does not pit twenty-one ships against each other. It pits twenty-one technological philosophies.');

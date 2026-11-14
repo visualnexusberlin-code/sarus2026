@@ -1,4 +1,4 @@
-// Flota SARUS (ships45.glb): 20 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
+// Flota SARUS (ships45.glb): 21 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
 import { SHIP_LORE } from './lore.js';
@@ -65,6 +65,10 @@ export const FLEET = [
   { num: '20', node: 'ANTARES_20', hull: 3, flame: [0.75, 0.95, 1.0], name: 'ANTARES', tag: L('Hielo pulido. Resbala por los muros sin apenas perder velocidad y traza como un cuchillo; acelera con calma y no aguanta muchos golpes.', 'Polished ice. Slides along walls with almost no speed loss and carves like a knife; gentle acceleration, and it cannot take many hits.'),
     V: 4, A: 4, M: 5,
     style: { response: 10.5, grip: 7.6, gripAB: 9.4, ab: 1.0, mass: 0.92, lean: 0.28, bob: 0.03, bobHz: 1.8, drift: 0.14, pitch: 0.7, wallLoss: 0.6 } },
+  // ventral: sin propulsión trasera; las cuatro toberas están en los bajos de las góndolas (ship.js orienta la llama abajo y atrás)
+  { num: '21', node: 'VOSTOK_21', hull: 5, flame: [0.22, 0.42, 1.0], name: 'VOSTOK', ventral: true, tag: L('Bloque blindado de patrulla. Sin motor trasero: levita y empuja con cuatro toberas ventrales. Es la que más pesa: apenas se inmuta con los golpes y aparta a quien se le cruza, pero cuesta girarla.', 'Armored patrol block. No rear engine: it hovers and pushes on four ventral nozzles. The heaviest of all: it barely flinches at hits and shoves aside whoever gets in its way, but it is hard to turn.'),
+    V: 4, A: 3, M: 3,
+    style: { response: 5.6, grip: 6.8, gripAB: 9.2, ab: 1.15, mass: 1.6, lean: 0.16, bob: 0.02, bobHz: 1.2, drift: 0.12, pitch: 0.35, wallLoss: 0.8 } },
 ];
 
 // capa creativa: escudería, modelo, clase, familia, linaje, procedencia y lore (lore.js)

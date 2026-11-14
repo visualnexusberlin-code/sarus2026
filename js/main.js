@@ -951,7 +951,7 @@ $('setReset').addEventListener('click', () => {
 
 // ── Hangar ──
 G.family = null;
-// Hangar: si el navegador compila shaders en paralelo, se preparan las 20 naves de golpe sin bloquear;
+// Hangar: si el navegador compila shaders en paralelo, se preparan las 21 naves de golpe sin bloquear;
 // así pasar de una nave a otra no da tirones. (Sin esa extensión se compilan una a una al mostrarlas.)
 function prewarmHangar() {
   if (G.hangarWarm || !renderer.extensions.has('KHR_parallel_shader_compile') || !renderer.compileAsync) return;

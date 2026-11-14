@@ -205,3 +205,12 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Neptuno** (`neptuneMaterial`, `triton.js`): bandas en tres escalas, vetas claras y oscuras, cinturón ecuatorial, halo en la gran mancha, segunda mancha con núcleo brillante, «scooter», hebras finas de cirros y crepúsculo azul. Brillo de día 1,35 → 1,2.
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
+
+## VOSTOK_21 · VOSTOK PATROLS (noviembre 2026)
+Nave 21, a partir del modelo de Dear (`GORDION.glb`, 10 000 triángulos, morro −X). Escudería de Tritón, linaje exterior, familia pesada; modelo SENTINEL.
+- **Montaje** (`tools/vostok.mjs`, selección de cabina en `tools/sel.mjs`): escala 3,3 (5,7 m de largo, 5,5 de ancho), morro a +Z. Casco «VOSTOK | Ancient armor»: color base oscurecido (potencia 1,35 × 0,9) y metal en el canal azul del mapa MR (0,55–0,95, más en los cantos gastados). Cabina «VOSTOK | Polished cockpit»: el canal alargado con el parabrisas y la ventana de la caja de popa (segunda cabina), sin mapa normal, rugosidad 0,42 y barniz.
+- **Propulsión ventral:** sin motor trasero. Cuatro discos `VOSTOK_Ion` bajo el raíl de las góndolas; con `ventral: true` en `fleet.js`, `ship.js` orienta llama y halo abajo y atrás, acorta la llama y pone la luz del motor bajo la nave. Filetes `VOSTOK_Hover` a lo largo del raíl y brillo del motor tras las rejillas de popa (`VOSTOK_Grille_Hover`, lámina con lamas): toman el color de la escudería.
+- **Nombre:** «VOSTOK» en letras de plantilla, pintura hueso gastada, proyectado sobre la pendiente de los carenados superiores (los dos costados).
+- **Logo** (`tools/vostok_logo.mjs`): bastión hexagonal, ojo de vigilancia con pupila en rombo y flecha al este.
+- **Flotas:** LOD regenerado con `tools/lod.mjs` (las demás naves quedan iguales); la flota ligera se amplía con `tools/addlite.mjs` (solo añade VOSTOK, sin rehacer las otras).
+- **Pendiente:** lámina de piloto (`pilots/vostok_21.webp` y `-s.webp`); mientras falte, el hangar no muestra lámina y la tesela de la ficha queda vacía.
