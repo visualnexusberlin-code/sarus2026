@@ -75,23 +75,38 @@ export function ringTexture() {
 
 // ── Saturno: beige dorado apagado, bandas suaves, polo algo más gris ──
 export function saturnTexture() {
-  const W = 1024, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d'), img = g.createImageData(W, H);
+  // Saturno: bandas finas de varios anchos con bordes ondulados, filamentos estirados en longitud, zona ecuatorial crema,
+  // cinturones algo más oscuros, casquete norte gris azulado, y una cadena de óvalos claros. Periódica en longitud (sin costura).
+  const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
+  const per = (u, f) => f(u) * (1 - u) + f(u - 1) * u;
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   for (let j = 0; j < H; j++) {
     const lat = (j / (H - 1) - 0.5) * Math.PI;              // −π/2 … π/2
-    const b = Math.sin(lat * 9.0 + Math.sin(lat * 3.1) * 0.8) * 0.5 + 0.5;
-    const b2 = Math.sin(lat * 23.0) * 0.5 + 0.5;
-    const pole = Math.pow(Math.abs(Math.sin(lat)), 6);
+    const pole = Math.pow(Math.abs(Math.sin(lat)), 6), eq = Math.exp(-((lat / 0.17) ** 2));
+    const belt = Math.exp(-(((lat - 0.33) / 0.07) ** 2)) + 0.8 * Math.exp(-(((lat + 0.36) / 0.08) ** 2)) + 0.5 * Math.exp(-(((lat - 0.74) / 0.05) ** 2));
     for (let i = 0; i < W; i++) {
-      const n = fbm(i * 0.01 + lat * 3, lat * 40, 3);
-      const t = b * 0.7 + b2 * 0.2 + (n - 0.5) * 0.25;
-      let r = lerp(0.72, 0.86, t), gg = lerp(0.62, 0.76, t), bb = lerp(0.46, 0.58, t);
-      r = lerp(r, 0.62, pole * 0.8); gg = lerp(gg, 0.64, pole * 0.8); bb = lerp(bb, 0.62, pole * 0.8);
-      const o = (j * W + i) * 4; img.data[o] = r * 255; img.data[o + 1] = gg * 255; img.data[o + 2] = bb * 255; img.data[o + 3] = 255;
+      const u = i / W;
+      const wv = per(u, (q) => fbm(q * 9 + 2.3, lat * 7, 3)), wf = per(u, (q) => fbm(q * 34 + 7.1, lat * 26, 2));
+      const lw = lat + (wv - 0.5) * 0.05 + (wf - 0.5) * 0.012;
+      const fil = per(u, (q) => fbm(q * 14 + lw * 3, lw * 95, 4));
+      let t = 0.5 + 0.26 * Math.sin(lw * 9.0 + Math.sin(lw * 3.1) * 0.8) + 0.12 * Math.sin(lw * 23.0) + 0.08 * Math.sin(lw * 61.0 + 1.3) + 0.05 * Math.sin(lw * 143.0 + 0.4);
+      t += (fil - 0.5) * 0.3;
+      t = Math.min(1, Math.max(0, t));
+      let r = lerp(0.66, 0.9, t), gg = lerp(0.54, 0.8, t), bb = lerp(0.36, 0.58, t);
+      r = lerp(r, 0.95, eq * 0.55); gg = lerp(gg, 0.88, eq * 0.55); bb = lerp(bb, 0.68, eq * 0.55);              // zona ecuatorial crema
+      const bk = Math.min(1, belt) * (0.55 + 0.45 * fil);
+      r = lerp(r, 0.6, bk * 0.5); gg = lerp(gg, 0.46, bk * 0.5); bb = lerp(bb, 0.3, bk * 0.5);                     // cinturones
+      const np = ss(0.95, 1.4, lat), sp = ss(0.95, 1.4, -lat);
+      r = lerp(r, 0.5, np * 0.8); gg = lerp(gg, 0.58, np * 0.8); bb = lerp(bb, 0.66, np * 0.8);                    // casquete norte azulado
+      r = lerp(r, 0.6, sp * 0.7); gg = lerp(gg, 0.56, sp * 0.7); bb = lerp(bb, 0.5, sp * 0.7);
+      const ox = ((u * 9 + 0.31) % 1 - 0.5) / 0.16, oy = (lat + 0.62) / 0.022, ov = 1 - ss(0.5, 1.0, Math.hypot(ox, oy));   // óvalos claros
+      r = lerp(r, 0.96, ov * 0.7); gg = lerp(gg, 0.92, ov * 0.7); bb = lerp(bb, 0.8, ov * 0.7);
+      const o = (j * W + i) * 4; d[o] = r * 255; d[o + 1] = gg * 255; d[o + 2] = bb * 255; d[o + 3] = 255;
     }
   }
   g.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = THREE.RepeatWrapping;
   return t;
 }
 

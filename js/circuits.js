@@ -116,6 +116,7 @@ CIRCUITS.push({
   blurb: L('Marte · borde de la caldera del Olympus Mons · saltos y túnel en la lava', 'Mars · rim of the Olympus Mons caldera · jumps and a lava tunnel'),
   unlockAfter: 'arcadia',
   generated: 'mars',
+  wet: { k: 0.6 },                 // mundo polvoriento: asfalto menos pulido
   inSectorOrder: false,
   hoverMax: 8,
   far: 300000,
@@ -193,6 +194,7 @@ CIRCUITS.push({
   blurb: L('Marte · estadio y ciudad en la meseta de Tharsis · la sierra y los tres volcanes al fondo', 'Mars · stadium and city on the Tharsis plateau · the sierra and three volcanoes beyond'),
   unlockAfter: 'itaka',
   generated: 'tharsis',
+  wet: { k: 0.6 },                 // mundo polvoriento: asfalto menos pulido
   inSectorOrder: false,
   hoverMax: 7,
   far: 340000,
@@ -233,6 +235,7 @@ CIRCUITS.push({
   blurb: L('Phobos · de la superficie al cráter Stickney y por dentro de la luna · Marte llena el horizonte', 'Phobos · from the surface into Stickney crater and through the moon · Mars fills the horizon'),
   unlockAfter: 'tharsis',
   generated: 'phobos',
+  wet: { k: 0.7 },                 // mundo polvoriento: asfalto menos pulido
   music: 'horizon',
   motes: false,
   inSectorOrder: false,
@@ -272,6 +275,7 @@ CIRCUITS.push({
   blurb: L('Ceres · entre rocas a contraluz · túnel de tres carriles, geoda, pared a 55° y salto sobre el nudo', 'Ceres · through backlit rocks · three-lane bore, geode, 55° wall and a jump over the knot'),
   unlockAfter: 'phobos',
   generated: 'ceres',
+  wet: { k: 0.7 },                 // mundo polvoriento: asfalto menos pulido
   music: 'pursuit',
   motes: true,
   inSectorOrder: false,
@@ -390,6 +394,7 @@ CIRCUITS.push({
   blurb: L('Venus · plataformas flotantes sobre el mar de nubes · la ciudadela Tiphares en el corazón del trazado', 'Venus · floating platforms over the cloud sea · the Tiphares citadel at the heart of the course'),
   unlockAfter: 'cassini',
   generated: 'tiphares',
+  wet: { k: 0.6 },                 // mundo polvoriento: asfalto menos pulido
   music: 'observatory',
   inSectorOrder: false,
   hoverMax: 6,
@@ -429,7 +434,7 @@ CIRCUITS.push({
   blurb: L('Europa · noche sobre el hielo bajo Júpiter · simas azules y anillos que reparan, recargan y empujan', 'Europa · night on the ice beneath Jupiter · blue chasms and rings that repair, recharge and push'),
   unlockAfter: 'tiphares',
   generated: 'europa',
-  cine: true,                      // prueba visual: desenfoque radial continuo con la velocidad (no solo con el boost)
+  wet: { lift: 1.6, sheen: [0.6, 0.8, 1.05] },   // asfalto oscuro: más realce del gris
   music: 'horizon',
   inSectorOrder: false,
   hoverMax: 6,
@@ -506,6 +511,7 @@ CIRCUITS.push({
   sub: L('Mercurio · cuenca Caloris', 'Mercury · Caloris basin'),
   blurb: L('Mercurio · del pozo al sol a las galerías sin fin · columnas y prensas que cuestan blindaje', 'Mercury · from the sunlit shaft into endless galleries · columns and presses that cost armor'),
   generated: 'mercury',
+  wet: { k: 0.5 },                 // mundo polvoriento: asfalto menos pulido
   music: 'theorbo',              // Theorbo in Motion (Dear, con Gemini)
   motes: false,
   inSectorOrder: false,

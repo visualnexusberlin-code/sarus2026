@@ -2,6 +2,7 @@
 // La lámina de luz del anillo se ondula al paso y una película azul recorre la nave de morro a cola.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { setWetRings } from './dressing.js';
 
 // Película de luz de los anillos (lámina) — se ondula al cruzarla
 function filmMaterial(col = [0.3, 0.75, 1.0]) {
@@ -71,9 +72,11 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
     star: new THREE.MeshStandardMaterial({ color: 0x404850, emissive: 0xeaf6ff, emissiveIntensity: 5.0 }),
     warm: new THREE.MeshStandardMaterial({ color: 0x2a1a10, emissive: 0xffb070, emissiveIntensity: 4.0 }),
   };
-  if (opts.style === 'arch') {
+  const arch = opts.style !== 'classic';
+  setWetRings(sList, opts.color);
+  if (arch) {
     M.silver = new THREE.MeshStandardMaterial({ color: 0xb9c2cc, roughness: 0.34, metalness: 0.55, emissive: 0x0d1420 });
-    M.star = new THREE.MeshStandardMaterial({ color: 0x404850, emissive: 0xdff0ff, emissiveIntensity: 3.2 });
+    M.star = new THREE.MeshStandardMaterial({ color: 0x404850, emissive: opts.color ? new THREE.Color(...opts.color).lerp(new THREE.Color(0.87, 0.94, 1.0), 0.4) : new THREE.Color(0xdff0ff), emissiveIntensity: 3.2 });
   }
   Object.values(M).forEach((m) => own.push(m));
   const gates = [];
@@ -83,22 +86,18 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
     grp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.right.clone().negate(), F.up, F.tan));
     grp.position.copy(F.pos).addScaledVector(F.up, RC);
     const gp = { metal: [], silver: [], cyan: [], star: [], warm: [] };
-    if (opts.style === 'arch') {
-      // Arco monumental (prueba visual): aro ancho de acero claro, tres paneles de luz blanca por dentro
-      // separados por dos abrazaderas, costillas y balizas cálidas en el canto.
-      const DEG = Math.PI / 180;
-      gp.silver.push(new THREE.TorusGeometry(RR + 1.2, 3.6, 12, 140).scale(1, 1, 2.3));                 // aro: sección elíptica, 16 m de fondo
-      gp.metal.push(new THREE.TorusGeometry(RR + 4.6, 0.5, 6, 140).translate(0, 0, 5.4), new THREE.TorusGeometry(RR + 4.6, 0.5, 6, 140).translate(0, 0, -5.4));
-      for (const [c, span] of [[162, 70], [90, 44], [18, 70]]) {                                          // paneles de luz
-        gp.star.push(new THREE.TorusGeometry(RR - 2.5, 1.25, 8, 48, span * DEG).scale(1, 1, 3.4).rotateZ((c - span / 2) * DEG));
-      }
-      for (const c of [123, 57]) {                                                                         // abrazaderas
-        const a = c * DEG; gp.metal.push(new THREE.BoxGeometry(6.5, 2.6, 13).rotateZ(a).translate(Math.cos(a) * (RR - 3.2), Math.sin(a) * (RR - 3.2), 0));
-      }
-      for (let k = 0; k < 28; k++) {                                                                       // costillas y balizas
-        const a = (k + 0.5) / 28 * Math.PI * 2;
-        gp.metal.push(new THREE.BoxGeometry(8.2, 0.7, 17.4).rotateZ(a).translate(Math.cos(a) * (RR + 1.4), Math.sin(a) * (RR + 1.4), 0));
-        if (k % 2 === 0) gp.warm.push(new THREE.BoxGeometry(0.9, 0.9, 0.5).rotateZ(a).translate(Math.cos(a) * (RR + 3.4), Math.sin(a) * (RR + 3.4), -8.5));
+    if (arch) {
+      // Arco monumental: aro ancho de acero claro, tres paneles de luz por dentro separados por dos abrazaderas,
+      // costillas y balizas cálidas en el canto. Todo a escala del radio (k = 1 con R = 30).
+      const DEG = Math.PI / 180, k = RR / 30;
+      gp.silver.push(new THREE.TorusGeometry(RR + 1.2 * k, 3.6 * k, 12, 140).scale(1, 1, 2.3));
+      gp.metal.push(new THREE.TorusGeometry(RR + 4.6 * k, 0.5 * k, 6, 140).translate(0, 0, 5.4 * k), new THREE.TorusGeometry(RR + 4.6 * k, 0.5 * k, 6, 140).translate(0, 0, -5.4 * k));
+      for (const [c, span] of [[162, 70], [90, 44], [18, 70]]) gp.star.push(new THREE.TorusGeometry(RR - 2.5 * k, 1.25 * k, 8, 48, span * DEG).scale(1, 1, 3.4).rotateZ((c - span / 2) * DEG));
+      for (const c of [123, 57]) { const a = c * DEG; gp.metal.push(new THREE.BoxGeometry(6.5 * k, 2.6 * k, 13 * k).rotateZ(a).translate(Math.cos(a) * (RR - 3.2 * k), Math.sin(a) * (RR - 3.2 * k), 0)); }
+      for (let q = 0; q < 28; q++) {
+        const a = (q + 0.5) / 28 * Math.PI * 2;
+        gp.metal.push(new THREE.BoxGeometry(8.2 * k, 0.7 * k, 17.4 * k).rotateZ(a).translate(Math.cos(a) * (RR + 1.4 * k), Math.sin(a) * (RR + 1.4 * k), 0));
+        if (q % 2 === 0) gp.warm.push(new THREE.BoxGeometry(0.9 * k, 0.9 * k, 0.5).rotateZ(a).translate(Math.cos(a) * (RR + 3.4 * k), Math.sin(a) * (RR + 3.4 * k), -8.5 * k));
       }
     } else {
     gp.metal.push(new THREE.TorusGeometry(RR, 2.6, 14, 120));

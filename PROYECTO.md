@@ -190,3 +190,11 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Júpiter**: turbulencia en los bordes de banda, filamentos, festones, óvalos y barcazas; mapa de 4096 × 2048 en escritorio.
 - **`cine: true`**: desenfoque radial continuo con la velocidad (`main.js`).
 - Pendiente: probar fluidez en móvil y decidir qué se lleva a `main` y a otros circuitos.
+
+## Realismo de pista en todos los circuitos (rama `claude/europa-visual`, noviembre 2026)
+- **Asfalto pulido de serie:** `deckMaterial` lo aplica en todos los circuitos que usan ese material (MIRANDA no: su pista es un camino en el regolito). Parámetros por circuito en `trackUniforms` vía `setWet(def)`: sin `def.wet`, la cantidad de pulido y el brillo rasante bajan con el cielo claro (`light.env`) y el color del brillo sale de `light.hemiSky`. `def.wet = { k, lift, sheen, ringK }` lo fija a mano (mundos polvorientos: k 0,5–0,7).
+- **Reflejo de motores:** `setWetShips` (bucle principal), seis naves, con el color del propulsor de cada una. No se calcula en modo ligero.
+- **Arcos:** el arco monumental es el estilo de serie de `buildRaceRings`, a escala del radio y con los paneles del color del anillo (`style: 'classic'` recupera el anterior). Cada anillo deja su reflejo en el asfalto (`setWetRings`, hasta 8).
+- **Estela de velocidad:** en todos los circuitos (`cine: false` en el circuito la quita).
+- **Saturno** (`saturnTexture`, CASSINI y ENCELADUS): 2048 × 1024, sin costura, bandas finas con bordes ondulados, filamentos, zona ecuatorial, cinturones, casquete norte azulado y óvalos.
+- **Revisado en captura:** EUROPA, CASSINI, ENCELADUS, TRITON, ARCADIA, OLYMPUS, MIRANDA (arco). **Sin revisar:** SELENE, TIPHARES, CALORIS, NUEVA ITAKA, THARSIS, PHOBOS, CERES, VIRGIL-CTHULHU y el modo ligero fuera de EUROPA.

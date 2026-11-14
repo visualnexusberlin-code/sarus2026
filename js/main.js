@@ -52,7 +52,7 @@ import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
 import { NODES, FAMILIES, LINEAGES, MOTTO } from './lore.js';
 import { SolarMap } from './solarmap.js';
 import { Training } from './training.js';
-import { trackUniforms, setPaint, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
+import { trackUniforms, setPaint, setWet, setWetShips, FOLLOWS_TRACK, deformGeometry, deckMaterial, guardMaterial, reflectorMaterial, amberGuideMaterial } from './dressing.js';
 
 const DEC = tr(',', '.');   // separador decimal
 applyDom();   // textos fijos del HTML en el idioma elegido (antes de que el código escriba los dinámicos)
@@ -468,7 +468,7 @@ function applyLook(def) {
   }
   if (!G.envs[def.id]) G.envs[def.id] = buildEnvironment(renderer);
   scene.environment = G.envs[def.id];
-  setPaint(def.paint);
+  setPaint(def.paint); setWet(def);
   CONFIG.hoverMax = def.hoverMax || 5;
   CONFIG.wallGrip = def.wallGrip || null;
   CONFIG.fallOff = !!def.fallOff;
@@ -2112,6 +2112,7 @@ function tick(dt) {
 
   // dentro del túnel baja la luz global (el techo y las cuadernas ya arrojan sombra)
   trackUniforms.uTime.value = G.time;
+  if (inCircuit && G.track && G.ship) setWetShips(G.ships, G.ship, G.track);
   const tn = G.structures?.tunnel;
   let inside = 0;
   if (tn && inCircuit && G.state !== 'title' && G.state !== 'menu' && G.state !== 'intro') {
@@ -2135,7 +2136,7 @@ function tick(dt) {
   const boostOn = inCircuit && (G.ship.boosting || G.ship.boostKick > 0);
   grade.uniforms.uTime.value = G.time;
   grade.uniforms.uAberr.value += ((sp * sp * 0.006 + (boostOn ? 0.008 : 0) + (inCircuit && G.ship.mega > 0 ? 0.008 : 0)) - grade.uniforms.uAberr.value) * Math.min(1, dt * 4);
-  grade.uniforms.uBlur.value += ((Math.max(boostOn ? sp : 0, inCircuit && G.circuit?.cine ? 0.5 * sp * sp : 0)) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
+  grade.uniforms.uBlur.value += ((Math.max(boostOn ? sp : 0, inCircuit && G.circuit?.cine !== false ? 0.5 * sp * sp : 0)) - grade.uniforms.uBlur.value) * Math.min(1, dt * 4);
 
   updateLods(inCircuit);
   if (!G.noRender) { if (CONFIG.post) composer.render(dt); else renderer.render(renderPass.scene, renderPass.camera); }

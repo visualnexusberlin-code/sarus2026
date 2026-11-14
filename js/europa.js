@@ -481,10 +481,9 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   const trackPts = []; for (let s = 0; s < L; s += 10) { track.sample(s, F); trackPts.push([F.pos.x, F.pos.z, F.pos.y]); }
   const clear = (x, z) => { let d = Infinity; for (const [px, pz] of trackPts) d = Math.min(d, (px - x) ** 2 + (pz - z) ** 2); return Math.sqrt(d); };
 
-  const shipGlow = { value: Array.from({ length: 6 }, () => new THREE.Vector4(-1e6, 0, 0, 0)) };   // reflejo de motores (dressing.js)
   // ── Tablero: grafito y plata, quilla con luz azul (la pista flota sobre las simas) ──
   const M = {
-    deck: deckMaterial(srcMat('S6 | UV worn technology', (m) => m.color.setHex(0x646a72)), { wet: { rings: rings.map((f) => f * L), ships: shipGlow } }),
+    deck: deckMaterial(srcMat('S6 | UV worn technology', (m) => m.color.setHex(0x646a72))),
     guard: guardMaterial(srcMat('S6 | Pale mineral track', (m) => m.color.setHex(0xe6ecf2))),
     rib: srcMat('S6 | Ash concrete', (m) => m.color.setHex(0xc9d1da)),
     frame: srcMat('S6 | Charcoal structure', (m) => m.color.setHex(0xd4dbe3)),
@@ -853,24 +852,15 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   }
 
   // ── Anillos de carrera ──
-  const rr = buildRaceRings(world, track, rings.map((f) => f * L), own, { style: 'arch' });
+  const rr = buildRaceRings(world, track, rings.map((f) => f * L), own);
   const gates = rr.gates;
 
   const fx = {
     t: 0, gates,
-    update(dt, camera, G) {
+    update(dt) {
       this.t += dt;
       jm.uniforms.uT.value = this.t;
       rr.update(dt);
-      // las seis naves más cercanas a la del jugador dejan su reflejo de motor en el asfalto
-      if (G?.ships && G.ship) {
-        const near = G.ships.filter((s) => !s.out && !(s.dead > 0)).map((s) => [Math.abs(track.delta(G.ship.s, s.s)), s]).sort((a, b) => a[0] - b[0]);
-        for (let i = 0; i < 6; i++) {
-          const e = near[i], v = shipGlow.value[i];
-          if (e && e[0] < 700) v.set(e[1].s, e[1].x, 0.55 + 0.45 * Math.min(1, e[1].v / 120), e[1].length * 0.5);
-          else v.set(-1e6, 0, 0, 0);
-        }
-      }
     },
     passRings: (ships, onPass) => rr.passRings(ships, onPass),
     reset: () => rr.reset(),
