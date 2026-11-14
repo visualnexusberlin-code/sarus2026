@@ -198,3 +198,10 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Estela de velocidad:** en todos los circuitos (`cine: false` en el circuito la quita).
 - **Saturno** (`saturnTexture`, CASSINI y ENCELADUS): 2048 × 1024, sin costura, bandas finas con bordes ondulados, filamentos, zona ecuatorial, cinturones, casquete norte azulado y óvalos.
 - **Revisado en captura:** EUROPA, CASSINI, ENCELADUS, TRITON, ARCADIA, OLYMPUS, MIRANDA (arco). **Sin revisar:** SELENE, TIPHARES, CALORIS, NUEVA ITAKA, THARSIS, PHOBOS, CERES, VIRGIL-CTHULHU y el modo ligero fuera de EUROPA.
+
+## Astros con más detalle (rama `claude/europa-visual`, noviembre 2026)
+- **Saturno** (`saturnTexture`, `cassini.js`; lo usan CASSINI y ENCELADUS): ver apartado anterior; óvalos suavizados.
+- **Urano** (`uranusMaterial`, `miranda.js`): sigue sobrio. Bandas en tres escalas con el borde ondulado, hebras tenues, casquete con collar, cinturón ecuatorial, nubes de metano en latitudes medias y limbo teñido. Brillo de día 1,7 → 1,4.
+- **Neptuno** (`neptuneMaterial`, `triton.js`): bandas en tres escalas, vetas claras y oscuras, cinturón ecuatorial, halo en la gran mancha, segunda mancha con núcleo brillante, «scooter», hebras finas de cirros y crepúsculo azul. Brillo de día 1,35 → 1,2.
+- **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
+- Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).

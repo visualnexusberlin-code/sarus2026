@@ -249,7 +249,7 @@ function railMaterial(uni) {
 }
 
 // Urano: azul verdoso pálido, bandas apenas visibles, casquete polar más claro; anillos finos y oscuros
-function uranusMaterial(center, sun, axis) {
+export function uranusMaterial(center, sun, axis) {
   return new THREE.ShaderMaterial({
     fog: false,
     uniforms: { uC: { value: center }, uSun: { value: sun }, uA: { value: axis } },
@@ -264,17 +264,32 @@ function uranusMaterial(center, sun, axis) {
       #include <common>
       #include <logdepthbuf_pars_fragment>
       uniform vec3 uC, uSun, uA; varying vec3 vW;
+      float uH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float uN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(uH(i), uH(i+vec2(1,0)), f.x), mix(uH(i+vec2(0,1)), uH(i+vec2(1,1)), f.x), f.y); }
+      float uF(vec2 p){ float a = 0.0, w = 0.5; for (int i = 0; i < 4; i++) { a += uN(p) * w; p = p * 2.03 + vec2(1.7, 9.2); w *= 0.5; } return a; }
       void main(){
         #include <logdepthbuf_fragment>
         vec3 n = normalize(vW - uC), V = normalize(cameraPosition - vW);
-        float lat = asin(clamp(dot(n, normalize(uA)), -1.0, 1.0));
-        vec3 col = mix(vec3(0.6, 0.82, 0.86), vec3(0.7, 0.88, 0.9), 0.5 + 0.5 * sin(lat * 9.0));
-        col = mix(col, vec3(0.78, 0.9, 0.9), smoothstep(0.7, 1.2, lat) * 0.6);
-        col *= 0.96 + 0.04 * sin(lat * 31.0);
+        vec3 ax = normalize(uA);
+        float lat = asin(clamp(dot(n, ax), -1.0, 1.0));
+        vec3 e1 = normalize(cross(ax, vec3(0.0, 0.0, 1.0))), e2 = cross(ax, e1);
+        float lon = atan(dot(n, e2), dot(n, e1));
+        // Urano sigue siendo sobrio: bandas muy suaves en tres escalas con el borde apenas ondulado, hebras tenues,
+        // casquete polar claro con su collar, y unas pocas nubes de metano brillantes en latitudes medias
+        float lw = lat + (uN(vec2(lon * 3.0, lat * 5.0)) - 0.5) * 0.035;
+        vec3 col = mix(vec3(0.46, 0.76, 0.84), vec3(0.66, 0.89, 0.92), 0.5 + 0.5 * sin(lw * 9.0));
+        col = mix(col, vec3(0.6, 0.85, 0.9), (0.5 + 0.5 * sin(lw * 27.0 + 1.0)) * 0.2);
+        col *= 0.95 + 0.04 * sin(lw * 61.0) + 0.07 * (uF(vec2(lon * 6.0, lw * 90.0)) - 0.5);
+        col = mix(col, vec3(0.8, 0.92, 0.92), smoothstep(0.7, 1.2, lat) * 0.62);
+        col = mix(col, vec3(0.9, 0.97, 0.96), exp(-pow((lat - 0.76) / 0.05, 2.0)) * 0.4);
+        col = mix(col, vec3(0.46, 0.72, 0.82), exp(-pow((lat + 0.12) / 0.1, 2.0)) * 0.22);
+        float cl = smoothstep(0.78, 0.9, uF(vec2(lon * 9.0, lat * 55.0) + 7.0)) * exp(-pow((abs(lat) - 0.52) / 0.16, 2.0));
+        col = mix(col, vec3(0.96, 1.0, 1.0), cl * 0.55);
+        col = mix(col, col * vec3(0.72, 0.9, 1.0), pow(1.0 - max(0.0, dot(n, V)), 2.0) * 0.5);      // el metano tiñe el limbo
         float lam = dot(n, normalize(uSun));
         float day = smoothstep(-0.1, 0.3, lam);
         float limb = pow(max(0.0, dot(n, V)), 0.45);
-        vec3 c = col * (0.006 + 1.7 * day * (0.2 + 0.8 * max(lam, 0.0))) * (0.6 + 0.4 * limb);
+        vec3 c = col * (0.006 + 1.4 * day * (0.2 + 0.8 * max(lam, 0.0))) * (0.6 + 0.4 * limb);
         c += vec3(0.03, 0.022, 0.03) * (1.0 - day);                                   // lado nocturno apenas violáceo
         c += vec3(0.5, 0.8, 0.85) * pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 3.0) * 0.5 * smoothstep(-0.35, 0.2, lam);   // halo del limbo a contraluz
         gl_FragColor = vec4(c, 1.0);

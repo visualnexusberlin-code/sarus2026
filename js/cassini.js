@@ -100,8 +100,8 @@ export function saturnTexture() {
       const np = ss(0.95, 1.4, lat), sp = ss(0.95, 1.4, -lat);
       r = lerp(r, 0.5, np * 0.8); gg = lerp(gg, 0.58, np * 0.8); bb = lerp(bb, 0.66, np * 0.8);                    // casquete norte azulado
       r = lerp(r, 0.6, sp * 0.7); gg = lerp(gg, 0.56, sp * 0.7); bb = lerp(bb, 0.5, sp * 0.7);
-      const ox = ((u * 9 + 0.31) % 1 - 0.5) / 0.16, oy = (lat + 0.62) / 0.022, ov = 1 - ss(0.5, 1.0, Math.hypot(ox, oy));   // óvalos claros
-      r = lerp(r, 0.96, ov * 0.7); gg = lerp(gg, 0.92, ov * 0.7); bb = lerp(bb, 0.8, ov * 0.7);
+      const ox = ((u * 9 + 0.31) % 1 - 0.5) / 0.16, oy = (lat + 0.62) / 0.022, ov = 1 - ss(0.3, 1.0, Math.hypot(ox, oy));   // óvalos claros
+      r = lerp(r, 0.93, ov * 0.4); gg = lerp(gg, 0.87, ov * 0.4); bb = lerp(bb, 0.72, ov * 0.4);
       const o = (j * W + i) * 4; d[o] = r * 255; d[o + 1] = gg * 255; d[o + 2] = bb * 255; d[o + 3] = 255;
     }
   }

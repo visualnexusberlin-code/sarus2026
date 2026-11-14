@@ -262,7 +262,7 @@ function plumeMaterial(uni) {
 }
 
 // Neptuno: azul profundo con bandas, mancha oscura, cirros blancos, borde de atmósfera cian y terminador
-function neptuneMaterial(uni, center, sun, axis) {
+export function neptuneMaterial(uni, center, sun, axis) {
   return new THREE.ShaderMaterial({
     fog: false,
     uniforms: { uT: uni.uT, uC: { value: center }, uSun: { value: sun }, uAx: { value: axis } },
@@ -284,24 +284,37 @@ function neptuneMaterial(uni, center, sun, axis) {
         float lat = asin(clamp(dot(n, uAx), -1.0, 1.0));
         vec3 e1 = normalize(cross(uAx, vec3(0.0, 0.0, 1.0))), e2 = cross(uAx, e1);
         float lon = atan(dot(n, e2), dot(n, e1)) + uT * 0.004;
-        float w = tF(vec2(lon * 2.0, lat * 6.0)) * 0.35;
-        float bands = tN(vec2(0.5, (lat + w * 0.25) * 9.0)) * 0.6 + tN(vec2(1.5, (lat + w * 0.15) * 23.0)) * 0.4;
-        vec3 col = mix(vec3(0.07, 0.2, 0.62), vec3(0.24, 0.48, 0.92), bands);
+        // bandas en tres escalas con los bordes ondulados por la turbulencia, y filamentos finos estirados en longitud
+        float w = tF(vec2(lon * 2.0, lat * 6.0)) * 0.35, w2 = tF(vec2(lon * 7.0 + 4.0, lat * 18.0));
+        float lw = lat + w * 0.25 + (w2 - 0.5) * 0.04;
+        float bands = tN(vec2(0.5, lw * 9.0)) * 0.5 + tN(vec2(1.5, lw * 23.0)) * 0.3 + tN(vec2(2.5, lw * 57.0)) * 0.2;
+        float fil = tF(vec2(lon * 4.0 + w2 * 2.0, lw * 130.0));
+        vec3 col = mix(vec3(0.05, 0.16, 0.56), vec3(0.24, 0.5, 0.94), bands);
+        col = mix(col, col * vec3(0.66, 0.78, 1.0) * 0.82, smoothstep(0.5, 0.74, fil) * 0.55);                 // vetas oscuras
+        col = mix(col, vec3(0.36, 0.64, 0.98), smoothstep(0.56, 0.8, tF(vec2(lon * 3.0 + 9.0, lw * 40.0))) * 0.3);   // vetas claras
+        col = mix(col, vec3(0.1, 0.26, 0.7), exp(-pow((lat + 0.05) / 0.16, 2.0)) * 0.35);                       // cinturón ecuatorial más profundo
         col = mix(col, vec3(0.42, 0.66, 0.98), smoothstep(0.65, 0.95, abs(sin(lat))) * 0.5);
-        // gran mancha oscura y su nube blanca acompañante
+        // gran mancha oscura con borde más claro y su nube blanca acompañante
         vec2 sp = vec2(lon - 0.6, (lat + 0.36) * 1.9);
-        float spot = exp(-dot(sp, sp) / 0.012);
+        float spot = exp(-dot(sp, sp) / 0.012), halo = exp(-dot(sp, sp) / 0.03) - spot;
+        col = mix(col, vec3(0.3, 0.56, 0.96), max(halo, 0.0) * 0.5);
         col = mix(col, vec3(0.02, 0.07, 0.28), spot * 0.85);
         float sx = (lon - 0.5) / 0.09, sy = (lat + 0.28) / 0.025; float sc = exp(-sx * sx - sy * sy);
-        // cirros blancos alargados
+        // segunda mancha, pequeña, al sur, con núcleo brillante; y el «scooter» blanco entre las dos
+        vec2 s2 = vec2(lon + 0.9, (lat + 0.92) * 1.6); float spot2 = exp(-dot(s2, s2) / 0.004);
+        col = mix(col, vec3(0.03, 0.09, 0.32), spot2 * 0.8);
+        sc += exp(-dot(s2, s2) / 0.0006) * 0.8 + exp(-pow((lon + 0.2) / 0.06, 2.0) - pow((lat + 0.72) / 0.018, 2.0)) * 0.9;
+        // cirros blancos: bancos alargados y, sobre ellos, hebras muy finas en dos latitudes
         float cir = smoothstep(0.72, 0.86, tF(vec2(lon * 9.0, lat * 70.0) + 3.0)) * smoothstep(0.1, 0.5, abs(sin(lat * 3.0)));
-        col = mix(col, vec3(0.92, 0.96, 1.0), clamp(cir * 0.8 + sc * 0.9, 0.0, 1.0));
+        float thin = smoothstep(0.76, 0.9, tF(vec2(lon * 5.0 + 11.0, lat * 170.0))) * (exp(-pow((lat - 0.47) / 0.1, 2.0)) + exp(-pow((lat + 0.6) / 0.12, 2.0)));
+        col = mix(col, vec3(0.92, 0.96, 1.0), clamp(cir * 0.8 + thin * 0.55 + sc * 0.9, 0.0, 1.0));
         float lam = dot(n, uSun), day = smoothstep(-0.05, 0.25, lam) * max(lam, 0.0);
-        vec3 c = col * (0.008 + 1.35 * day);
+        vec3 c = col * (0.008 + 1.2 * day);
         float mu = clamp(dot(n, V), 0.0, 1.0);
         c *= 0.55 + 0.45 * pow(max(mu, 1e-4), 0.35);                               // oscurecimiento del limbo
         float rim = pow(max(1.0 - mu, 0.0), 5.0);
         c += vec3(0.3, 0.6, 1.0) * rim * smoothstep(-0.3, 0.3, lam) * 0.9;
+        c += vec3(0.015, 0.05, 0.14) * smoothstep(-0.28, 0.02, lam) * (1.0 - smoothstep(0.02, 0.3, lam));   // crepúsculo azul en el terminador
         if (any(isnan(c))) c = vec3(0.04, 0.12, 0.4);
         gl_FragColor = vec4(max(c, vec3(0.0)), 1.0);
         #include <tonemapping_fragment>

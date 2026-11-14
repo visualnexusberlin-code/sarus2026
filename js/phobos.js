@@ -176,26 +176,60 @@ function tunnelMaterial(uni, tint) {
 }
 
 // Marte (mapa horneado): ocre, mares oscuros, casquetes, Valles Marineris, velo de atmósfera
-const MARS_BAKE = /* glsl */`
+export const MARS_BAKE = /* glsl */`
   varying vec2 vUv;
   float hP(vec2 n, float N){ n = mod(n, N); return fract(sin(dot(n, vec2(127.1, 311.7))) * 43758.5453); }
   float nP(vec2 p, float N){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(hP(i, N), hP(i+vec2(1,0), N), f.x), mix(hP(i+vec2(0,1), N), hP(i+vec2(1,1), N), f.x), f.y); }
   float fP(vec2 p, float N){ float a = 0.0, w = 0.5; for (int i = 0; i < 6; i++) { a += nP(p, N) * w; p *= 2.0; N *= 2.0; w *= 0.5; } return a; }
+  // cráteres: celdas con un cráter cada una (borde claro, fondo oscuro); periódico en longitud
+  float crat(vec2 p, float N){ vec2 i = floor(p), f = fract(p); float r = 0.0;
+    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y));
+      vec2 o = vec2(hP(i + g, N), hP(i + g + 17.0, N)); float hh = hP(i + g + 31.0, N); float rad = 0.07 + 0.3 * pow(hh, 4.0);
+      float dd = length(g + o - f) / rad;
+      r += ((smoothstep(0.82, 1.0, dd) - smoothstep(1.0, 1.16, dd)) * 0.6 - (1.0 - smoothstep(0.0, 0.9, dd)) * 0.45) * step(0.35, hh); }
+    return r; }
+  // volcán en escudo: mancha clara con caldera oscura (u0, lat0, radio)
+  float disk(float u, float lat, float u0, float l0, float R){ vec2 dv = vec2((u - u0) * 6.2831853 * cos(lat), lat - l0); return length(dv) / R; }
   void main(){
-    float u = vUv.x, lat = (vUv.y - 0.5) * 3.14159265;
+    float u = vUv.x, lat = (vUv.y - 0.5) * 3.14159265, eqk = 1.0 - smoothstep(0.75, 1.2, abs(lat));
     vec2 q = vec2(u * 8.0, vUv.y * 4.0);
-    float a = fP(q, 8.0), b = fP(q * 3.0 + 7.0, 24.0), c = fP(q * 9.0 + 3.0, 72.0);
-    vec3 col = mix(vec3(0.62, 0.33, 0.18), vec3(0.82, 0.52, 0.32), a);
-    col *= 0.85 + 0.3 * c;
-    float dark = smoothstep(0.55, 0.68, fP(q * 0.5 + 11.0, 4.0) * 0.7 + b * 0.4) * (1.0 - smoothstep(0.7, 1.1, abs(lat)));
-    col = mix(col, vec3(0.3, 0.2, 0.15), dark * 0.75);
-    float vm = exp(-pow((lat + 0.15 + (b - 0.5) * 0.04) / 0.02, 2.0)) * smoothstep(0.25, 0.3, u) * (1.0 - smoothstep(0.42, 0.47, u));
-    col = mix(col, vec3(0.32, 0.18, 0.12), vm * 0.8);
-    float cap = smoothstep(1.18, 1.3, abs(lat) + (b - 0.5) * 0.12);
-    col = mix(col, vec3(0.92, 0.9, 0.88), cap);
+    float a = fP(q, 8.0), b = fP(q * 3.0 + 7.0, 24.0), c = fP(q * 9.0 + 3.0, 72.0), d = fP(q * 28.0 + 1.3, 224.0);
+    vec3 col = mix(vec3(0.5, 0.25, 0.14), vec3(0.84, 0.53, 0.32), smoothstep(0.25, 0.75, a));
+    col = mix(col, vec3(0.9, 0.65, 0.43), smoothstep(0.52, 0.78, b) * 0.4);                     // llanuras de polvo claro
+    col *= 0.7 + 0.36 * c + 0.24 * d;
+    // provincias oscuras de basalto, con el borde deshilachado por el viento
+    float prov = fP(q * 0.5 + 11.0, 4.0) * 0.7 + b * 0.4 + (fP(vec2(u * 64.0, vUv.y * 7.0) + 5.0, 64.0) - 0.5) * 0.12;
+    float dark = smoothstep(0.52, 0.66, prov) * (1.0 - smoothstep(0.7, 1.1, abs(lat)));
+    col = mix(col, mix(vec3(0.25, 0.16, 0.12), vec3(0.37, 0.25, 0.2), c), dark * 0.8);
+    // cráteres a dos escalas (no en los casquetes, donde el mapa se estira)
+    col *= 1.0 + (crat(vec2(u * 28.0, vUv.y * 14.0), 28.0) * 0.1 + crat(vec2(u * 72.0, vUv.y * 36.0) + 3.0, 72.0) * 0.09) * eqk;
+    // Tharsis: abombamiento claro, el gran volcán y los tres montes en fila
+    col = mix(col, vec3(0.86, 0.58, 0.38), (1.0 - smoothstep(0.3, 1.0, disk(u, lat, 0.26, 0.05, 0.55))) * 0.16);
+    for (int k = 0; k < 4; k++) {
+      vec3 vp = k == 0 ? vec3(0.17, 0.32, 0.085) : k == 1 ? vec3(0.235, 0.2, 0.05) : k == 2 ? vec3(0.255, 0.02, 0.05) : vec3(0.275, -0.16, 0.05);
+      float r = disk(u, lat, vp.x, vp.y, vp.z);
+      float rn = r * (0.85 + 0.3 * fP(vec2(u * 96.0, vUv.y * 48.0) + float(k) * 3.0, 96.0));              // contorno irregular
+      col = mix(col, vec3(0.7, 0.43, 0.28) * (0.9 + 0.2 * c), (1.0 - smoothstep(0.25, 1.0, rn)) * 0.55);  // escudo
+      col = mix(col, vec3(0.92, 0.7, 0.5), (smoothstep(1.0, 1.25, rn) - smoothstep(1.25, 1.8, rn)) * (k == 0 ? 0.22 : 0.0));   // aureola del gran volcán
+      col = mix(col, vec3(0.42, 0.26, 0.18), (1.0 - smoothstep(0.05, 0.13, rn)) * 0.5);                 // caldera
+    }
+    // Valles Marineris: cañón principal de ancho variable y un ramal paralelo
+    float vw = 0.014 + 0.012 * fP(vec2(u * 40.0, 3.0), 40.0);
+    float span = smoothstep(0.3, 0.34, u) * (1.0 - smoothstep(0.44, 0.5, u));
+    float vm = exp(-pow((lat + 0.15 + (b - 0.5) * 0.05) / vw, 2.0)) * span;
+    vm = max(vm, exp(-pow((lat + 0.105 + (c - 0.5) * 0.04) / 0.007, 2.0)) * span * smoothstep(0.34, 0.37, u) * (1.0 - smoothstep(0.4, 0.43, u)) * 0.8);
+    col = mix(col, vec3(0.3, 0.17, 0.11), vm * 0.85);
+    // Hellas: gran cuenca clara en el sur
+    col = mix(col, vec3(0.9, 0.7, 0.5), (1.0 - smoothstep(0.5, 1.0, disk(u, lat, 0.7, -0.72, 0.3))) * 0.5);
+    // casquetes: borde irregular, el norte mayor, con surcos en espiral
+    float edge = (b - 0.5) * 0.14 + (c - 0.5) * 0.05;
+    float cap = max(smoothstep(1.12, 1.22, lat + edge), smoothstep(1.24, 1.32, -lat + edge));
+    vec3 ice = vec3(0.94, 0.92, 0.9) * (0.86 + 0.14 * sin(u * 6.2831853 * 5.0 + abs(lat) * 46.0));
+    col = mix(col, ice, cap);
+    col = mix(col, vec3(0.86, 0.72, 0.6), (smoothstep(1.0, 1.15, abs(lat) + edge) - cap) * 0.3);   // escarcha alrededor
     gl_FragColor = vec4(col, 1.0);
   }`;
-function marsMaterial(center, sun, tex) {
+export function marsMaterial(center, sun, tex) {
   return new THREE.ShaderMaterial({
     fog: false,
     uniforms: { uC: { value: center }, uSun: { value: sun }, uMap: { value: tex }, uT: { value: 0 } },
@@ -219,7 +253,11 @@ function marsMaterial(center, sun, tex) {
         float limb = pow(max(0.0, dot(n, V)), 0.4);
         col = pow(col, vec3(1.35)) * 1.25;
         vec3 c = col * (0.006 + 0.95 * day * (0.25 + 0.75 * max(lam, 0.0))) * (0.6 + 0.4 * limb);
-        c += vec3(0.85, 0.55, 0.42) * pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 3.0) * 0.35 * smoothstep(-0.3, 0.3, lam);
+        float mu = max(0.0, dot(n, V));
+        c = mix(c, vec3(0.8, 0.56, 0.42) * day * (0.3 + 0.7 * max(lam, 0.0)), pow(1.0 - mu, 2.6) * 0.24);          // bruma de polvo hacia el limbo
+        c += vec3(0.85, 0.55, 0.42) * pow(1.0 - mu, 3.0) * 0.35 * smoothstep(-0.3, 0.3, lam);
+        c += vec3(0.3, 0.45, 0.75) * pow(1.0 - mu, 10.0) * 0.3 * smoothstep(0.0, 0.3, lam);                      // filo azulado de la atmósfera
+        c += vec3(0.02, 0.028, 0.05) * smoothstep(-0.12, 0.0, lam) * (1.0 - smoothstep(0.0, 0.18, lam));             // crepúsculo frío en el terminador
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -583,7 +621,7 @@ export function buildPhobos(def, { world, own, srcMat, renderer }) {
   // ── Marte, estrellas ──
   const sun = phobosSunDir();
   const mc = centroid.clone().addScaledVector(MARS_DIR, MARS_D).setY(MARS_D * MARS_EL - MARS_R * 0.15);
-  const marsRT = gpuBake(renderer, 1024, MARS_BAKE); own.push(marsRT);
+  const marsRT = gpuBake(renderer, QUALITY.lite ? 1024 : 2048, MARS_BAKE);   // escritorio: mapa al doble own.push(marsRT);
   marsRT.texture.wrapS = THREE.RepeatWrapping;
   const mm = marsMaterial(mc, sun, marsRT.texture); own.push(mm);
   const mars = new THREE.Mesh(new THREE.SphereGeometry(MARS_R, 128, 96), mm); mars.position.copy(mc); mars.frustumCulled = false; world.add(mars); own.push(mars.geometry);
