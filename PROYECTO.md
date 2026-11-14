@@ -213,4 +213,4 @@ Nave 21, a partir del modelo de Dear (`GORDION.glb`, 10 000 triángulos, morro �
 - **Nombre:** «VOSTOK» en letras de plantilla, pintura hueso gastada, proyectado sobre la pendiente de los carenados superiores (los dos costados).
 - **Logo** (`tools/vostok_logo.mjs`): bastión hexagonal, ojo de vigilancia con pupila en rombo y flecha al este.
 - **Flotas:** LOD regenerado con `tools/lod.mjs` (las demás naves quedan iguales); la flota ligera se amplía con `tools/addlite.mjs` (solo añade VOSTOK, sin rehacer las otras).
-- **Pendiente:** lámina de piloto (`pilots/vostok_21.webp` y `-s.webp`); mientras falte, el hangar no muestra lámina y la tesela de la ficha queda vacía.
+- **Lámina:** `pilots/vostok_21.webp` y `-s.webp`, a partir de «escuadron-vostok» de Dear (de su serie *Cortesía del tiempo*, imagen generada con IA): el Escuadrón Vostok en cabina sobre Tritón, con Neptuno.

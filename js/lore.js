@@ -161,7 +161,7 @@ export const SHIP_LORE = {
   VOSTOK_21: { house: 'VOSTOK PATROLS', model: 'SENTINEL', family: 'heavy', lineage: 'outer', cls: L('PESADA / PATRULLA', 'HEAVY / PATROL'),
     sector: L('Blindaje y vigilancia de estaciones', 'Station armor and surveillance'), origin: L('Talleres de la sima de hielo de Tritón', 'Ice-chasm workshops of Triton'),
     doctrine: L('Nada pasa.', 'Nothing gets through.'),
-    lore: L('VOSTOK nació en los talleres excavados en la sima de Tritón, bajo Neptuno, para patrullar la última estación de la ruta. Sus naves se forjan con placas de blindaje recuperadas de estructuras anteriores a SARUS: oscuras, gastadas y casi imposibles de romper. Llevan dos cabinas: el piloto delante, bajo la cubierta alargada, y un vigía en la caja de popa que no pierde de vista lo que queda atrás. Toma su nombre de la estación más fría de la vieja Tierra.', 'VOSTOK was born in the workshops dug into Triton\'s chasm, under Neptune, to patrol the last station on the route. Its ships are forged from armor plates salvaged from pre-SARUS structures: dark, worn and almost impossible to break. They carry two cockpits: the pilot up front, under the long canopy, and a lookout in the rear box who never loses sight of what is behind. It takes its name from the coldest station of old Earth.') },
+    lore: L('VOSTOK nació en los talleres excavados en la sima de Tritón, bajo Neptuno, para patrullar la última estación de la ruta. Sus naves se forjan con placas de blindaje recuperadas de estructuras anteriores a SARUS: oscuras, gastadas y casi imposibles de romper. Llevan dos cabinas: el piloto delante, bajo la cubierta alargada, y un vigía en la caja de popa que no pierde de vista lo que queda atrás. Sus pilotos forman el Escuadrón Vostok, que vuela sobre el hielo de Tritón con Neptuno siempre a la vista. Toma su nombre de la estación más fría de la vieja Tierra.', 'VOSTOK was born in the workshops dug into Triton\'s chasm, under Neptune, to patrol the last station on the route. Its ships are forged from armor plates salvaged from pre-SARUS structures: dark, worn and almost impossible to break. They carry two cockpits: the pilot up front, under the long canopy, and a lookout in the rear box who never loses sight of what is behind. Its pilots form the Vostok Squadron, flying over Triton\'s ice with Neptune always in sight. It takes its name from the coldest station of old Earth.') },
   ORION_18: { house: 'ORION AERONAUTICS', model: 'HUNTER', family: 'balanced', lineage: 'outer', cls: L('EQUILIBRADA / EXPLORACIÓN', 'BALANCED / EXPLORATION'),
     sector: L('Sistemas de espacio profundo', 'Deep Space Systems'), origin: L('Exploración y búsqueda de largo alcance', 'Long-range exploration and search'),
     doctrine: L('Persecución y equilibrio ofensivo.', 'Pursuit and offensive balance.'),
@@ -190,7 +190,7 @@ const DOCKS = {
   ORION_18: L('Muelle de Ceres', 'Ceres dock'),
   PHANTOM_19: L('Anillos de Saturno', 'Saturn’s rings'),
   ANTARES_20: L('Puerto de hielo · Saturno', 'Ice port · Saturn'),
-  VOSTOK_21: L('Sima de hielo · Tritón', 'Ice chasm · Triton'),
+  VOSTOK_21: L('Escuadrón Vostok · Patrulla sobre Tritón', 'Vostok Squadron · Patrol over Triton'),
 };
 for (const k in DOCKS) if (SHIP_LORE[k]) SHIP_LORE[k].dock = DOCKS[k];
 
