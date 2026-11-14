@@ -69,6 +69,9 @@ export const FLEET = [
   { num: '21', node: 'VOSTOK_21', hull: 5, flame: [0.22, 0.42, 1.0], name: 'VOSTOK', ventral: true, tag: L('Bloque blindado de patrulla. Sin motor trasero: levita y empuja con cuatro toberas ventrales. Es la que más pesa: apenas se inmuta con los golpes y aparta a quien se le cruza, pero cuesta girarla.', 'Armored patrol block. No rear engine: it hovers and pushes on four ventral nozzles. The heaviest of all: it barely flinches at hits and shoves aside whoever gets in its way, but it is hard to turn.'),
     V: 4, A: 3, M: 3,
     style: { response: 5.6, grip: 6.8, gripAB: 9.2, ab: 1.15, mass: 1.6, lean: 0.16, bob: 0.02, bobHz: 1.2, drift: 0.12, pitch: 0.35, wallLoss: 0.8 } },
+  { num: '22', node: 'SAILETOR_22', hull: 5, flame: [0.78, 0.7, 1.0], name: 'SAILETOR', tag: L('Composite de Plutón. Estable como pocas en apoyo y a fondo, aguanta golpes y frío extremo; le falta chispa al salir.', 'Pluto composite. Rock-steady under load and flat out, it shrugs off hits and extreme cold; a little flat off the line.'),
+    V: 4, A: 3, M: 4,
+    style: { response: 7.2, grip: 7.0, gripAB: 9.0, ab: 1.0, mass: 1.12, lean: 0.2, bob: 0.02, bobHz: 1.4, drift: 0.1, pitch: 0.5, wallLoss: 0.5 } },
 ];
 
 // capa creativa: escudería, modelo, clase, familia, linaje, procedencia y lore (lore.js)
