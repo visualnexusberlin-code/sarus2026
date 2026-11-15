@@ -195,7 +195,8 @@ const DOCKS = {
   PHANTOM_19: L('Anillos de Saturno', 'Saturn’s rings'),
   ANTARES_20: L('Puerto de hielo · Saturno', 'Ice port · Saturn'),
   VOSTOK_21: L('Escuadrón Vostok · Patrulla sobre Tritón', 'Vostok Squadron · Patrol over Triton'),
+  SAILETOR_22: L('Hangar de la llanura helada · Plutón', 'Ice-plain hangar · Pluto'),
 };
 for (const k in DOCKS) if (SHIP_LORE[k]) SHIP_LORE[k].dock = DOCKS[k];
 
-export const MOTTO = L('SARUS no enfrenta veintiuna naves. Enfrenta veintiuna filosofías tecnológicas.', 'SARUS does not pit twenty-one ships against each other. It pits twenty-one technological philosophies.');
+export const MOTTO = L('SARUS no enfrenta veintidós naves. Enfrenta veintidós filosofías tecnológicas.', 'SARUS does not pit twenty-two ships against each other. It pits twenty-two technological philosophies.');

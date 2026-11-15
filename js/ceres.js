@@ -191,7 +191,7 @@ const BELT_BAKE = /* glsl */`
   vec2 cr(vec2 q, float N, float prob){ vec2 g = q * N, n = floor(g), f = fract(g); vec2 acc = vec2(0.0);
     for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 c = n + vec2(float(i), float(j)); float pr = hP(c + 7.3, N); if (pr > prob) continue;
       vec2 o = h2P(c, N); float r = 0.12 + 0.25 * hP(c + 3.1, N); float d = length(vec2(float(i), float(j)) + o - f) / r; if (d > 2.0) continue;
-      acc += vec2((d < 1.0 ? (d * d - 1.0) * 0.35 : 0.0) + exp(-pow((d - 1.0) / 0.25, 2.0)) * 0.12, exp(-pow((d - 1.1) / 0.5, 2.0)) * 0.4); }
+      acc += vec2((d < 1.0 ? (d * d - 1.0) * 0.35 : 0.0) + exp(-(((d - 1.0) / 0.25) * ((d - 1.0) / 0.25))) * 0.12, exp(-(((d - 1.1) / 0.5) * ((d - 1.1) / 0.5))) * 0.4); }
     return acc; }
   void main(){
     vec2 q = vUv;
@@ -299,7 +299,7 @@ function boreMaterial(tex, uni, per, lamp = [1.0, 0.62, 0.2]) {
           float top = smoothstep(14.0, 22.0, u) * (1.0 - smoothstep(PER - 22.0, PER - 14.0, u));
           bLamp = (1.0 - smoothstep(0.0, 0.012, abs(lr - 0.5))) * top * aa;
           float ph = fract((s - uT * 140.0) / 108.0) * 108.0;
-          bPulse = exp(-pow((ph - 54.0) / 5.0, 2.0));
+          bPulse = exp(-(((ph - 54.0) / 5.0) * ((ph - 54.0) / 5.0)));
           float salt = (1.0 - smoothstep(0.4, 0.8, abs(u - 2.2))) + (1.0 - smoothstep(0.4, 0.8, abs(u - (PER - 2.2))));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.83, 0.78), salt * 0.8);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08), bLamp);
@@ -336,7 +336,7 @@ function fieldMaterial(uni, col = [1.0, 0.62, 0.22]) {
         vec2 c = vec2(s / 3.2, h * 4.0); c.x += step(1.0, mod(floor(c.y), 2.0)) * 0.5;
         vec2 f = abs(fract(c) - 0.5);
         float cell = smoothstep(0.42, 0.5, max(f.x, f.y * 0.9));
-        float sweep = exp(-pow((fract((s - uT * 160.0) / 140.0) - 0.5) * 9.0, 2.0));
+        float sweep = exp(-(((fract((s - uT * 160.0) / 140.0) - 0.5) * 9.0) * ((fract((s - uT * 160.0) / 140.0) - 0.5) * 9.0)));
         float edge = 1.0 - abs(dot(normalize(vN), normalize(vV)));
         float top = smoothstep(0.75, 1.0, h) + (1.0 - smoothstep(0.0, 0.08, h)) * 0.6;
         float fade = 1.0 - smoothstep(0.82, 1.0, h);
@@ -384,7 +384,7 @@ const CERES_BAKE = /* glsl */`
   float cr(vec2 q, float N, float prob){ vec2 g = q * N, n = floor(g), f = fract(g); float acc = 0.0;
     for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 c = n + vec2(float(i), float(j)); if (hP(c + 7.3, N) > prob) continue;
       vec2 o = h2P(c, N); float r = 0.15 + 0.3 * hP(c + 3.1, N); float d = length(vec2(float(i), float(j)) + o - f) / r;
-      acc += (d < 1.0 ? (d * d - 1.0) * 0.6 : 0.0) + exp(-pow((d - 1.0) / 0.2, 2.0)) * 0.3; }
+      acc += (d < 1.0 ? (d * d - 1.0) * 0.6 : 0.0) + exp(-(((d - 1.0) / 0.2) * ((d - 1.0) / 0.2))) * 0.3; }
     return acc; }
   void main(){
     vec2 q = vec2(vUv.x * 2.0, vUv.y);
@@ -392,7 +392,7 @@ const CERES_BAKE = /* glsl */`
     float a = fP(q * 4.0, 8.0);
     vec3 col = mix(vec3(0.11, 0.095, 0.08), vec3(0.27, 0.23, 0.19), a) * (0.85 + h * 0.25);
     // manchas de sal: un cráter con su mancha brillante y un puñado de puntos menores
-    float spot = exp(-pow(length((q - vec2(0.62, 0.58)) * vec2(1.0, 2.0)) / 0.018, 2.0)) + exp(-pow(length((q - vec2(0.645, 0.565)) * vec2(1.0, 2.0)) / 0.009, 2.0));
+    float spot = exp(-((length((q - vec2(0.62, 0.58)) * vec2(1.0, 2.0)) / 0.018) * (length((q - vec2(0.62, 0.58)) * vec2(1.0, 2.0)) / 0.018))) + exp(-((length((q - vec2(0.645, 0.565)) * vec2(1.0, 2.0)) / 0.009) * (length((q - vec2(0.645, 0.565)) * vec2(1.0, 2.0)) / 0.009)));
     spot += smoothstep(0.83, 0.9, fP(q * 22.0 + 3.0, 44.0)) * 0.6;
     col = mix(col, vec3(0.95, 0.94, 0.9), clamp(spot, 0.0, 1.0));
     gl_FragColor = vec4(col, h * 0.5 + 0.5);

@@ -206,6 +206,15 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## SAILETOR_22 · SAILETOR (noviembre 2026)
+
+- **Origen:** modelo de Dear (`SAILATOR.glb`, 197k triángulos). Escudería de Plutón: materiales aerodinámicos, estabilidad y resistencia a condiciones extremas. Lámina del piloto en `pilots/sailetor_22.webp`.
+- **Montaje** (`tools/sailetor.mjs`, mapa UV→posición en `tools/uvpos.mjs`): malla a 60k triángulos, escala 3,0. El naranja de la textura pasa a blanco perla (quedan negro y acentos naranja en las aletas delanteras y la popa); barniz. Tercio trasero ensanchado (z × 1,38 hacia popa, normales corregidas) y dos derivas en flecha (`WING=0` las quita).
+- **Cúpula:** retícula hexagonal en geometría («SAILETOR | Canopy lattice»), proyectada por rayos solo sobre el cristal.
+- **Suspensores:** filetes `SAILETOR_Hover` y halos «SAILETOR_Hover Halo» bajo las aletas delanteras y la popa; `ship.js` dibuja todo material «Halo» aditivo, sin sombra, y no lo cuenta en el tamaño del casco.
+- **Logo** (`tools/sailetor_logo.mjs`): anillo de órbita, vela-ala y corazón de Plutón.
+- **Shaders:** `pow(x, 2.0)` con x negativo da NaN en algunas GPU (Neptuno en Tritón salía con medio disco azul plano); sustituido en todos los circuitos por `(x) * (x)`. No volver a usar `pow` con base que pueda ser negativa.
+
 ## VOSTOK_21 · VOSTOK PATROLS (noviembre 2026)
 Nave 21, a partir del modelo de Dear (`GORDION.glb`, 10 000 triángulos, morro −X). Escudería de Tritón, linaje exterior, familia pesada; modelo SENTINEL.
 - **Montaje** (`tools/vostok.mjs`, selección de cabina en `tools/sel.mjs`): escala 2,706 (≈4,7 m de largo), morro a +Z. Casco v2 «VOSTOK | Ancient armor»: acero claro gastado (base × 0,95 + 0,03, tinte frío), 520 haces de rayones y 1.700 desconchones procedurales que dejan ver metal desnudo (0,66/0,68/0,71); metal 0,12–0,4 en la pintura y hasta 1 en rayones y cantos, rugosidad 0,16–0,8. Doce luces de posición rojo-anaranjadas emisivas («VOSTOK | Running lamps red») en los extremos de las góndolas y la popa. Cabina «VOSTOK | Polished cockpit»: el canal alargado con el parabrisas y la ventana de la caja de popa (segunda cabina), sin mapa normal, rugosidad 0,42 y barniz.

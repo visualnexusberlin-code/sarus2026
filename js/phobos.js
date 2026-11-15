@@ -162,7 +162,7 @@ function tunnelMaterial(uni, tint) {
           tStrip = 0.0;
           ${[0, 1, 2, 3].map((i) => `tStrip = max(tStrip, 1.0 - smoothstep(0.18, 0.32, abs(u - uStrip${i})));`).join('\n          ')}
           float ph = fract((s - uT * 120.0) / 90.0) * 90.0;
-          tPulse = exp(-pow((ph - 45.0) / 4.0, 2.0));
+          tPulse = exp(-(((ph - 45.0) / 4.0) * ((ph - 45.0) / 4.0)));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08), tStrip);
         }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.9, tSeam);')
@@ -216,8 +216,8 @@ export const MARS_BAKE = /* glsl */`
     // Valles Marineris: cañón principal de ancho variable y un ramal paralelo
     float vw = 0.014 + 0.012 * fP(vec2(u * 40.0, 3.0), 40.0);
     float span = smoothstep(0.3, 0.34, u) * (1.0 - smoothstep(0.44, 0.5, u));
-    float vm = exp(-pow((lat + 0.15 + (b - 0.5) * 0.05) / vw, 2.0)) * span;
-    vm = max(vm, exp(-pow((lat + 0.105 + (c - 0.5) * 0.04) / 0.007, 2.0)) * span * smoothstep(0.34, 0.37, u) * (1.0 - smoothstep(0.4, 0.43, u)) * 0.8);
+    float vm = exp(-(((lat + 0.15 + (b - 0.5) * 0.05) / vw) * ((lat + 0.15 + (b - 0.5) * 0.05) / vw))) * span;
+    vm = max(vm, exp(-(((lat + 0.105 + (c - 0.5) * 0.04) / 0.007) * ((lat + 0.105 + (c - 0.5) * 0.04) / 0.007))) * span * smoothstep(0.34, 0.37, u) * (1.0 - smoothstep(0.4, 0.43, u)) * 0.8);
     col = mix(col, vec3(0.3, 0.17, 0.11), vm * 0.85);
     // Hellas: gran cuenca clara en el sur
     col = mix(col, vec3(0.9, 0.7, 0.5), (1.0 - smoothstep(0.5, 1.0, disk(u, lat, 0.7, -0.72, 0.3))) * 0.5);

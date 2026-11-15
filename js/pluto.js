@@ -230,7 +230,7 @@ function beamMaterial(uni, col, k = 0.08) {
       uniform float uT, uK; uniform vec3 uCol; varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vD;
       void main(){
         #include <logdepthbuf_fragment>
-        float core = pow(abs(dot(normalize(vN), normalize(vV))), 2.0);
+        float core = ((abs(dot(normalize(vN), normalize(vV)))) * (abs(dot(normalize(vN), normalize(vV)))));
         float y = vUv.y;
         float along = smoothstep(0.0, 0.05, y) * pow(max(1.0 - y, 0.0), 1.4);
         along *= 0.8 + 0.2 * sin(vUv.x * 40.0 + y * 9.0 + uT * 0.4);
@@ -302,7 +302,7 @@ function charonMaterial(center, sun, axis) {
         col *= 0.8 + 0.25 * smoothstep(0.0, 0.3, cr);
         float cap = smoothstep(0.85, 1.15, lat + (a - 0.5) * 0.3);
         col = mix(col, vec3(0.42, 0.16, 0.1), cap * 0.85);
-        float canyon = exp(-pow((lat - 0.05 * sin(lon * 3.0)) / 0.025, 2.0));
+        float canyon = exp(-(((lat - 0.05 * sin(lon * 3.0)) / 0.025) * ((lat - 0.05 * sin(lon * 3.0)) / 0.025)));
         col *= 1.0 - 0.45 * canyon;
         float lam = dot(n, uSun), day = smoothstep(-0.03, 0.2, lam) * max(lam, 0.0);
         vec3 c = col * (0.006 + 1.3 * day);
@@ -511,7 +511,7 @@ export function buildPluto(def, { world, own, srcMat }) {
     const shell = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 24), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize((modelMatrix * vec4(position, 1.0)).xyz - cameraPosition); gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }',
-      fragmentShader: `varying vec3 vDir; void main(){ vec3 d = normalize(vDir); vec3 rel = cameraPosition - vec3(0.0, ${(-PLUTO_R).toFixed(1)}, 0.0); float dist = max(length(rel), ${PLUTO_R.toFixed(1)} + 1.0); vec3 upv = rel / dist; float hz = -sqrt(1.0 - pow(${PLUTO_R.toFixed(1)} / dist, 2.0)); float h = dot(d, upv) - hz; float k = 1.0 - smoothstep(4000.0, 60000.0, dist - ${PLUTO_R.toFixed(1)}); float layers = 0.75 + 0.25 * sin(h * 900.0); vec3 c = vec3(0.12, 0.26, 0.55) * exp(-max(h, 0.0) / 0.03) * layers * smoothstep(-0.006, 0.0, h) * 0.6 * k; gl_FragColor = vec4(c, 1.0); }`,
+      fragmentShader: `varying vec3 vDir; void main(){ vec3 d = normalize(vDir); vec3 rel = cameraPosition - vec3(0.0, ${(-PLUTO_R).toFixed(1)}, 0.0); float dist = max(length(rel), ${PLUTO_R.toFixed(1)} + 1.0); vec3 upv = rel / dist; float hz = -sqrt(1.0 - ((${PLUTO_R.toFixed(1)} / dist) * (${PLUTO_R.toFixed(1)} / dist))); float h = dot(d, upv) - hz; float k = 1.0 - smoothstep(4000.0, 60000.0, dist - ${PLUTO_R.toFixed(1)}); float layers = 0.75 + 0.25 * sin(h * 900.0); vec3 c = vec3(0.12, 0.26, 0.55) * exp(-max(h, 0.0) / 0.03) * layers * smoothstep(-0.006, 0.0, h) * 0.6 * k; gl_FragColor = vec4(c, 1.0); }`,
     }));
     shell.renderOrder = -999; shell.frustumCulled = false;
     shell.onBeforeRender = (r, sc, cam) => { shell.position.copy(cam.position); shell.updateMatrixWorld(); };

@@ -128,8 +128,8 @@ function iceMaterial(uni, opts = {}) {
           eBump = eF(p / 90.0) * 3.0 + c * 0.7 - clamp(line, 0.0, 1.0) * 1.6;
           // rayas de tigre: banda ancha roja y anaranjada, núcleo caliente en el fondo de la grieta
           float d = eStripe(p, uSt, uSo), fr = 1.0 - smoothstep(20000.0, 30000.0, length(p));
-          float band = exp(-pow(d / 150.0, 2.0)) * fr, core = exp(-pow(d / 20.0, 2.0)) * fr;
-          col = mix(col, mix(vec3(0.7, 0.16, 0.08), vec3(1.0, 0.5, 0.14), exp(-pow(d / 65.0, 2.0))), band * 0.9);
+          float band = exp(-((d / 150.0) * (d / 150.0))) * fr, core = exp(-((d / 20.0) * (d / 20.0))) * fr;
+          col = mix(col, mix(vec3(0.7, 0.16, 0.08), vec3(1.0, 0.5, 0.14), exp(-((d / 65.0) * (d / 65.0)))), band * 0.9);
           eHot = core * (0.75 + 0.25 * sin(uT * 1.3 + p.x * 0.01)) + band * 0.22;
           // lado nocturno de la luna (visto desde el espacio en la intro): sin luz de relleno
           vec3 nS = normalize(vIW - vec3(0.0, ${(-MOON_R).toFixed(1)}, 0.0));
@@ -171,7 +171,7 @@ function ceilMaterial(uni) {
           float k1 = eCrack(p / 260.0), k2 = eCrack(p / 64.0 + 11.0);
           float line = (1.0 - smoothstep(0.0, 0.035, k1)) + (1.0 - smoothstep(0.0, 0.05, k2)) * 0.35;
           float d = eStripe(p, uSt, uSo);
-          eGlow = vec3(0.25, 0.75, 0.95) * line * (0.18 + 0.12 * a) + vec3(1.0, 0.36, 0.12) * exp(-pow(d / 70.0, 2.0)) * (0.35 + line * 1.2) * (0.8 + 0.2 * sin(uT * 0.9 + p.y * 0.01));
+          eGlow = vec3(0.25, 0.75, 0.95) * line * (0.18 + 0.12 * a) + vec3(1.0, 0.36, 0.12) * exp(-((d / 70.0) * (d / 70.0))) * (0.35 + line * 1.2) * (0.8 + 0.2 * sin(uT * 0.9 + p.y * 0.01));
         }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += eGlow;`);
@@ -230,7 +230,7 @@ export function tubeMaterial(uni, per, face, { windows = false, lamp = [0.85, 0.
           float ring = (1.0 - smoothstep(0.3, 0.6, rd)) * (1.0 - low);
           float ph = fract((s - uT * 150.0) / 120.0) * 120.0;
           tLamp = (strip + ring * 0.8) * aa * tIn;
-          tLamp *= 0.75 + 0.25 * exp(-pow((ph - 60.0) / 6.0, 2.0)) * 4.0;
+          tLamp *= 0.75 + 0.25 * exp(-(((ph - 60.0) / 6.0) * ((ph - 60.0) / 6.0))) * 4.0;
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.1), min(1.0, strip) * tIn);
         }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.85, tSeam);')
@@ -375,13 +375,13 @@ function moonMaterial(center, sun, uni) {
         // polo (la zona del circuito): las rayas en coordenadas de mundo, y un halo rojizo alrededor
         float pole = smoothstep(0.93, 0.985, n.y);
         float d = eStripe(vW.xz, uSt, uSo);
-        float band = exp(-pow(d / 160.0, 2.0)) * pole;
+        float band = exp(-((d / 160.0) * (d / 160.0))) * pole;
         float polar = smoothstep(0.86, 0.97, n.y) * (0.35 + 0.65 * eF(vW.xz / 3000.0));
         col = mix(col, vec3(0.62, 0.22, 0.12), polar * 0.5);
         col = mix(col, vec3(0.95, 0.5, 0.16), band * 0.9);
         float lam = dot(n, uSun), day = smoothstep(-0.04, 0.2, lam) * max(lam, 0.0);
         vec3 c = col * (0.006 + 1.25 * day);
-        c += vec3(1.0, 0.45, 0.15) * exp(-pow(d / 22.0, 2.0)) * pole * 1.2;
+        c += vec3(1.0, 0.45, 0.15) * exp(-((d / 22.0) * (d / 22.0))) * pole * 1.2;
         float rim = pow(max(1.0 - max(0.0, dot(n, V)), 0.0), 5.0);
         c += vec3(0.5, 0.8, 1.0) * rim * smoothstep(-0.3, 0.3, lam) * 0.2;
         gl_FragColor = vec4(c, 1.0);
@@ -412,7 +412,7 @@ function bandMaterial(uni, col) {
         float x = vUv.x * 2.0 - 1.0, s = vUv.y;              // x: −1…1 a lo ancho · s: recorrido (m)
         float core = exp(-x * x * 9.0) * 1.4 + exp(-x * x * 1.6) * 0.35;
         float ph = fract((s - uT * 210.0) / 90.0);
-        float pulse = exp(-pow((ph - 0.5) * 14.0, 2.0));
+        float pulse = exp(-(((ph - 0.5) * 14.0) * ((ph - 0.5) * 14.0)));
         float dash = 0.75 + 0.25 * step(0.5, fract(s / 6.0));
         float fade = exp(-vD / 2200.0);
         gl_FragColor = vec4(uCol * core * (0.8 * dash + 2.2 * pulse) * (0.35 + 0.65 * fade), 1.0);
@@ -442,7 +442,7 @@ function veilMaterial(uni) {
         vec2 f = abs(fract(c) - 0.5);
         float aa = clamp(2.0 - vD / 120.0, 0.0, 1.0);
         float grid = (1.0 - smoothstep(0.0, 0.04, 0.5 - max(f.x, f.y))) * aa;
-        float sweep = exp(-pow((fract((vUv.y - uT * 260.0) / 400.0) - 0.5) * 12.0, 2.0));
+        float sweep = exp(-(((fract((vUv.y - uT * 260.0) / 400.0) - 0.5) * 12.0) * ((fract((vUv.y - uT * 260.0) / 400.0) - 0.5) * 12.0)));
         float edge = smoothstep(0.38, 0.5, abs(vUv.x - 0.5));
         gl_FragColor = vec4(vec3(0.35, 0.8, 1.0) * (grid * 0.05 + sweep * 0.05 + edge * 0.04) * exp(-vD / 900.0), 1.0);
       }`,

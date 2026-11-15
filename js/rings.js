@@ -26,7 +26,7 @@ function filmMaterial(col = [0.3, 0.75, 1.0]) {
         float rim = smoothstep(0.7, 1.0, r);
         float sh = 0.5 + 0.5 * sin(r * 30.0 - uT * 3.0 + sin(atan(p.y, p.x) * 6.0 + uT) * 0.6);
         float dt = uT - uHit;
-        float wave = exp(-pow((r - dt * 1.4) * 9.0, 2.0)) * exp(-dt * 1.6) * step(0.0, dt);
+        float wave = exp(-(((r - dt * 1.4) * 9.0) * ((r - dt * 1.4) * 9.0))) * exp(-dt * 1.6) * step(0.0, dt);
         float a = 0.05 + 0.1 * sh * (0.3 + rim) + 0.5 * rim * rim + 1.4 * wave;
         gl_FragColor = vec4(uCol * a, 1.0);
       }`,
@@ -53,7 +53,7 @@ function shellMaterial(col = [0.35, 0.8, 1.0]) {
       void main(){
         #include <logdepthbuf_fragment>
         float f = pow(max(1.0 - abs(dot(normalize(vN), normalize(vV))), 0.0), 2.2);
-        float sweep = exp(-pow((vP.z - (1.2 - uP * 3.0)) * 3.2, 2.0));
+        float sweep = exp(-(((vP.z - (1.2 - uP * 3.0)) * 3.2) * ((vP.z - (1.2 - uP * 3.0)) * 3.2)));
         float lines = 0.5 + 0.5 * sin(vP.z * 40.0 - uP * 30.0);
         float a = (0.9 * f + 1.6 * sweep * (0.6 + 0.4 * lines)) * pow(max(1.0 - uP, 0.0), 1.4);
         gl_FragColor = vec4(uCol * a, 1.0);

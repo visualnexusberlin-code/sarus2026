@@ -75,8 +75,8 @@ export const BAKE = /* glsl */`
       if (d > 2.2) continue;
       float depth = 0.2 * r * cellM;
       float bowl = d < 1.0 ? (d * d - 1.0) : 0.0;
-      float rimH = exp(-pow((d - 1.0) / 0.22, 2.0)) * 0.22;
-      float ej = exp(-pow((d - 1.25) / 0.45, 2.0)) * (1.0 - smoothstep(0.0, 1.0, pr / prob)) ;
+      float rimH = exp(-(((d - 1.0) / 0.22) * ((d - 1.0) / 0.22))) * 0.22;
+      float ej = exp(-(((d - 1.25) / 0.45) * ((d - 1.25) / 0.45))) * (1.0 - smoothstep(0.0, 1.0, pr / prob)) ;
       acc += vec2((bowl + rimH) * depth, ej);
     }
     return acc;
@@ -237,7 +237,7 @@ function railMaterial(uni) {
         #include <logdepthbuf_fragment>
         float s = vUv.y;
         float ph = fract((s - uT * 85.0) / 150.0) * 150.0;
-        float pulse = exp(-pow((ph - 75.0) / 5.0, 2.0));
+        float pulse = exp(-(((ph - 75.0) / 5.0) * ((ph - 75.0) / 5.0)));
         float blink = vK * step(0.5, fract(uT * 1.6 + s * 0.004));
         vec3 base = mix(vec3(0.3, 0.75, 1.0), vec3(1.0, 0.62, 0.22), vK);
         vec3 c = base * (0.55 + 3.2 * pulse + 1.2 * blink);
@@ -281,11 +281,11 @@ export function uranusMaterial(center, sun, axis) {
         col = mix(col, vec3(0.6, 0.85, 0.9), (0.5 + 0.5 * sin(lw * 27.0 + 1.0)) * 0.2);
         col *= 0.95 + 0.04 * sin(lw * 61.0) + 0.07 * (uF(vec2(lon * 6.0, lw * 90.0)) - 0.5);
         col = mix(col, vec3(0.8, 0.92, 0.92), smoothstep(0.7, 1.2, lat) * 0.62);
-        col = mix(col, vec3(0.9, 0.97, 0.96), exp(-pow((lat - 0.76) / 0.05, 2.0)) * 0.4);
-        col = mix(col, vec3(0.46, 0.72, 0.82), exp(-pow((lat + 0.12) / 0.1, 2.0)) * 0.22);
-        float cl = smoothstep(0.78, 0.9, uF(vec2(lon * 9.0, lat * 55.0) + 7.0)) * exp(-pow((abs(lat) - 0.52) / 0.16, 2.0));
+        col = mix(col, vec3(0.9, 0.97, 0.96), exp(-(((lat - 0.76) / 0.05) * ((lat - 0.76) / 0.05))) * 0.4);
+        col = mix(col, vec3(0.46, 0.72, 0.82), exp(-(((lat + 0.12) / 0.1) * ((lat + 0.12) / 0.1))) * 0.22);
+        float cl = smoothstep(0.78, 0.9, uF(vec2(lon * 9.0, lat * 55.0) + 7.0)) * exp(-(((abs(lat) - 0.52) / 0.16) * ((abs(lat) - 0.52) / 0.16)));
         col = mix(col, vec3(0.96, 1.0, 1.0), cl * 0.55);
-        col = mix(col, col * vec3(0.72, 0.9, 1.0), pow(1.0 - max(0.0, dot(n, V)), 2.0) * 0.5);      // el metano tiñe el limbo
+        col = mix(col, col * vec3(0.72, 0.9, 1.0), ((1.0 - max(0.0, dot(n, V))) * (1.0 - max(0.0, dot(n, V)))) * 0.5);      // el metano tiñe el limbo
         float lam = dot(n, normalize(uSun));
         float day = smoothstep(-0.1, 0.3, lam);
         float limb = pow(max(0.0, dot(n, V)), 0.45);
@@ -312,7 +312,7 @@ function ringsMaterial() {
       #include <common>
       #include <logdepthbuf_pars_fragment>
       varying vec3 vP;
-      float ring(float r, float c, float w){ return exp(-pow((r - c) / w, 2.0)); }
+      float ring(float r, float c, float w){ return exp(-(((r - c) / w) * ((r - c) / w))); }
       void main(){
         #include <logdepthbuf_fragment>
         float r = length(vP.xy);

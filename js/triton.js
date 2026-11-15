@@ -135,7 +135,7 @@ function groundMaterial(plains) {
           // cantalupo: fondo de las células gris verdoso, bordes claros amarillentos, nudos
           vec3 col = mix(vec3(0.3, 0.33, 0.3), vec3(0.5, 0.52, 0.46), smoothstep(0.25, 0.8, a * 0.6 + b * 0.4));
           col *= 0.8 + 0.35 * smoothstep(0.0, 0.4, e1);
-          col = mix(col, vec3(0.8, 0.77, 0.66), exp(-pow(e1 / 0.045, 2.0)) * 0.8 + exp(-pow(e2 / 0.06, 2.0)) * 0.25 * aa);
+          col = mix(col, vec3(0.8, 0.77, 0.66), exp(-((e1 / 0.045) * (e1 / 0.045))) * 0.8 + exp(-((e2 / 0.06) * (e2 / 0.06))) * 0.25 * aa);
           col *= 0.86 + 0.28 * c * aa + 0.14 * (1.0 - aa);
           // vetas oscuras de los géiseres, alargadas por el viento (hacia el noreste)
           vec2 w = vec2(dot(p, vec2(0.8, -0.6)), dot(p, vec2(0.6, 0.8)));
@@ -221,7 +221,7 @@ function beamMaterial(uni, col, k = 0.08) {
       uniform float uT, uK; uniform vec3 uCol; varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vD;
       void main(){
         #include <logdepthbuf_fragment>
-        float core = pow(abs(dot(normalize(vN), normalize(vV))), 2.0);
+        float core = ((abs(dot(normalize(vN), normalize(vV)))) * (abs(dot(normalize(vN), normalize(vV)))));
         float y = vUv.y;
         float along = smoothstep(0.0, 0.05, y) * pow(max(1.0 - y, 0.0), 1.4);
         along *= 0.8 + 0.2 * sin(vUv.x * 40.0 + y * 9.0 + uT * 0.4);
@@ -292,7 +292,7 @@ export function neptuneMaterial(uni, center, sun, axis) {
         vec3 col = mix(vec3(0.05, 0.16, 0.56), vec3(0.24, 0.5, 0.94), bands);
         col = mix(col, col * vec3(0.66, 0.78, 1.0) * 0.82, smoothstep(0.5, 0.74, fil) * 0.55);                 // vetas oscuras
         col = mix(col, vec3(0.36, 0.64, 0.98), smoothstep(0.56, 0.8, tF(vec2(lon * 3.0 + 9.0, lw * 40.0))) * 0.3);   // vetas claras
-        col = mix(col, vec3(0.1, 0.26, 0.7), exp(-pow((lat + 0.05) / 0.16, 2.0)) * 0.35);                       // cinturón ecuatorial más profundo
+        col = mix(col, vec3(0.1, 0.26, 0.7), exp(-(((lat + 0.05) / 0.16) * ((lat + 0.05) / 0.16))) * 0.35);                       // cinturón ecuatorial más profundo
         col = mix(col, vec3(0.42, 0.66, 0.98), smoothstep(0.65, 0.95, abs(sin(lat))) * 0.5);
         // gran mancha oscura con borde más claro y su nube blanca acompañante
         vec2 sp = vec2(lon - 0.6, (lat + 0.36) * 1.9);
@@ -303,10 +303,10 @@ export function neptuneMaterial(uni, center, sun, axis) {
         // segunda mancha, pequeña, al sur, con núcleo brillante; y el «scooter» blanco entre las dos
         vec2 s2 = vec2(lon + 0.9, (lat + 0.92) * 1.6); float spot2 = exp(-dot(s2, s2) / 0.004);
         col = mix(col, vec3(0.03, 0.09, 0.32), spot2 * 0.8);
-        sc += exp(-dot(s2, s2) / 0.0006) * 0.8 + exp(-pow((lon + 0.2) / 0.06, 2.0) - pow((lat + 0.72) / 0.018, 2.0)) * 0.9;
+        sc += exp(-dot(s2, s2) / 0.0006) * 0.8 + exp(-(((lon + 0.2) / 0.06) * ((lon + 0.2) / 0.06)) - (((lat + 0.72) / 0.018) * ((lat + 0.72) / 0.018))) * 0.9;
         // cirros blancos: bancos alargados y, sobre ellos, hebras muy finas en dos latitudes
         float cir = smoothstep(0.72, 0.86, tF(vec2(lon * 9.0, lat * 70.0) + 3.0)) * smoothstep(0.1, 0.5, abs(sin(lat * 3.0)));
-        float thin = smoothstep(0.76, 0.9, tF(vec2(lon * 5.0 + 11.0, lat * 170.0))) * (exp(-pow((lat - 0.47) / 0.1, 2.0)) + exp(-pow((lat + 0.6) / 0.12, 2.0)));
+        float thin = smoothstep(0.76, 0.9, tF(vec2(lon * 5.0 + 11.0, lat * 170.0))) * (exp(-(((lat - 0.47) / 0.1) * ((lat - 0.47) / 0.1))) + exp(-(((lat + 0.6) / 0.12) * ((lat + 0.6) / 0.12))));
         col = mix(col, vec3(0.92, 0.96, 1.0), clamp(cir * 0.8 + thin * 0.55 + sc * 0.9, 0.0, 1.0));
         float lam = dot(n, uSun), day = smoothstep(-0.05, 0.25, lam) * max(lam, 0.0);
         vec3 c = col * (0.008 + 1.2 * day);
@@ -347,7 +347,7 @@ function moonMaterial(center, sun) {
         float a = tF(q + 2.0), b = tF(q * 4.0 + 1.0);
         float cell = tVor(q * 40.0, 1.0);
         vec3 col = mix(vec3(0.42, 0.46, 0.41), vec3(0.62, 0.64, 0.58), smoothstep(0.2, 0.85, a * 0.6 + b * 0.4));
-        col = mix(col, vec3(0.78, 0.76, 0.66), exp(-pow(cell / 0.06, 2.0)) * 0.45);
+        col = mix(col, vec3(0.78, 0.76, 0.66), exp(-((cell / 0.06) * (cell / 0.06))) * 0.45);
         float cap = smoothstep(0.1, 0.35, dot(n, normalize(vec3(0.3, -0.2, 1.0))) + (a - 0.5) * 0.25);
         vec3 cc = mix(vec3(0.86, 0.8, 0.7), vec3(0.78, 0.7, 0.64), b);
         cc = mix(cc, vec3(0.3, 0.27, 0.26), smoothstep(0.7, 0.82, tF(q * vec2(10.0, 2.0) + 5.0)) * 0.6);

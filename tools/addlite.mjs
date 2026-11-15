@@ -1,10 +1,10 @@
-// Añade VOSTOK_21 (nave, logo y LOD) a la flota ligera existente sin regenerar las demás naves.
+// Añade una nave (NODE, LOGO; por defecto VOSTOK_21) con su logo y LOD a la flota ligera sin regenerar las demás.
 // Uso: LITE=ships45_lite.glb FULL=ships45_new.glb OUT=out.glb node addlite.mjs
 import { NodeIO, VertexLayout } from '@gltf-transform/core'; import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { mergeDocuments, prune, unpartition, textureCompress } from '@gltf-transform/functions';
 import sharp from 'sharp';
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).setVertexLayout(VertexLayout.SEPARATE);   // como lite.mjs: con atributos intercalados el juego no puede fusionar las mallas
-const NODE = 'VOSTOK_21', LOGO = 'LOGO_VOSTOK';
+const NODE = process.env.NODE || 'VOSTOK_21', LOGO = process.env.LOGO || 'LOGO_VOSTOK';
 const doc = await io.read(process.env.LITE), src = await io.read(process.env.FULL);
 const ss = src.getRoot().listScenes()[0];
 for (const n of [...ss.listChildren()]) {

@@ -353,7 +353,7 @@ export class IonTrail {
         void main(){
           #include <logdepthbuf_fragment>
           float r = length(gl_PointCoord - 0.5) * 2.0;
-          float a = pow(max(0.0, 1.0 - r), 2.0);
+          float a = ((max(0.0, 1.0 - r)) * (max(0.0, 1.0 - r)));
           gl_FragColor = vec4(vCol * a, 1.0);
         }`,
     });

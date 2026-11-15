@@ -110,7 +110,7 @@ function domeMaterial() {
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(0.05, 0.28, hxF);')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         { float lit = step(hxId, 0.22) * (1.0 - hxF) * (0.3 + 0.7 * step(vDU.y, 3.0)); float acc = step(0.93, hxId) * (1.0 - hxF);
-          totalEmissiveRadiance += vec3(1.0, 0.7, 0.4) * lit * (0.25 + 1.4 * pow(fract(hxId * 7.3), 2.0)) + vec3(0.35, 0.85, 1.0) * acc * 1.2; }`);
+          totalEmissiveRadiance += vec3(1.0, 0.7, 0.4) * lit * (0.25 + 1.4 * ((fract(hxId * 7.3)) * (fract(hxId * 7.3)))) + vec3(0.35, 0.85, 1.0) * acc * 1.2; }`);
   };
   m.customProgramCacheKey = () => 'euDome';
   return m;

@@ -252,7 +252,7 @@ function beamMaterial(uni, col, k = 0.08) {
       uniform float uT, uK; uniform vec3 uCol; varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vD;
       void main(){
         #include <logdepthbuf_fragment>
-        float core = pow(abs(dot(normalize(vN), normalize(vV))), 2.0);
+        float core = ((abs(dot(normalize(vN), normalize(vV)))) * (abs(dot(normalize(vN), normalize(vV)))));
         float y = vUv.y;
         float along = smoothstep(0.0, 0.05, y) * pow(max(1.0 - y, 0.0), 1.4);
         along *= 0.8 + 0.2 * sin(vUv.x * 40.0 + y * 9.0 + uT * 0.4);
