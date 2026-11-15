@@ -206,12 +206,18 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## Cámara de las intros (noviembre 2026)
+
+- **Fallo de origen:** `EagleFlight` repartía el tiempo linealmente por tramo sobre una curva paramétrica, así que la velocidad saltaba en cada clave (frenazos) y el giro daba tirones. Medido con `G.intro` a 60 fps: en ARCADIA la aceleración punta pasaba de 8.585 a 781 m/s² con el arreglo; EUROPA 6.204 → 273; SATURN 10.327 → 746; tirón de giro 4.415 → 400–900 °/s².
+- **Arreglo** (`js/camera.js`): Hermite cúbico en el tiempo con velocidad compartida en cada clave (limitada a 2× el tramo más lento), giro amortiguado con tope de 130 °/s (se libera al llegar a la parrilla; con `dt = 0` no hay retraso) y vuelta final a la nave más pausada (la intro dura 1,2 s más). Las claves de cada circuito no cambian.
+
 ## SAILETOR_22 · SAILETOR (noviembre 2026)
 
 - **Origen:** modelo de Dear (`SAILATOR.glb`, 197k triángulos). Escudería de Plutón: materiales aerodinámicos, estabilidad y resistencia a condiciones extremas. Lámina del piloto en `pilots/sailetor_22.webp`.
 - **Montaje** (`tools/sailetor.mjs`, mapa UV→posición en `tools/uvpos.mjs`): malla a 60k triángulos, escala 3,0. El naranja de la textura pasa a blanco perla (quedan negro y acentos naranja en las aletas delanteras y la popa); barniz. Tercio trasero ensanchado (z × 1,38 hacia popa, normales corregidas) y dos derivas en flecha (`WING=0` las quita).
 - **Cúpula:** retícula hexagonal en geometría («SAILETOR | Canopy lattice»), proyectada por rayos solo sobre el cristal.
 - **Suspensores:** filetes `SAILETOR_Hover` y halos «SAILETOR_Hover Halo» bajo las aletas delanteras y la popa; `ship.js` dibuja todo material «Halo» aditivo, sin sombra, y no lo cuenta en el tamaño del casco.
+- **Librea de los hombros traseros** (materiales «SAILETOR_Name livery L/R»): calca en geometría proyectada desde arriba solo sobre el blanco —líneas de panel, remaches, galones naranja, dorsal 22—; la textura base se afila y los bordes blanco/negro se endurecen. La retícula se limita al cristal conectado a la cúpula (x ≤ 0,155).
 - **Logo** (`tools/sailetor_logo.mjs`): anillo de órbita, vela-ala y corazón de Plutón.
 - **Shaders:** `pow(x, 2.0)` con x negativo da NaN en algunas GPU (Neptuno en Tritón salía con medio disco azul plano); sustituido en todos los circuitos por `(x) * (x)`. No volver a usar `pow` con base que pueda ser negativa.
 

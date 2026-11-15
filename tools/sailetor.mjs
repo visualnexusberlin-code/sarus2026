@@ -32,6 +32,7 @@ const mat0 = add.getRoot().listMaterials()[0], TW = 2048;
 const { map: PM, ok: POK } = uvPosMap(prim, TW);
 const bc0 = await sharp(Buffer.from(mat0.getBaseColorTexture().getImage())).removeAlpha().raw().toBuffer();
 const mr0 = await sharp(Buffer.from(mat0.getMetallicRoughnessTexture().getImage())).removeAlpha().raw().toBuffer();
+const WHITE = new Uint8Array(TW * TW);   // texeles que pasan a blanco perla
 {
   const out = Buffer.from(bc0), mr = Buffer.from(mr0), PEARL = [0.9, 0.935, 0.985], sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   for (let k = 0; k < TW * TW; k++) {
@@ -39,12 +40,13 @@ const mr0 = await sharp(Buffer.from(mat0.getMetallicRoughnessTexture().getImage(
     const o = Math.max(0, Math.min(1, (r - g * 1.35) / Math.max(r, 1) * 2.2)); if (o <= 0) continue;
     const x = PM[k * 3], y = PM[k * 3 + 1];
     const keep = POK[k] ? Math.max(sm(-0.07, -0.11, y) * sm(-0.3, -0.36, x), sm(0.7, 0.76, x)) : 0;   // acentos que siguen naranja
-    const f = o * (1 - keep), v = Math.pow(r / 255, 0.7) * 1.04;
+    const oc = sm(0.25, 0.7, o), f = oc * (1 - keep), v0 = Math.pow(r / 255, 0.7) * 1.04, v = v0 + (sm(0.3, 0.72, v0) * 1.04 - v0) * 0.65;   // bordes blanco/negro más secos
+    if (f > 0.5 && v > 0.55) WHITE[k] = 1;
     out[k * 3] = Math.min(255, r + (PEARL[0] * v * 255 - r) * f); out[k * 3 + 1] = Math.min(255, g + (PEARL[1] * v * 255 - g) * f); out[k * 3 + 2] = Math.min(255, b + (PEARL[2] * v * 255 - b) * f);
     mr[k * 3 + 1] = Math.round(mr0[k * 3 + 1] * (1 - 0.25 * f));   // el composite claro, algo más pulido
   }
-  const enc = (buf) => sharp(buf, { raw: { width: TW, height: TW, channels: 3 } }).jpeg({ quality: 90, chromaSubsampling: '4:4:4' }).toBuffer();
-  mat0.getBaseColorTexture().setImage(new Uint8Array(await enc(out))).setMimeType('image/jpeg').setURI('');
+  const enc = (buf, sharpen) => (sharpen ? sharp(buf, { raw: { width: TW, height: TW, channels: 3 } }).sharpen({ sigma: 1.1, m1: 0.6, m2: 1.6 }) : sharp(buf, { raw: { width: TW, height: TW, channels: 3 } })).jpeg({ quality: 90, chromaSubsampling: '4:4:4' }).toBuffer();
+  mat0.getBaseColorTexture().setImage(new Uint8Array(await enc(out, true))).setMimeType('image/jpeg').setURI('');
   mat0.getMetallicRoughnessTexture().setImage(new Uint8Array(await enc(mr))).setMimeType('image/jpeg').setURI('');
   const nt = mat0.getNormalTexture(); nt.setImage(new Uint8Array(await sharp(Buffer.from(nt.getImage())).removeAlpha().jpeg({ quality: 88, chromaSubsampling: '4:4:4' }).toBuffer())).setMimeType('image/jpeg').setURI('');
 }
@@ -177,16 +179,27 @@ const hovMat = M9.listChildren().find((c) => /_hover$/.test(c.getName())).getMes
     for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; c.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]); }
     for (let k = 0; k < 6; k++) { const A0 = c[k], B0 = c[(k + 1) % 6], ka = A0.map((q) => Math.round(q * 2e4)).join(), kb = B0.map((q) => Math.round(q * 2e4)).join(); edges.set(ka < kb ? ka + '|' + kb : kb + '|' + ka, [A0, B0]); }
   }
-  const pos = [], nrm = [], idx = []; let ne = 0;
+  // aristas válidas (los tres puntos sobre cristal) y, de ellas, solo las conectadas a la coronilla de la cúpula:
+  // fuera quedan los fragmentos sueltos sobre otros paneles oscuros
+  const good = [], adj = new Map(), kk = (q) => Math.round(q[0] * 2e4) + ',' + Math.round(q[1] * 2e4);
   for (const [A0, B0] of edges.values()) {
-    if (Math.abs(A0[1]) > R0 * 1.35 || A0[0] < -0.95 || A0[0] > 0.32) continue;
+    if (Math.abs(A0[1]) > R0 * 1.35 || A0[0] < -0.95 || A0[0] > 0.155) continue;
     const pts = [A0, [(A0[0] + B0[0]) / 2, (A0[1] + B0[1]) / 2], B0].map(([x, s2]) => proj(x, s2)); if (pts.some((q) => !q)) continue;
+    const e = { a: kk(A0), b: kk(B0), A0, pts }; good.push(e);
+    for (const [u, w] of [[e.a, e.b], [e.b, e.a]]) { if (!adj.has(u)) adj.set(u, []); adj.get(u).push(w); }
+  }
+  let seed = null, sd = 9; for (const e of good) { const d = Math.hypot(e.A0[0] + 0.3, e.A0[1]); if (d < sd) { sd = d; seed = e.a; } }
+  const live = new Set([seed]), st = [seed]; while (st.length) { const u = st.pop(); for (const w of adj.get(u) || []) if (!live.has(w)) { live.add(w); st.push(w); } }
+  const pos = [], nrm = [], idx = []; let ne = 0;
+  for (const { a, pts } of good) {
+    if (!live.has(a)) continue;
     for (let k = 0; k < 2; k++) { const P = pts[k], Q = pts[k + 1], e = [Q.p[0] - P.p[0], Q.p[1] - P.p[1], Q.p[2] - P.p[2]], n = P.n;
-      const sd = [e[1] * n[2] - e[2] * n[1], e[2] * n[0] - e[0] * n[2], e[0] * n[1] - e[1] * n[0]], l = Math.hypot(...sd) || 1, w = sd.map((q) => q / l * HW), b = pos.length / 3;
+      const sd2 = [e[1] * n[2] - e[2] * n[1], e[2] * n[0] - e[0] * n[2], e[0] * n[1] - e[1] * n[0]], l = Math.hypot(...sd2) || 1, w = sd2.map((q) => q / l * HW), b = pos.length / 3;
       for (const [X, sg, nn] of [[P, 1, P.n], [P, -1, P.n], [Q, 1, Q.n], [Q, -1, Q.n]]) { pos.push(...sh(X.p.map((q, j2) => q + sg * w[j2]))); nrm.push(...shN(nn)); }
       idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
     ne++;
   }
+  console.log('retícula: válidas', good.length, 'conectadas', ne);
   const lat = doc.createMaterial(`${TAG} | Canopy lattice`).setBaseColorFactor([0.72, 0.78, 0.9, 1]).setMetallicFactor(1).setRoughnessFactor(0.28).setEmissiveFactor(ION.map((q) => q * 0.22)).setDoubleSided(true);
   V.addChild(doc.createNode(NODE + '_lattice').setMesh(doc.createMesh(NODE + '_lattice').addPrimitive(mkPrim(lat, pos, nrm, idx))));
   console.log('retícula: aristas', ne, 'tris', idx.length / 3);
@@ -220,6 +233,47 @@ if (+(process.env.WING ?? 1)) {
     for (let i = 0; i < NC; i++) { const a = b + i * 2; ti.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
   V.addChild(doc.createNode(NODE + '_wing').setMesh(doc.createMesh(NODE + '_wing').addPrimitive(mkPrim(wingMat, pos, nrm, idx)).addPrimitive(mkPrim(hovMat, tp, tn, ti))));
   console.log('derivas: raíz z', zr.toFixed(3), 'punta z', (zr + SPAN + 0.03).toFixed(3));
+}
+
+// ── 5e. Librea de los hombros traseros (las dos zonas blancas que se ven en carrera): calca nítida proyectada desde arriba
+//        —líneas de panel en grafito, costuras con remaches, galones naranja, dorsal 22 y un filo violeta—, solo sobre el blanco. ──
+{
+  const W = 560, H = 1250, G1 = '#1a1d24', OR = '#e2531f', VI = '#a99bff';
+  const two = (x, y, w, h, sw) => `<polyline fill="none" stroke="${G1}" stroke-width="${sw}" stroke-linejoin="miter" points="${x},${y} ${x + w},${y} ${x + w},${y + h / 2} ${x},${y + h / 2} ${x},${y + h} ${x + w},${y + h}"/>`;
+  const riv = (y, x0, x1) => [...Array(Math.floor((x1 - x0) / 26)).keys()].map((i) => `<circle cx="${x0 + 13 + i * 26}" cy="${y + 9}" r="3.2"/>`).join('');
+  // franja interior (x 0–175: el hombro) y franja exterior (x 370–500: el flanco); morro arriba
+  const lines = `
+    <g fill="none" stroke="${G1}" stroke-linecap="butt">
+      <path d="M40,150 V1230" stroke-width="4.5"/><path d="M128,150 V1230" stroke-width="4.5"/>
+      <path d="M0,600 H180" stroke-width="3.5"/><path d="M0,880 H180" stroke-width="3.5"/><path d="M0,330 H180" stroke-width="3.5"/>
+      <path d="M402,150 V1200" stroke-width="4.5"/><path d="M474,150 V1200" stroke-width="4.5"/><path d="M360,720 H520" stroke-width="3.5"/><path d="M360,420 H520" stroke-width="3.5"/>
+      <path d="M53,150 V1230" stroke="${VI}" stroke-width="3"/><path d="M415,150 V1200" stroke="${VI}" stroke-width="3"/>
+    </g>
+    <g fill="${G1}">${riv(600, 0, 180)}${riv(880, 0, 180)}${riv(330, 0, 180)}${riv(720, 360, 520)}${riv(420, 360, 520)}
+      ${[...Array(7).keys()].map((i) => `<rect x="${66 + i * 8}" y="${470 - (i % 3) * 8}" width="4" height="${30 + (i % 3) * 8}"/>`).join('')}
+      <rect x="66" y="512" width="52" height="7"/><rect x="424" y="560" width="40" height="7"/><rect x="424" y="576" width="24" height="7"/></g>
+    <g fill="${OR}">${[0, 1, 2].map((i) => `<path d="M0,${1085 + i * 52} L180,${1030 + i * 52} v28 L0,${1113 + i * 52} z"/>`).join('')}
+      ${[0, 1, 2, 3].map((i) => `<rect x="426" y="${860 + i * 34}" width="38" height="18"/>`).join('')}</g>`;
+  const svg = (mir) => `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><g${mir ? ` transform="translate(${W},0) scale(-1,1)"` : ''}>${lines}</g>${two(mir ? 484 : 64, 715, 24, 62, 9)}${two(mir ? 448 : 100, 715, 24, 62, 9)}</svg>`;
+  for (const side of [-1, 1]) {
+    const png = await sharp(Buffer.from(svg(side > 0))).ensureAlpha().png().toBuffer();
+    if (side < 0) await sharp(png).flatten({ background: '#e6eef8' }).toFile('/tmp/work/sail/livery_preview.png');
+    const tex = doc.createTexture(`${TAG}_livery${side > 0 ? 'L' : 'R'}`).setImage(new Uint8Array(png)).setMimeType('image/png');
+    const lm = doc.createMaterial(`${TAG}_Name livery ${side > 0 ? 'L' : 'R'}`).setBaseColorTexture(tex).setAlphaMode('BLEND').setMetallicFactor(0).setRoughnessFactor(0.4).setDoubleSided(true);
+    const NU = 30, NV = 68, Z0 = 0.09, Z1 = 0.42, X0 = 0.74, X1 = 0.0, P = [], pos = [], nrm = [], uv = [], idx = [];
+    for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) {
+      const u = i / NU, v = j / NV, z = side < 0 ? -(Z0 + u * (Z1 - Z0)) : Z1 - u * (Z1 - Z0), x = X0 + v * (X1 - X0), t = ray([x, 0.6, z], [0, -1, 0]); let ok = false, y = 0;
+      if (isFinite(t)) { const [ti, a, b] = HIT, w = 1 - a - b, U = RUV[ti], tu = U[0][0] * w + U[1][0] * a + U[2][0] * b, tv = U[0][1] * w + U[1][1] * a + U[2][1] * b;
+        y = 0.6 - t; ok = y > -0.02 && WHITE[Math.min(TW - 1, Math.max(0, Math.floor(tv * TW))) * TW + Math.min(TW - 1, Math.max(0, Math.floor(tu * TW)))] === 1; }
+      P.push({ ok, y }); pos.push(...sh([x, y + 0.0022, z])); nrm.push(0, 1, 0); uv.push(u, 1 - v);
+    }
+    let nc = 0;
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, e = c + 1, q = [P[a], P[b], P[c], P[e]];
+      if (q.some((o) => !o.ok) || Math.max(...q.map((o) => o.y)) - Math.min(...q.map((o) => o.y)) > 0.022) continue;
+      idx.push(a, b, c, b, e, c); nc++; }
+    V.addChild(doc.createNode(`${NODE}_livery${side > 0 ? 'L' : 'R'}`).setMesh(doc.createMesh(`${NODE}_livery${side > 0 ? 'L' : 'R'}`).addPrimitive(mkPrim(lm, pos, nrm, idx, uv))));
+    console.log('librea lado', side, 'celdas', nc, 'de', NU * NV);
+  }
 }
 
 // ── 6. Nombre en los carenados laterales: letra geométrica inclinada, grafito con filo claro (el carenado es ahora blanco) ──
