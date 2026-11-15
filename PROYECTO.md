@@ -210,6 +210,7 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 
 - **Fallo de origen:** `EagleFlight` repartía el tiempo linealmente por tramo sobre una curva paramétrica, así que la velocidad saltaba en cada clave (frenazos) y el giro daba tirones. Medido con `G.intro` a 60 fps: en ARCADIA la aceleración punta pasaba de 8.585 a 781 m/s² con el arreglo; EUROPA 6.204 → 273; SATURN 10.327 → 746; tirón de giro 4.415 → 400–900 °/s².
 - **Arreglo** (`js/camera.js`): Hermite cúbico en el tiempo con velocidad compartida en cada clave (limitada a 2× el tramo más lento), giro amortiguado con tope de 130 °/s (se libera al llegar a la parrilla; con `dt = 0` no hay retraso) y vuelta final a la nave más pausada (la intro dura 1,2 s más). Las claves de cada circuito no cambian.
+- **Carga de dibujo en la intro:** el calentamiento ya evita compilar o subir nada durante la intro (medido: 0 programas, texturas o geometrías nuevas). El pico real era la llegada a la parrilla, con 10–17 naves completas a la vez (2,3–2,7 M de triángulos, 800–1.000 llamadas). En la intro el umbral de LOD de naves se acorta (`INTRO_LOD` 0,45; 0,7 en móvil; `?ilod=1` lo desactiva): 1,1–1,85 M de triángulos y ~650 llamadas.
 
 ## SAILETOR_22 · SAILETOR (noviembre 2026)
 

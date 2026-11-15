@@ -2021,12 +2021,15 @@ function frame() {
 
 // LOD de naves: a partir de cierta distancia de cámara, cada rival pasa a su malla ligera (1 draw call, ~1,8k triángulos).
 const LOD_D = LITE ? 42 : 85;
+const INTRO_LOD = +(new URLSearchParams(location.search).get('ilod') || (LITE ? 0.7 : 0.45));
 function updateLods(inCircuit) {
   const cp = camera.position, zoom = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(35));
+  // en la intro la cámara llega a la parrilla con las 22 naves en cuadro: umbral más corto para no dibujarlas todas completas a la vez
+  const D = LOD_D * (G.state === 'intro' ? INTRO_LOD : 1);
   for (const sh of G.ships) {
     if (!inCircuit || sh === G.ship) { sh.setFar(false); continue; }
     const d = sh.root.position.distanceTo(cp) / zoom;
-    sh.setFar(sh.far ? d > LOD_D * 0.88 : d > LOD_D * 1.12);
+    sh.setFar(sh.far ? d > D * 0.88 : d > D * 1.12);
   }
 }
 
