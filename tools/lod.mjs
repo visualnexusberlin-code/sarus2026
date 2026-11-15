@@ -13,7 +13,7 @@ const doc = await io.read(process.argv[2]);
 await MeshoptSimplifier.ready;
 const TRIS = +(process.env.TRIS || 1800);
 const root = doc.getRoot(), scene = root.listScenes()[0], buf = root.listBuffers()[0];
-const SKIP = /Name|LOGO/;
+const SKIP = /Name|LOGO|Halo|lattice/;
 const srgb = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
 
 const texCache = new Map();

@@ -180,6 +180,10 @@ export class Ship {
       m.material.envMapIntensity = 1.0;
       if (!(mat.userData.canopyGlass && CANOPY_ALPHA[mat.name])) m.material.side = THREE.DoubleSide;        // interiores de toberas y tomas visibles
       if (/_Hover/.test(mat.name)) this.hoverMats = [...(this.hoverMats || []), m.material];
+      if (/Halo/.test(mat.name)) {   // halo de suspensor: luz aditiva, sin sombra ni profundidad
+        Object.assign(m.material, { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+        m.castShadow = false; m.receiveShadow = false; m.renderOrder = 3;
+      }
       if (ION_RE.test(mat.name)) {
         this.reactorMats.push(m.material);
         this.ionGeos.push(geo);
@@ -216,7 +220,8 @@ export class Ship {
   }
 
   analyse() {
-    const box = new THREE.Box3().setFromObject(this.model);
+    const box = new THREE.Box3(); this.model.updateMatrixWorld(true);
+    for (const m of this.meshes) if (!/Halo/.test(m.material.name)) box.expandByObject(m);   // los halos de luz no cuentan como casco
     this.size = box.getSize(new THREE.Vector3());
     this.bottom = box.min.y - this.model.getWorldPosition(_v).y;
     this.length = this.size.z;
