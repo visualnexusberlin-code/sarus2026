@@ -124,6 +124,9 @@ export function buildRaceRings(world, track, sList, own, opts = {}) {
 
   const shellGeo = new THREE.SphereGeometry(1, 28, 18); own.push(shellGeo);
   const shells = new Map(), prevD = new Map();
+  // película de precalentado, oculta: el calentamiento compila su shader antes de la salida (si no, se compilaba
+  // al cruzar el primer anillo, con un tirón en plena carrera)
+  { const wm = shellMaterial(opts.color); own.push(wm); const w = new THREE.Mesh(shellGeo, wm); w.name = 'ringShellWarm'; w.visible = false; w.scale.setScalar(0.01); world.add(w); }
   const shellFor = (sh) => {
     let e = shells.get(sh);
     if (!e) {

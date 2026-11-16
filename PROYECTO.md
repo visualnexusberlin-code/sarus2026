@@ -206,6 +206,26 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## Fluidez en carrera (16 de noviembre de 2026)
+
+Medido con `renderer.info` en carrera, calidad completa, sin GPU (órdenes de dibujo y triángulos son reales; los fps no).
+
+- **Tirones (causas encontradas):**
+  - *Luces colgadas del modelo.* La luz de motor del jugador colgaba del modelo, que parpadea 12 veces por segundo tras cada golpe: el número de luces de la escena cambiaba y three.js recompilaba o reasignaba el shader de todos los materiales (30 programas nuevos la primera vez). Ahora las luces van en `lightRig`, siempre visible, y se apagan con la intensidad. **Regla: nunca ocultar ni crear luces en carrera.**
+  - *Calentamiento incompleto.* `renderer.compile()` contra la pantalla no sirve para lo que se pinta en el compositor (otro espacio de color): solo cuenta el fotograma dibujado por `composer.render`. Ahora ese fotograma incluye todo lo oculto de la escena y el material de solo sombra. La película de los anillos (`rings.js`) se compilaba al cruzar el primero.
+  - *Vaivén de resolución.* La resolución adaptativa subía y bajaba sin memoria (cada cambio reasigna los búferes).
+- **Carga sostenida:**
+  - N8AO redibujaba todos los transparentes (`transparencyAware`): ~250 órdenes de dibujo. Desactivado (`autoDetectTransparency = false`).
+  - Estelas de motor: una malla por tobera (58) → una sola malla (`EngineTrails`).
+  - Efectos de motor de rivales por distancia (`Ship.setFx`): completos cerca, solo destello lejos, nada detrás de la cámara o a más de 420 m.
+  - Presupuesto de naves completas (`MAX_FULL` 7; 4 en ligera): en pelotón entraban 14–21 enteras.
+  - Sombra de rivales por su LOD (`setShadowProxy`, material `SHADOW_ONLY`) a más de 28 m.
+  - Ciudad de THARSIS: de ~430 mallas (celdas de 1,6 km) a una docena.
+  - De la rama de la auditoría del día 11, ahora integrada: naves en paleta, mundo troceado (`chunks.js`), ILION y CALIBUR aligeradas en ligera, táctiles en ligera.
+- **Regulador de fluidez** (`adaptRes`, `GOV_STEPS`, `?nogov` lo apaga): ventanas de 1 s; por debajo de ~49 fps baja un escalón (rivales, resolución, AO, más resolución, decorado); tras 25 s holgados prueba a subir y, si no aguanta, espera el doble. Recuerda el escalón en `localStorage` (`srs-gov`). `?debug` muestra «fluidez n/N».
+- **Resultado (mediana / percentil 95 de órdenes de dibujo; triángulos):** ARCADIA 778 / 961 → 284 / 423 (1,31 M → 0,99 M); THARSIS 1.189 / 1.498 → 426 / 572 (2,87 M → 2,25 M); EUROPA 1.040 / 1.325 → 438 / 565 (2,61 M → 2,02 M); TRITON 826 / 1.048 → 475 / 645.
+- **Canal beta:** cada push a `claude/**` o `beta/**` se publica en el canal `beta` de Firebase (`.github/workflows/beta.yml`); la versión en vivo no cambia.
+
 ## Cámara de las intros (noviembre 2026)
 
 - **Fallo de origen:** `EagleFlight` repartía el tiempo linealmente por tramo sobre una curva paramétrica, así que la velocidad saltaba en cada clave (frenazos) y el giro daba tirones. Medido con `G.intro` a 60 fps: en ARCADIA la aceleración punta pasaba de 8.585 a 781 m/s² con el arreglo; EUROPA 6.204 → 273; SATURN 10.327 → 746; tirón de giro 4.415 → 400–900 °/s².
@@ -231,3 +251,13 @@ Nave 21, a partir del modelo de Dear (`GORDION.glb`, 10 000 triángulos, morro �
 - **Escala de la flota** (`tools/size.mjs <glb>`): índice de tamaño visual (planta, popa, perfil y volumen frente a la mediana). Normalizar todas a 5,7 m de largo hacía enormes a las naves anchas; la regla es que ninguna pase de ≈1,13. VOSTOK 1,38 → 1,13 (× 0,82) y ORION_18 1,25 → 1,09 (`tools/rescale.mjs`, × 0,87: escala los hijos, mantiene la base en y = −0,2 y hornea el LOD; `LAYOUT=separate` para la flota ligera).
 - **Flotas:** LOD regenerado con `tools/lod.mjs` (las demás naves quedan iguales); la flota ligera se amplía con `tools/addlite.mjs` (solo añade VOSTOK, sin rehacer las otras).
 - **Lámina:** `pilots/vostok_21.webp` y `-s.webp`, a partir de «escuadron-vostok» de Dear (de su serie *Cortesía del tiempo*, imagen generada con IA): el Escuadrón Vostok en cabina sobre Tritón, con Neptuno.
+## Auditoría de rendimiento móvil (11-11-2026, rama `claude/auditoria-rendimiento`)
+- **Calidad en táctiles:** cualquier pantalla táctil arranca en ligera (`js/quality.js`). Antes, un táctil con 8 GB y 8 núcleos (casi cualquier Android de gama media) arrancaba en completa: 20 naves, sombras y cristal con transmisión, 2–4 millones de triángulos por fotograma. La completa sigue disponible a mano en Ajustes.
+- **Mundo troceado** (`js/chunks.js`, tras `finishCircuit`): las mallas fusionadas de más de 9.000 triángulos se reparten en celdas que three.js descarta cuando no están en cuadro; también el terreno medio y lejano de Marte y los campos instanciados marcados con `userData.chunkInst`. Medido en ligera: de un 4 % a un 33 % menos de triángulos por fotograma según el circuito, a cambio de 10–70 draw calls más. `?nochunk` lo desactiva para comparar.
+- **Detalle reducido:** si en ligera, ya con la resolución mínima, se sigue por debajo de ~38 fps, se quita la mitad de las instancias de decoración y las rivales pasan a su malla LOD a 26 m (en vez de 42). Se recuerda durante la sesión.
+- **`?nolog`:** prueba sin búfer de profundidad logarítmico (solo para medir en el dispositivo; puede parpadear a lo lejos).
+- **`?debug`:** ahora muestra también densidad de píxeles, calidad y sello de build (`<meta name="build">`, fecha UTC + commit).
+- **Solar Map:** la ficha de cada circuito lleva el trazado real en hilo blanco, girando (`js/trackshape.js`, canvas 2D, sin WebGL). Datos en `js/trackshapes.data.js`, generados con `tools/trackshapes.py` (volver a ejecutarlo al retocar un trazado). La cinta va ensanchada ×3,2 y el relieve ×1,8 para que se lean; la planta es la real.
+- **Naves en paleta** (`js/ship.js`, `mergeModel`): las piezas opacas de color liso de cada nave se funden en un solo material (dos si lleva desgaste), con color, metal, rugosidad y emisión en los vértices. Toberas, emisores, cristal y piezas con textura siguen aparte. Flota completa: de 307 a 95 draw calls; aspecto idéntico (renders comparados). `?nopal` lo desactiva.
+- **ILION y CALIBUR** (flota ligera): de 32,5k a ~17k triángulos con `tools/slim_two.mjs` (suelda por posición, simplifica solo las piezas grandes y recalcula normales con ángulo de arista; cables y detalles intactos).
+- **CALIBUR, núcleo estructural** (`tools/calibur_core.mjs`, en las dos flotas): la losa superior flotaba sobre un casco vacío y entre las placas doradas se veía el fondo. Columna de metal con cuadernas que sigue la cara inferior de la losa; usa el material de metal de la nave (sin draw calls nuevas).

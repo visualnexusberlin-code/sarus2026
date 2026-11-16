@@ -47,6 +47,9 @@ import { buildTriton, tritonSunDir } from './triton.js';
 import { buildPluto, plutoSunDir } from './pluto.js';
 import { buildSelene } from './selene.js';
 import { buildDeckDetail } from './deckdetail.js';
+import { chunkWorld, thinInstances } from './chunks.js';
+import { SHADOW_ONLY } from './ship.js';
+import { TrackPreview, rememberShape, shapeFor, sampleShape } from './trackshape.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
 import { L as tr, LANG, setLang, applyDom, ord } from './i18n.js';
 import { NODES, FAMILIES, LINEAGES, MOTTO } from './lore.js';
@@ -59,11 +62,16 @@ applyDom();   // textos fijos del HTML en el idioma elegido (antes de que el có
 
 installFogChunks();
 
+// ?nolog: prueba sin búfer de profundidad logarítmico (con él, cada píxel escribe su profundidad a mano y la GPU
+// del móvil no puede descartar pronto lo que queda tapado). Solo para medir en el dispositivo: puede dar parpadeos a lo lejos.
+const NOLOG = new URLSearchParams(location.search).has('nolog');
+const BUILD = document.querySelector('meta[name=build]')?.content || 'dev';
+console.info(`[SRS] build ${BUILD}`);
 // ── Renderer / escena ──
 const canvas = document.getElementById('view');
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: !NOLOG });
 } catch (e) {
   window.__srsFail?.(tr('Este visor no permite gráficos 3D (WebGL). Ábrelo en Chrome, Safari o Firefox, desde una web o el enlace del juego.', 'This viewer does not support 3D graphics (WebGL). Open it in Chrome, Safari or Firefox, from a website or the game link.'));
   throw e;
@@ -78,7 +86,7 @@ renderer.toneMappingExposure = CONFIG.atmosphere.exposure;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xcccccc, CONFIG.atmosphere.baseDensity);
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.25, 30000);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, NOLOG ? 0.6 : 0.25, 30000);
 scene.add(createSky());
 scene.environmentIntensity = 0.85;
 
@@ -103,6 +111,9 @@ const aoPass = new N8AOPass(scene, camera, innerWidth, innerHeight);
 Object.assign(aoPass.configuration, { aoRadius: 4, distanceFalloff: 1.2, intensity: 3.4, gammaCorrection: false, halfRes: true, denoiseRadius: 10 });
 aoPass.setQualityMode(IS_TOUCH ? 'Performance' : 'Low');
 Object.assign(aoPass.configuration, { halfRes: true });
+// sin «transparencyAware»: con él, N8AO volvía a dibujar todos los objetos transparentes (llamas, estelas, cristales: ~250 órdenes
+// de dibujo por imagen) solo para que la oclusión no los oscureciera
+aoPass.configuration.transparencyAware = false; aoPass.autoDetectTransparency = false;
 composer.addPass(aoPass);
 let aoOn = QUALITY.ao && !IS_TOUCH;
 // qué escena va al compositor (circuito con AO, o el hangar sin ella)
@@ -181,6 +192,8 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+// estado de la resolución adaptativa (low: detalle reducido, se recuerda durante la sesión)
+const perf = { pr: renderer.getPixelRatio(), acc: 0, n: 0, last: 0, good: 0, low: (() => { try { return sessionStorage.getItem('srs-low') === '1'; } catch (e) { return false; } })() };
 // ── Estado global ──
 const input = new Input();
 input.touch = new TouchControls(input);
@@ -401,6 +414,7 @@ function onLoaded(gltf, fleetGltf) {
 
   setPlayer(G.choice);
   resetRace();
+  govRestore();
   G.intro.update(0);
   prog.style.width = '100%';
   showMenu();
@@ -801,7 +815,9 @@ function finishCircuit(def, world, track, t0) {
   // lo que ya existía apunta a la pista nueva
   for (const sh of G.fleet || G.ships || []) { sh.track = track; sh.frame = track.frame(); }
   G.hud?.setTrack(track);
+  rememberShape(def.id, track, G.structures?.tunnel);          // trazado para la vista previa del Solar Map
   if (G.lens[def.id] !== Math.round(track.length)) { G.lens[def.id] = Math.round(track.length); store.set('sarus-len', G.lens); }
+  if (!new URLSearchParams(location.search).has('nochunk')) { const ck = chunkWorld(world, LITE ? { cell: 380 } : { cell: 640, perCell: 12000, minTris: 24000, maxCells: 49 }); G.chunkInfo = ck; console.info(`[SRS] mundo troceado: ${ck.meshes} mallas en ${ck.chunks} celdas`); if (perf.low) thinInstances(world); }
   console.info(`[SRS] ${def.name} construido en ${(performance.now() - t0).toFixed(0)} ms`);
 }
 
@@ -1237,6 +1253,8 @@ function goMap() {
   setTimeout(() => { if (G.state === 'map' && $('mapCard').hidden) selectNode(cur, G.pick); }, 900);
 }
 
+// desnivel del trazado (cota máxima − mínima del tablero), para el pie de la vista previa
+function shapeDrop(id) { const e = shapeFor(id).e; let lo = Infinity, hi = -Infinity; for (let i = 1; i < e.length; i += 3) { if (e[i] < lo) lo = e[i]; if (e[i] > hi) hi = e[i]; } return Math.round(hi - lo); }
 function selectNode(nd, circId) {
   G.map.focus(nd);
   G.map.nodes.forEach((n) => n.el.classList.toggle('sel', n === nd));
@@ -1257,6 +1275,7 @@ function selectNode(nd, circId) {
     <h2>${c ? c.name : nd.title}</h2>
     <span class="mc-loc">${nd.system} · ${nd.place}</span>
     ${ids.length > 1 ? `<div class="mc-tabs">${ids.map((x) => { const k = circuitById(x); return `<button class="chip" type="button" data-tab="${x}" aria-pressed="${x === id}">${k.num} ${k.name}</button>`; }).join('')}</div>` : ''}
+    ${c && shapeFor(c.id) ? `<figure class="mc-track"><canvas id="mcTrack" role="img" aria-label="${tr('Trazado del circuito en tres dimensiones, girando', 'Circuit layout in three dimensions, rotating')}"></canvas><figcaption><span>${tr('Trazado', 'Layout')} · ${tr('desnivel', 'elevation')} ${shapeDrop(c.id)} M</span><span>${tr('arrastra para girar', 'drag to rotate')}</span></figcaption></figure>` : ''}
     <dl class="mc-data">
       <dt>${tr('Gravedad', 'Gravity')}</dt><dd>${L.gravity || nd.gravity || '—'}</dd>
       ${c ? `<dt>${tr('Superficie', 'Surface')}</dt><dd>${L.surface}</dd>
@@ -1271,6 +1290,7 @@ function selectNode(nd, circId) {
     ${c ? `<div class="row"><button class="btn primary" type="button" id="mcGo" ${cs === 'locked' ? 'aria-disabled="true" style="opacity:.4"' : ''}>${tr('Correr', 'Race')} ▸</button></div>` : ''}`;
   card.hidden = false;
   mapShift();
+  { const cv = card.querySelector('#mcTrack'); if (cv) G.trackPreview = new TrackPreview(cv, shapeFor(c.id)); }
   card.querySelector('.mc-close').addEventListener('click', () => { card.hidden = true; mapShift(); G.map.overview(innerWidth / innerHeight); G.map.nodes.forEach((n) => n.el.classList.remove('sel')); });
   card.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { audio.beep(false); selectNode(nd, b.dataset.tab); }));
   card.querySelector('#mcGo')?.addEventListener('click', () => {
@@ -1434,7 +1454,16 @@ async function warmup() {
   setView(scene, camera);
   // compilación en paralelo si el navegador lo permite (KHR_parallel_shader_compile): la cortinilla no se congela
   try { if (renderer.compileAsync && renderer.extensions.has('KHR_parallel_shader_compile')) await Promise.race([renderer.compileAsync(scene, camera), new Promise((r) => setTimeout(r, 8000))]); } catch (e) { console.warn('warmup async', e); }
+  // para la compilación, además, todo lo que esté oculto en la escena (efectos que aparecen a mitad de carrera: su
+  // shader se compilaba la primera vez que se veían, con un tirón) y el material de «solo sombra» de los rivales
+  G.ship?.syncLights();   // el foco frontal, si el circuito lo lleva, antes de compilar
+  const veiled = []; scene.traverse((o) => { if (!o.visible && (o.isMesh || o.isPoints || o.isSprite || o.isLine || o.isGroup || o.type === 'Object3D')) { veiled.push(o); o.visible = true; } });
+  const px = G.ships.find((q) => q !== G.ship && q.lodMesh), pxMat = px && px.lodMesh.material; if (px) { px.lodMesh.material = SHADOW_ONLY; px.lodMesh.visible = true; }
+  // se compila DIBUJANDO un fotograma por el compositor: los programas dependen del destino de dibujo (espacio de color,
+  // mapeo de tonos), así que renderer.compile() contra la pantalla no sirve para lo que luego se pinta en el compositor
   try { renderer.compile(scene, camera); composer.render(0.001); } catch (e) { console.warn('warmup', e); }
+  veiled.forEach((o) => { o.visible = false; });
+  if (px) { px.lodMesh.material = pxMat; px.lodMesh.visible = px.far || !!px.shadowProxy; }
   culled.forEach((o) => { o.frustumCulled = true; });
   hidden.forEach((o) => { o.visible = false; });
   G.warmMs = performance.now() - t0;
@@ -1995,21 +2024,63 @@ if (CONFIG.debug) fpsEl.hidden = false;
 let fpsAcc = 0, fpsN = 0;
 let selPrevSteer = 0;
 
-// Resolución adaptativa: si el equipo no llega a ~50 fps baja la densidad de píxeles, y la recupera si sobra
+// ── Regulador de fluidez ──
+// Mide el ritmo real de imágenes en ventanas de 1 s y, si no se sostienen ~50 por segundo, quita carga por escalones
+// (del menos visible al más visible); cuando lleva un buen rato holgado, prueba a devolver un escalón. Recuerda entre
+// carreras y sesiones el escalón que este equipo sostiene, para no repetir la caída en cada salida, y si al devolver un
+// escalón vuelve a caer, espera el doble antes de probar otra vez (sin vaivenes: cada cambio de resolución es un tirón).
 const PR_MAX = Math.min(devicePixelRatio, IS_TOUCH ? Math.min(1.5, QUALITY.prMax) : QUALITY.prMax), PR_MIN = Math.min(PR_MAX, QUALITY.prMin);
-const perf = { pr: renderer.getPixelRatio(), acc: 0, n: 0, last: 0, good: 0 };
+const setPR = (pr) => { if (pr === perf.pr) return; perf.pr = pr; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); };
+const PR0 = perf.pr;
+const GOV_STEPS = [];
+{ // escalones, en orden: detalle de rivales, resolución, oclusión ambiental, más resolución, decorado
+  const prStep = (to) => ({ id: 'pr' + to, on: () => setPR(to), off: (prev) => setPR(prev) });
+  GOV_STEPS.push({ id: 'lod', on: () => { perf.lodK = 0.62; perf.fxK = 0.6; }, off: () => { perf.lodK = 1; perf.fxK = 1; } });
+  let pr = PR0; const prs = []; while (pr - 0.25 >= PR_MIN - 1e-6) { pr = +(pr - 0.25).toFixed(2); prs.push(pr); }
+  if (prs.length) GOV_STEPS.push(prStep(prs.shift()));
+  if (QUALITY.ao && !IS_TOUCH) GOV_STEPS.push({ id: 'ao', on: () => { aoOn = false; setView(renderPass.scene, renderPass.camera); }, off: () => { aoOn = true; setView(renderPass.scene, renderPass.camera); } });
+  for (const v of prs) GOV_STEPS.push(prStep(v));
+  GOV_STEPS.push({ id: 'low', on: () => { perf.low = true; if (G.world) thinInstances(G.world); }, off: () => { perf.low = false; } });   // decorado a la mitad (el ya aligerado vuelve entero en el circuito siguiente)
+}
+Object.assign(perf, { level: 0, lodK: 1, fxK: 1, slow: 0, calm: 0, wait: 0, probe: 25, lastUp: -1e9, frames: [], prStack: [] });
+const GOV_OFF = new URLSearchParams(location.search).has('nogov');
+function govSet(level, why) {
+  level = Math.max(0, Math.min(GOV_STEPS.length, level));
+  while (perf.level < level) { const st = GOV_STEPS[perf.level]; perf.prStack.push(perf.pr); st.on(); perf.level++; }
+  while (perf.level > level) { const st = GOV_STEPS[perf.level - 1]; const prev = perf.prStack.pop(); if (!st.off) break; st.off(prev); perf.level--; }
+  perf.wait = 1.5; perf.frames.length = 0; perf.acc = 0;
+  try { localStorage.setItem('srs-gov', String(perf.level)); } catch (e) { /* sin almacenamiento */ }
+  if (CONFIG.debug) console.info(`[SRS] fluidez: escalón ${perf.level}/${GOV_STEPS.length} (${why})`);
+}
+function govRestore() {   // al cargar: arranca en el escalón que este equipo sostuvo la última vez
+  if (GOV_OFF) return;
+  let L = 0; try { L = +(localStorage.getItem('srs-gov') || 0) || 0; } catch (e) { /* sin almacenamiento */ }
+  if (perf.low) L = GOV_STEPS.length;
+  if (L > 0) govSet(L, 'recordado');
+}
 function adaptRes() {
   const now = performance.now(), d = now - perf.last; perf.last = now;
-  if (d > 250 || !['intro', 'countdown', 'race', 'finished'].includes(G.state) || G.paused) return;
-  perf.acc += d; perf.n++;
-  if (perf.acc < 2000) return;
-  const avg = perf.acc / perf.n; perf.acc = 0; perf.n = 0;
-  let pr = perf.pr;
-  if (avg > 22 && pr > PR_MIN) { pr = Math.max(PR_MIN, pr - 0.25); perf.good = 0; }
-  else if (avg > 24 && aoOn) { aoOn = false; setView(renderPass.scene, renderPass.camera); perf.good = 0; }   // último recurso: sin AO
-  else if (avg < 13 && pr < PR_MAX) { if (++perf.good >= 3) { pr = Math.min(PR_MAX, pr + 0.25); perf.good = 0; } }
-  else perf.good = 0;
-  if (pr !== perf.pr) { perf.pr = pr; renderer.setPixelRatio(pr); composer.setPixelRatio(pr); resize(); }
+  if (GOV_OFF || d > 250 || !['intro', 'countdown', 'race', 'finished'].includes(G.state) || G.paused) return;
+  if (perf.wait > 0) { perf.wait -= d / 1000; return; }   // tras un cambio, el propio cambio ensucia la medida
+  perf.frames.push(d); perf.acc += d;
+  if (perf.acc < 1000) return;
+  const fr = perf.frames, avg = perf.acc / fr.length, long = fr.filter((x) => x > 27).length / fr.length;
+  perf.acc = 0; perf.frames = [];
+  const bad = avg > 20.5 || long > 0.2;                    // por debajo de ~49 imágenes por segundo, o una de cada cinco se alarga
+  if (bad) {
+    perf.calm = 0;
+    if (++perf.slow >= (avg > 26 ? 1 : 2) && perf.level < GOV_STEPS.length) {   // muy lento: actúa a la primera; justo: espera dos ventanas
+      if (perf.upPr && perf.level === 0 && perf.pr > PR0) { perf.upPr = false; perf.prCeil = true; setPR(Math.max(PR0, perf.pr - 0.25)); perf.wait = 1.5; perf.slow = 0; return; }
+      if (now - perf.lastUp < 12000) perf.probe = Math.min(600, perf.probe * 2);  // el último intento de subir no aguantó: tarda el doble en volver a probar
+      govSet(perf.level + (avg > 33 ? 2 : 1), `${Math.round(1000 / avg)} fps`); perf.slow = 0;
+    }
+    return;
+  }
+  perf.slow = 0;
+  if (avg < 17.6 && long < 0.03) perf.calm++; else perf.calm = 0;
+  // holgura comprobable (pantallas de más de 60 Hz): sube la resolución por encima de la de partida
+  if (perf.level === 0 && avg < 12.5 && perf.calm >= 4 && perf.pr < PR_MAX && !perf.prCeil) { perf.calm = 0; perf.lastUp = now; perf.upPr = true; setPR(Math.min(PR_MAX, perf.pr + 0.25)); perf.wait = 1.5; return; }
+  if (perf.level > 0 && perf.calm >= perf.probe && GOV_STEPS[perf.level - 1].off) { perf.calm = 0; perf.lastUp = now; govSet(perf.level - 1, 'prueba a subir'); }
 }
 
 function frame() {
@@ -2020,16 +2091,35 @@ function frame() {
 }
 
 // LOD de naves: a partir de cierta distancia de cámara, cada rival pasa a su malla ligera (1 draw call, ~1,8k triángulos).
-const LOD_D = LITE ? 42 : 85;
+const LOD_D = LITE ? 42 : 85, LOD_LOW = 26;
+const MAX_FULL = LITE ? 4 : 7, MAX_FULL_LOW = LITE ? 3 : 4, _near = [];
+const FX_FAR = LITE ? 260 : 420, SHADOW_FULL = 28, _camDir = new THREE.Vector3(), _rel = new THREE.Vector3();
 const INTRO_LOD = +(new URLSearchParams(location.search).get('ilod') || (LITE ? 0.7 : 0.45));
 function updateLods(inCircuit) {
   const cp = camera.position, zoom = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(35));
   // en la intro la cámara llega a la parrilla con las 22 naves en cuadro: umbral más corto para no dibujarlas todas completas a la vez
-  const D = LOD_D * (G.state === 'intro' ? INTRO_LOD : 1);
+  const D = perf.low ? LOD_LOW : LOD_D * perf.lodK * (G.state === 'intro' ? INTRO_LOD : 1);
+  camera.getWorldDirection(_camDir);
+  _near.length = 0;
   for (const sh of G.ships) {
-    if (!inCircuit || sh === G.ship) { sh.setFar(false); continue; }
-    const d = sh.root.position.distanceTo(cp) / zoom;
-    sh.setFar(sh.far ? d > D * 0.88 : d > D * 1.12);
+    if (!inCircuit || sh === G.ship) { sh.setFar(false); sh.setFx(2); sh.setShadowProxy(false); continue; }
+    _rel.subVectors(sh.root.position, cp);
+    const real = _rel.length(), d = real / zoom;
+    sh._d = d; sh._real = real; sh._ahead = _rel.dot(_camDir);
+    if (sh.far ? d <= D * 0.88 : d <= D * 1.12) _near.push(sh); else sh.setFar(true);
+  }
+  // presupuesto de naves completas: en un pelotón cerrado entraban 14–21 rivales enteros a la vez (hasta 3,8 M de triángulos
+  // y más de 1.000 órdenes de dibujo). Solo los MAX_FULL más cercanos van completos; el resto, con su malla ligera.
+  // Quien ya estaba completo conserva el puesto mientras no lo adelante otro por más de un 15 % (sin parpadeo).
+  const K = perf.low ? 2 : perf.lodK < 1 ? MAX_FULL_LOW : MAX_FULL;
+  if (_near.length > K) _near.sort((a, b) => a._d * (a.far ? 1.15 : 1) - b._d * (b.far ? 1.15 : 1));
+  _near.forEach((sh, i) => sh.setFar(i >= K));
+  for (const sh of G.ships) {
+    if (!inCircuit || sh === G.ship) continue;
+    // llamas, halos y estelas de los rivales: completas cerca; solo el destello lejos; nada si quedan detrás de la cámara o muy lejos
+    sh.setFx(sh._ahead < -25 || sh._real > FX_FAR * perf.fxK ? 0 : sh.far ? 1 : 2);
+    // sombra de los rivales: a más de SHADOW_FULL m la proyecta su malla ligera (antes, cada rival cercano volvía a dibujarse entero en el mapa de sombras)
+    if (QUALITY.shadows) sh.setShadowProxy(!sh.far && sh._real > SHADOW_FULL * perf.lodK);
   }
 }
 
@@ -2147,7 +2237,7 @@ function tick(dt) {
 
   if (CONFIG.debug) {
     fpsAcc += dt; fpsN++;
-    if (fpsAcc > 0.5) { fpsEl.textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris`; fpsAcc = 0; fpsN = 0; }
+    if (fpsAcc > 0.5) { fpsEl.textContent = `${Math.round(fpsN / fpsAcc)} fps · ${renderer.info.render.calls} draws · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · pr ${renderer.getPixelRatio().toFixed(2)}${perf.low ? ' · low' : ''} · fluidez ${perf.level}/${GOV_STEPS.length}${LITE ? ' · lite' : ' · full'}${NOLOG ? ' · nolog' : ''} · ${BUILD}`; fpsAcc = 0; fpsN = 0; }
   }
 }
 // cabecera: la música arranca con el primer gesto (los navegadores no dejan sonar antes)
@@ -2156,7 +2246,7 @@ addEventListener('pointerdown', firstGesture); addEventListener('keydown', first
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
 G.showChoice = showChoice; G.begin = begin; G.goMap = goMap; G.menu = showMenu; G.train = startTraining; G.menuAction = menuAction; G.setFamily = setFamily; G.selectNode = (n, c) => selectNode(G.map.nodes[n - 1], c); G.store = store; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer; G.THREE = { Frustum: THREE.Frustum, Matrix4: THREE.Matrix4 };
-G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
+G.sampleShape = sampleShape; G.circuits = CIRCUITS; G.THREE = THREE; G.thin = () => thinInstances(G.world); G.perf = perf; G.gov = perf; G.govSet = govSet; G.scene = scene; G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };

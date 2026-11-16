@@ -351,7 +351,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
     for (let i = 0; i <= rings; i++) { const r = r0 * Math.pow(r1 / r0, i / rings); for (let j = 0; j <= segs; j++) { const a = j / segs * Math.PI * 2, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; fp.push(x, base(x, z) - 20, z); } }
     for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) { const a = i * (segs + 1) + j, b = a + 1, c = a + segs + 1, d = c + 1; fi.push(a, b, c, b, d, c); }
     const gFar = new THREE.BufferGeometry(); gFar.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); gFar.setIndex(fi); gFar.computeVertexNormals();
-    for (const gg of [gNear, gMid, gFar]) { const m = new THREE.Mesh(gg, pmat); m.receiveShadow = gg === gNear; m.frustumCulled = gg === gNear; world.add(m); own.push(gg); }
+    for (const gg of [gNear, gMid, gFar]) { const m = new THREE.Mesh(gg, pmat); m.receiveShadow = gg === gNear; m.frustumCulled = gg === gNear; m.userData.chunkAnyway = true; world.add(m); own.push(gg); }
   }
 
   // ── Tribunas cubiertas con público ──
@@ -478,7 +478,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
       m4.makeBasis(xx.multiplyScalar(sc), up.clone().multiplyScalar(sc), z).setPosition(p);
       im.setMatrixAt(i, m4); im.setColorAt(i, col.setHex(c).multiplyScalar(0.8 + h2(p.x * 3, p.z) * 0.35));
     });
-    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true;
+    im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.userData.chunkInst = true;
     im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere();
     parent.add(im);
     return im;
@@ -566,7 +566,10 @@ export function buildTharsis(def, { world, own, srcMat }) {
     chrome: new THREE.MeshStandardMaterial({ color: 0xa9b2b8, roughness: 0.14, metalness: 1.0 }),
   };
   Object.values(CM).forEach((m) => own.push(m));
-  const cells = new Map();                       // trozos de 1,6 km: la cámara recorta lo que no ve
+  // La ciudad entera suma ~165k triángulos: troceada en celdas de 1,6 km eran ~430 mallas (otras tantas órdenes de dibujo
+  // con casi todas en cuadro). Ahora, celdas de 6 km: una docena de mallas; el troceado general del mundo recorta el resto.
+  const cityKey = (x, z) => `${Math.floor(x / 6000)},${Math.floor(z / 6000)}`;
+  const cells = new Map();
   let curY = 0;
   const put = (key, mat, geo) => { if (curY) geo.translate(0, curY, 0); const k = key + '|' + mat; if (!cells.has(k)) cells.set(k, { mat, list: [] }); cells.get(k).list.push(geo); };
   const trackPts = []; for (let s = 0; s < L; s += 16) { track.sample(s, F); trackPts.push([F.pos.x, F.pos.z]); }
@@ -651,7 +654,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
       const a = rnd() * Math.PI * 2, r = r0 + Math.sqrt(rnd()) * (r1 - r0);
       const x = centroid.x + Math.cos(a) * r, z = centroid.z + Math.sin(a) * r;
       if (clearance(x, z) < minClear) continue;
-      const key = `${Math.floor(x / 1600)},${Math.floor(z / 1600)}`;
+      const key = cityKey(x, z);
       const s = scale * (0.7 + rnd() * 0.7), rot = Math.round(rnd() * 4) * Math.PI / 4 * 0.5;
       const t = rnd(); let acc = 0, kind = kinds[0][0];
       for (const [kk, w] of kinds) { acc += w; if (t < acc) { kind = kk; break; } }
@@ -667,7 +670,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
   for (const [ang, rr] of [[0.15, 900], [2.4, 1500], [4.3, 1150]]) {
     const x = centroid.x + Math.cos(ang) * (rMax + rr), z = centroid.z + Math.sin(ang) * (rMax + rr);
     curY = ground(x, z) - 2;
-    lattice(x, z, 1.1, `${Math.floor(x / 1600)},${Math.floor(z / 1600)}`); nB++;
+    lattice(x, z, 1.1, cityKey(x, z)); nB++;
   }
   let nMesh = 0;
   // pórticos de pilones cromados con anillos luminosos a ambos lados de la pista

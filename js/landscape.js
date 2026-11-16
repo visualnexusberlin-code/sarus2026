@@ -206,7 +206,7 @@ export function plantTrees(parent, landMeshes, track, count = 2600) {
     im.instanceMatrix.needsUpdate = true;
     if (im.instanceColor) im.instanceColor.needsUpdate = true;
     im.receiveShadow = true;
-    im.computeBoundingSphere();
+    im.computeBoundingSphere(); im.userData.chunkInst = true;
     group.add(im);
   }
   parent.add(group);

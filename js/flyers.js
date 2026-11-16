@@ -23,7 +23,7 @@ export class Flyers {
       // van lejos: solo la malla LOD de la nave (1 draw call), con material propio y sin sombra
       const m = new THREE.Group(); m.scale.copy(src.model.scale);
       if (src.lodMesh) {
-        const lm = new THREE.Mesh(src.lodMesh.geometry, src.lodMesh.material.clone());
+        const lm = new THREE.Mesh(src.lodMesh.geometry, (src.lodMat || src.lodMesh.material).clone());
         lm.material.color.setRGB(1, 1, 1); this.mats.push(lm.material); m.add(lm);
       } else {
         const c = src.model.clone(true); const drop = [];

@@ -87,6 +87,52 @@ function addWear(mat, k) {
   mat.customProgramCacheKey = () => baseKey() + '|wear';   // intensidad por uniforme: un solo programa para toda la flota
 }            // duración del giro brusco asistido
 
+export const SHADOW_ONLY = new THREE.MeshBasicMaterial({ name: 'SHADOW_ONLY', colorWrite: false, depthWrite: false });
+
+// Paleta: las piezas opacas de color liso (sin texturas, sin cristal, sin toberas ni emisores) se funden en un
+// solo material por nave (dos si la nave lleva desgaste: con y sin él). Color, metal, rugosidad y emisión de cada
+// pieza viajan en los vértices. Antes cada nave costaba entre 8 y 26 draw calls (una por material); ahora 3–6.
+// ?nopal desactiva la fusión para comparar.
+const NOPAL = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nopal');
+function palettable(mat) {
+  if (NOPAL || !mat || !mat.isMeshStandardMaterial) return false;
+  if (ION_RE.test(mat.name) || /_Hover/.test(mat.name) || CANOPY_ALPHA[mat.name]) return false;
+  if (mat.userData.canopyCut || mat.userData.canopyGlass) return false;
+  if (mat.transparent || mat.opacity < 1 || mat.alphaTest > 0 || mat.vertexColors) return false;
+  for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'bumpMap', 'alphaMap', 'lightMap', 'displacementMap']) if (mat[k]) return false;
+  if (mat.isMeshPhysicalMaterial && !LITE && (mat.clearcoat > 0 || mat.transmission > 0 || mat.sheen > 0 || mat.iridescence > 0)) return false;   // completa: conserva el barniz
+  return true;
+}
+function addPalette(mat) {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    prev?.call(mat, sh, r);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 pMR; attribute vec3 pEm; varying vec2 vPMR; varying vec3 vPEm;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPMR = pMR; vPEm = pEm;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vPMR; varying vec3 vPEm;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n      metalnessFactor = vPMR.x;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n      roughnessFactor = clamp(vPMR.y + roughness - 0.5, 0.0, 1.0);')   // el daño sube la rugosidad del material
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n      totalEmissiveRadiance += vPEm;');
+  };
+  const baseKey = mat.customProgramCacheKey.bind(mat);
+  mat.customProgramCacheKey = () => baseKey() + '|pal';
+}
+function paintGeo(g, mat) {
+  const n = g.attributes.position.count, c = new Float32Array(n * 3), mr = new Float32Array(n * 2), em = new Float32Array(n * 3);
+  const ei = mat.emissiveIntensity ?? 1, E = mat.emissive || { r: 0, g: 0, b: 0 };
+  for (let i = 0; i < n; i++) {
+    c[i * 3] = mat.color.r; c[i * 3 + 1] = mat.color.g; c[i * 3 + 2] = mat.color.b;
+    mr[i * 2] = mat.metalness ?? 0; mr[i * 2 + 1] = mat.roughness ?? 0.5;
+    em[i * 3] = E.r * ei; em[i * 3 + 1] = E.g * ei; em[i * 3 + 2] = E.b * ei;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  g.setAttribute('pMR', new THREE.BufferAttribute(mr, 2));
+  g.setAttribute('pEm', new THREE.BufferAttribute(em, 3));
+  for (const k of ['_rim', 'uv']) if (g.attributes[k]) g.deleteAttribute(k);   // la paleta no usa UV: así no choca el tipo de UV entre piezas
+  if (!g.attributes.normal) g.computeVertexNormals();
+  return g;
+}
+
 function toStandard(src) {
   const m = new THREE.MeshStandardMaterial();
   THREE.MeshStandardMaterial.prototype.copy.call(m, src);
@@ -157,6 +203,24 @@ export class Ship {
     this.reactorMats = [];
     this.ionGeos = [];
     this.ionColor = new THREE.Color(1, 0.2, 0.06);
+    // paleta: se apartan las piezas lisas y se funden por cubo (con desgaste / sin desgaste)
+    const pal = new Map();
+    for (const [mat, geos] of [...groups]) {
+      if (!palettable(mat)) continue;
+      const wear = !!WEAR[this.name] && !NO_WEAR.test(mat.name);
+      if (!pal.has(wear)) pal.set(wear, []);
+      for (const g of geos) pal.get(wear).push(paintGeo(g, mat));
+      groups.delete(mat);
+    }
+    for (const [wear, geos] of pal) {
+      const geo = mergeGeometries(geos, false);
+      const mat = new THREE.MeshStandardMaterial({ name: `${this.name}_PAL${wear ? '_W' : ''}`, vertexColors: true, metalness: 0.5, roughness: 0.5, envMapIntensity: 1.0, side: THREE.DoubleSide, emissive: 0x000000 });
+      if (wear) addWear(mat, WEAR[this.name]);
+      addPalette(mat);
+      const m = new THREE.Mesh(geo, mat);
+      m.castShadow = true; m.receiveShadow = true;
+      model.add(m); this.meshes.push(m);
+    }
     for (let [mat, geos] of groups) {
       let geo = mergeGeometries(geos, false);
       if (LITE && mat.isMeshPhysicalMaterial) mat = toStandard(mat);   // móvil: sin transmisión/clearcoat (la transmisión obliga a dibujar la escena dos veces)
@@ -215,8 +279,34 @@ export class Ship {
   setFar(far) {
     if (!this.lodMesh || far === this.far) return;
     this.far = far;
-    this.lodMesh.visible = far;
+    this.lodMesh.visible = far || this.shadowProxy;
     for (const m of this.meshes) m.visible = !far;
+    this.applyProxy();
+  }
+
+  // Sombra por la malla ligera: el modelo completo deja de proyectar sombra y la proyecta el LOD, que en la imagen
+  // no pinta nada (material sin color ni profundidad). El mapa de sombras dibuja ~1,8k triángulos en vez de 60–140k.
+  setShadowProxy(on) {
+    if (!this.lodMesh || on === this.shadowProxy) return;
+    this.shadowProxy = on;
+    for (const m of this.meshes) if (m.userData.casts === undefined) m.userData.casts = m.castShadow;
+    for (const m of this.meshes) m.castShadow = on ? false : m.userData.casts;
+    this.lodMesh.visible = this.far || on;
+    this.applyProxy();
+  }
+  applyProxy() {
+    if (!this.lodMesh) return;
+    if (!this.lodMat) this.lodMat = this.lodMesh.material;
+    this.lodMesh.material = this.shadowProxy && !this.far ? SHADOW_ONLY : this.lodMat;
+  }
+
+  // efectos de motor por distancia: 2 llama, penacho y destello · 1 solo el destello · 0 nada
+  setFx(level) { if (level === this.fxLevel) return; this.fxLevel = level; this.applyFx(); }
+  applyFx() {
+    const on = !this.out, L = this.fxLevel ?? 2;
+    for (const e of this.exhausts) e.visible = on && L >= 2;
+    for (const e of this.plumes) e.visible = on && L >= 2;
+    for (const e of this.halos) e.visible = on && L >= 1;
   }
 
   analyse() {
@@ -353,17 +443,36 @@ export class Ship {
     if (this.player) this.addEngineLight();
   }
 
+  // Las luces de la nave del jugador cuelgan de un soporte aparte, siempre visible, que copia la postura del modelo.
+  // Si colgaran del modelo, cada vez que este se oculta (el parpadeo de invulnerabilidad tras un golpe, 12 veces por
+  // segundo) cambiaría el número de luces de la escena y three.js tendría que recompilar o reasignar el shader de
+  // TODOS los materiales: un tirón en cada golpe. Encender y apagar se hace con la intensidad, nunca con «visible».
   addEngineLight() {
     if (this.engineLight) return;
+    this.lightRig = new THREE.Object3D(); this.lightRig.name = 'lightRig';
+    (this.model.parent || this.root).add(this.lightRig);
     this.engineLight = new THREE.PointLight(this.ionColor.clone(), 0, 14, 2);
     if (this.def.ventral) this.engineLight.position.set(0, this.nozzles[0].pos.y - 0.4, this.nozzles.reduce((a, n) => a + n.pos.z, 0) / this.nozzles.length - 0.8);   // bajo la nave: ilumina la pista
     else this.engineLight.position.set(0, 0.3, this.nozzles[0].pos.z - 0.6);
-    this.model.add(this.engineLight);
+    this.lightRig.add(this.engineLight);
+    this.syncLights();
   }
   removeEngineLight() {
     if (!this.engineLight) return;
-    this.model.remove(this.engineLight); this.engineLight.dispose?.(); this.engineLight = null;
-    if (this.headLight) { this.model.remove(this.headLight, this.headLight.target); this.headLight.dispose?.(); this.headLight = null; }
+    if (this.headLight) { this.lightRig.remove(this.headLight, this.headLight.target); this.headLight.dispose?.(); this.headLight = null; }
+    this.lightRig.remove(this.engineLight); this.engineLight.dispose?.(); this.engineLight = null;
+    this.lightRig.parent?.remove(this.lightRig); this.lightRig = null;
+  }
+  // crea o retira el foco frontal según el circuito (se llama también en el calentamiento, antes de compilar)
+  syncLights() {
+    if (!this.engineLight) return;
+    const dark = !!CONFIG.headlight;
+    if (dark && !this.headLight) {
+      this.headLight = new THREE.SpotLight(0xfff1e0, 90, 260, 0.42, 0.5, 1.1);
+      this.headLight.position.set(0, this.size.y * 0.6, this.length * 0.35); this.headLight.target.position.set(0, -1.5, 60);
+      this.lightRig.add(this.headLight, this.headLight.target);
+    } else if (!dark && this.headLight) { this.lightRig.remove(this.headLight, this.headLight.target); this.headLight.dispose?.(); this.headLight = null; }
+    this.lightRig.position.copy(this.model.position); this.lightRig.quaternion.copy(this.model.quaternion); this.lightRig.scale.copy(this.model.scale);
   }
 
   reset(s, x = 0) {
@@ -600,14 +709,10 @@ export class Ship {
     this.haloMat.opacity = Math.min(0.7, 0.2 + power * 0.4);
     for (const m of this.reactorMats) m.emissiveIntensity = 1.6 + power * 2.6;
     if (this.engineLight) {
-      const dark = !!CONFIG.headlight;
-      this.engineLight.intensity = (0.8 + power * 4) * (dark ? 4 : 1); this.engineLight.distance = dark ? 34 : 14;
-      // foco frontal (VIRGIL-CTHULHU ABYSS): en las minas la luz de la nave es la que deja ver el trazado
-      if (dark && !this.headLight) {
-        this.headLight = new THREE.SpotLight(0xfff1e0, 90, 260, 0.42, 0.5, 1.1);
-        this.headLight.position.set(0, this.size.y * 0.6, this.length * 0.35); this.headLight.target.position.set(0, -1.5, 60);
-        this.model.add(this.headLight, this.headLight.target);
-      } else if (!dark && this.headLight) { this.model.remove(this.headLight, this.headLight.target); this.headLight.dispose?.(); this.headLight = null; }
+      const dark = !!CONFIG.headlight, on = !this.out;
+      this.syncLights();
+      this.engineLight.intensity = on ? (0.8 + power * 4) * (dark ? 4 : 1) : 0; this.engineLight.distance = dark ? 34 : 14;
+      if (this.headLight) this.headLight.intensity = on ? 90 : 0;   // foco frontal (VIRGIL-CTHULHU ABYSS): en las minas la luz de la nave deja ver el trazado
     }
   }
 
@@ -702,9 +807,8 @@ export class Ship {
     const k = this.out ? 0.22 : 1 - 0.28 * this.dmg;
     for (const d of this.dmgMats) { d.m.color.copy(d.c).multiplyScalar(k); if (d.m.roughness !== undefined) d.m.roughness = Math.min(1, d.r + 0.35 * this.dmg); }
     const on = !this.out;
-    for (const e of [...this.exhausts, ...this.plumes, ...this.halos]) e.visible = on;
+    this.applyFx();
     for (const m of this.reactorMats) m.emissiveIntensity = on ? 1.6 : 0.05;
-    if (this.engineLight) this.engineLight.visible = on;
   }
 
   wreckUpdate(dt) {

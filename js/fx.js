@@ -397,63 +397,78 @@ export class IonTrail {
 // ── Estela continua de propulsión: una cinta por tobera, translúcida, orientada a cámara.
 //    Se alarga sola con la velocidad (los puntos quedan atrás a v·dt).
 export class EngineTrails {
+  // Todas las estelas de motor de la flota en UNA malla (una orden de dibujo): antes era una malla y un material por
+  // tobera (58 órdenes de dibujo con 22 naves). El color y la intensidad de cada estela viajan en los vértices.
   constructor(scene, N = 30) {
-    this.scene = scene; this.N = N; this.list = [];
+    this.scene = scene; this.N = N; this.list = []; this.mesh = null;
+    this.mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: /* glsl */`
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+        attribute float aT; attribute float aSide; attribute vec4 aCol; varying float vT; varying float vS; varying vec4 vCol;
+        void main(){ vT = aT; vS = aSide; vCol = aCol; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          #include <logdepthbuf_vertex>
+        }`,
+      fragmentShader: /* glsl */`
+        #include <common>
+        #include <logdepthbuf_pars_fragment>
+        uniform float uTime; varying float vT; varying float vS; varying vec4 vCol;
+        void main(){
+          #include <logdepthbuf_fragment>
+          float across = 1.0 - vS * vS;                     // borde suave
+          float along = pow(max(1.0 - vT, 0.0), 1.7) * smoothstep(0.0, 0.06, vT);
+          float shimmer = 0.85 + 0.15 * sin(vT * 40.0 - uTime * 30.0);
+          vec3 c = mix(vCol.rgb, vec3(1.0), (1.0 - vT) * 0.25);
+          gl_FragColor = vec4(c * across * across * along * shimmer * vCol.a, 1.0);
+        }`,
+    });
   }
   add(ship) {
-    const N = this.N;
-    for (const nz of ship.nozzles) {
-      const g = new THREE.BufferGeometry();
-      const pos = new Float32Array(N * 2 * 3), t = new Float32Array(N * 2), side = new Float32Array(N * 2);
-      for (let i = 0; i < N; i++) { t[i * 2] = t[i * 2 + 1] = i / (N - 1); side[i * 2] = -1; side[i * 2 + 1] = 1; }
-      const idx = []; for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-      g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
-      g.setAttribute('aT', new THREE.BufferAttribute(t, 1)); g.setAttribute('aSide', new THREE.BufferAttribute(side, 1));
-      g.setIndex(idx);
-      const mat = new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide,
-        uniforms: { uColor: { value: ship.flame.clone() }, uAlpha: { value: 0 }, uTime: { value: 0 } },
-        vertexShader: /* glsl */`
-          #include <common>
-          #include <logdepthbuf_pars_vertex>
-          attribute float aT; attribute float aSide; varying float vT; varying float vS;
-          void main(){ vT = aT; vS = aSide; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            #include <logdepthbuf_vertex>
-          }`,
-        fragmentShader: /* glsl */`
-          #include <common>
-          #include <logdepthbuf_pars_fragment>
-          uniform vec3 uColor; uniform float uAlpha, uTime; varying float vT; varying float vS;
-          void main(){
-            #include <logdepthbuf_fragment>
-            float across = 1.0 - vS * vS;                     // borde suave
-            float along = pow(max(1.0 - vT, 0.0), 1.7) * smoothstep(0.0, 0.06, vT);
-            float shimmer = 0.85 + 0.15 * sin(vT * 40.0 - uTime * 30.0);
-            vec3 c = mix(uColor, vec3(1.0), (1.0 - vT) * 0.25);
-            gl_FragColor = vec4(c * across * across * along * shimmer * uAlpha, 1.0);
-          }`,
-      });
-      const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false;
-      this.scene.add(mesh);
-      this.list.push({ ship, nz, mesh, mat, pts: [], w: nz.r * 2.1 * (ship.model.scale.x || 1) });
-    }
+    for (const nz of ship.nozzles) this.list.push({ ship, nz, alpha: 0, shown: 0, pts: [], w: nz.r * 2.1 * (ship.model.scale.x || 1) });
+    this.dirty = true;
+  }
+  build() {
+    if (this.mesh) { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); }
+    const N = this.N, T = this.list.length, V = N * 2;
+    const pos = new Float32Array(T * V * 3), t = new Float32Array(T * V), side = new Float32Array(T * V), col = new Float32Array(T * V * 4), idx = [];
+    this.list.forEach((tr, k) => {
+      const c = tr.ship.flame;
+      for (let i = 0; i < N; i++) for (let s = 0; s < 2; s++) { const v = k * V + i * 2 + s; t[v] = i / (N - 1); side[v] = s ? 1 : -1; col[v * 4] = c.r; col[v * 4 + 1] = c.g; col[v * 4 + 2] = c.b; }
+      for (let i = 0; i < N - 1; i++) { const a = k * V + i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      tr.shown = 0;
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aT', new THREE.BufferAttribute(t, 1)); g.setAttribute('aSide', new THREE.BufferAttribute(side, 1));
+    g.setAttribute('aCol', new THREE.BufferAttribute(col, 4).setUsage(THREE.DynamicDrawUsage));
+    g.setIndex(idx);
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false;
+    this.scene.add(this.mesh); this.dirty = false;
   }
   reset() { for (const tr of this.list) tr.pts.length = 0; }
   update(dt, cam, time) {
-    const N = this.N, P = new THREE.Vector3(), D = new THREE.Vector3(), S = new THREE.Vector3(), V = new THREE.Vector3();
-    for (const tr of this.list) {
+    if (this.dirty) this.build();
+    if (!this.mesh) return;
+    const N = this.N, V2 = N * 2, D = new THREE.Vector3(), S = new THREE.Vector3(), V = new THREE.Vector3();
+    const pos = this.mesh.geometry.attributes.position, col = this.mesh.geometry.attributes.aCol;
+    this.mat.uniforms.uTime.value = time;
+    let any = false, colDirty = false;
+    this.list.forEach((tr, k) => {
       const sh = tr.ship;
       const pw = sh.dead > 0 ? 0 : Math.max(0, (sh.power || 0) - 0.15);
-      tr.mat.uniforms.uAlpha.value += ((sh.v > 5 ? Math.min(0.85, pw * 0.8) : 0) - tr.mat.uniforms.uAlpha.value) * Math.min(1, dt * 5);
-      tr.mat.uniforms.uTime.value = time;
-      tr.mesh.visible = tr.mat.uniforms.uAlpha.value > 0.01 && sh.root.visible;
+      tr.alpha += ((sh.v > 5 ? Math.min(0.85, pw * 0.8) : 0) - tr.alpha) * Math.min(1, dt * 5);
+      // sin estela: apagada, nave oculta, o rival detrás de la cámara o muy lejos (fxLevel 0)
+      const vis = tr.alpha > 0.01 && sh.root.visible && (sh.fxLevel ?? 2) > 0, a = vis ? tr.alpha : 0;
+      if (Math.abs(a - tr.shown) > 0.004 || (a === 0 && tr.shown !== 0)) { for (let v = 0; v < V2; v++) col.array[(k * V2 + v) * 4 + 3] = a; tr.shown = a; colDirty = true; }
       const p = sh.worldPoint(tr.nz.pos, new THREE.Vector3());
       if (sh.dead > 0 || sh.respawned) { tr.pts.length = 0; }
       tr.pts.unshift(p);
       if (tr.pts.length > N) tr.pts.pop();
-      if (!tr.mesh.visible) continue;
-      const pos = tr.mesh.geometry.attributes.position;
-      const w0 = tr.w * (0.8 + pw * 0.5);
+      if (!vis) return;
+      any = true;
+      const w0 = tr.w * (0.8 + pw * 0.5), o = k * V2;
       for (let i = 0; i < N; i++) {
         const q = tr.pts[Math.min(i, tr.pts.length - 1)];
         const q2 = tr.pts[Math.min(i + 1, tr.pts.length - 1)];
@@ -461,11 +476,13 @@ export class EngineTrails {
         V.subVectors(cam.position, q);
         S.crossVectors(D, V).normalize();
         const w = w0 * (1 - i / N * 0.55);
-        pos.setXYZ(i * 2, q.x - S.x * w, q.y - S.y * w, q.z - S.z * w);
-        pos.setXYZ(i * 2 + 1, q.x + S.x * w, q.y + S.y * w, q.z + S.z * w);
+        pos.setXYZ(o + i * 2, q.x - S.x * w, q.y - S.y * w, q.z - S.z * w);
+        pos.setXYZ(o + i * 2 + 1, q.x + S.x * w, q.y + S.y * w, q.z + S.z * w);
       }
-      pos.needsUpdate = true;
-    }
+    });
+    this.mesh.visible = any;
+    if (any) pos.needsUpdate = true;
+    if (colDirty) col.needsUpdate = true;
   }
 }
 

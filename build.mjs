@@ -7,6 +7,10 @@ let js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const pack = (f) => zlib.gzipSync(fs.readFileSync(f), { level: 9 }).toString('base64').replace(/.{1,4096}/g, '$&\n');
 const b64 = pack('saturn6.glb'), b64f = pack('ships45.glb');
 let html = fs.readFileSync('index.html', 'utf8');
+// sello de build (fecha + commit): para saber qué versión está viendo quien prueba. Visible en ?debug y en <meta name="build">.
+let rev = 'local'; try { rev = (await import('child_process')).execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch (e) { /* sin git */ }
+const stamp = `${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC · ${rev}`;
+html = html.replace('<title>', `<meta name="build" content="${stamp}">\n<title>`);
 const start = html.indexOf('<script type="importmap">');
 const end = html.indexOf('<script type="module" src="js/main.js"></script>') + '<script type="module" src="js/main.js"></script>'.length;
 const head = html.slice(0, start), tail = html.slice(end);
