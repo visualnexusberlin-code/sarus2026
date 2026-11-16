@@ -3,7 +3,7 @@
 //  Circuito generado (no viene del GLB): trazado digitalizado de la referencia,
 //  cotas que siguen la montaña, dos saltos sobre grietas y un túnel dentro de una lengua de lava.
 // ─────────────────────────────────────────────────────────────
-import { REG_NOISE, regolithColor, REG_BUMP } from './regolith.js';
+import { REG_NOISE, regolithColor, REG_BUMP, marsRelief } from './regolith.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('olympus');                      // trazado en espejo (reshape.js)
@@ -44,7 +44,7 @@ function layout() {
 }
 
 // Dirección del sol: al final de la recta larga, casi en el horizonte (atardecer azul marciano)
-export function marsSunDir(elev = 0.075) {
+export function marsSunDir(elev = 0.15) {
   const { P } = layout();
   const d = P[IDX.longStraight + 1].clone().sub(P[IDX.longStraight - 2]).setY(0).normalize();
   return d.multiplyScalar(Math.cos(elev)).setY(Math.sin(elev)).normalize();
@@ -135,8 +135,10 @@ export function buildMars(def, { world, own, srcMat }) {
 
   // Suelo final: lo que sigue a la pista se talla (trinchera bajo el tablero, techo sobre el túnel)
   const loc = {}, _p = new THREE.Vector3();
+  // relieve añadido (cráteres, dunas, coladas): fuera de la pared de la caldera y de la lengua del túnel
+  const relief = (x, z, detail) => { const t = Math.hypot(x - C.x, z - C.z) - R_CALDERA; return t < 80 ? 0 : marsRelief(x, z, detail) * sstep(80, 520, t) * (1 - Math.min(1, bumpAt(x, z) / 60)); };
   const ground = (x, z) => {
-    let h = full(x, z);
+    let h = full(x, z) + relief(x, z, 'near');
     track.locate(_p.set(x, h, z), loc);
     if (loc.far || loc.dist > 240) return h;
     if (inTunnel(loc.s)) { const w = 1 - sstep(38, 120, loc.dist); h = Math.max(h, lerp(h, loc.deckY + 34, w)); }
@@ -247,19 +249,19 @@ export function buildMars(def, { world, own, srcMat }) {
   const tmat = marsTerrainMaterial(); own.push(tmat);
   const bb = new THREE.Box3().setFromPoints(S);
   const near = { x0: bb.min.x - 1100, x1: bb.max.x + 1100, z0: bb.min.z - 1100, z1: bb.max.z + 1100 };
-  const grid = (x0, x1, z0, z1, step, hf, skip) => {
+  const grid = (x0, x1, z0, z1, step, hf, skip, af) => {
     const nx = Math.ceil((x1 - x0) / step), nz = Math.ceil((z1 - z0) / step);
-    const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [];
+    const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [], rel = af ? new Float32Array((nx + 1) * (nz + 1)) : null;
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) {
       const x = x0 + i * step, z = z0 + j * step, o = (j * (nx + 1) + i) * 3;
-      pos[o] = x; pos[o + 1] = hf(x, z); pos[o + 2] = z;
+      pos[o] = x; pos[o + 1] = hf(x, z); pos[o + 2] = z; if (rel) rel[o / 3] = af(x, z);
     }
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       if (skip && skip(x0 + (i + 0.5) * step, z0 + (j + 0.5) * step)) continue;
       const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
       idx.push(a, c, b, b, c, d);
     }
-    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); gg.setIndex(idx); gg.computeVertexNormals();
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (rel) gg.setAttribute('aRel', new THREE.BufferAttribute(rel, 1)); gg.setIndex(idx); gg.computeVertexNormals();
     return gg;
   };
   const inNear = (x, z, m = 0) => x > near.x0 + m && x < near.x1 - m && z > near.z0 + m && z < near.z1 - m;
@@ -273,7 +275,7 @@ export function buildMars(def, { world, own, srcMat }) {
     const d = track.delta(tunnel.s, lcP.s);
     return (d > -24 && d < 16) || (d > tunnel.len - 16 && d < tunnel.len + 24);
   };
-  const geoNear = grid(near.x0, near.x1, near.z0, near.z1, 18, ground, portalSkip);
+  const geoNear = grid(near.x0, near.x1, near.z0, near.z1, 18, ground, portalSkip, (x, z) => relief(x, z, 'near'));
   // fachada de roca con el arco abierto en cada boca
   if (tunnel) {
     const outer = [[-23, -1.5], [-23, 10], [-18, 16], [-7, 18.5], [7, 18.5], [18, 16], [23, 10], [23, -1.5]];
@@ -290,7 +292,7 @@ export function buildMars(def, { world, own, srcMat }) {
     }
   }
   const MID = 22000;
-  const geoMid = grid(cx - MID, cx + MID, cz - MID, cz + MID, 170, (x, z) => full(x, z) - (inNear(x, z, -400) ? 6 : 0), (x, z) => inNear(x, z, 170));
+  const geoMid = grid(cx - MID, cx + MID, cz - MID, cz + MID, 170, (x, z) => full(x, z) + relief(x, z, 'mid') - (inNear(x, z, -400) ? 6 : 0), (x, z) => inNear(x, z, 170), (x, z) => relief(x, z, 'mid'));
   // disco lejano (anillos polares)
   const far = (() => {
     const rings = 70, segs = 180, r0 = MID * 0.96, r1 = 260000, pos = [], idx = [];
@@ -326,6 +328,58 @@ export function buildMars(def, { world, own, srcMat }) {
     world.add(im);
   }
 
+  // ── Base de apoyo: cúpulas presurizadas, depósitos, mástiles con baliza, plataforma de aterrizaje y una conducción
+  //    que acompaña a la pista. Da escala al paisaje y un motivo a la carretera: no es un circuito en mitad de la nada. ──
+  {
+    const ST = def.structures || {}, G1 = { pale: [], dark: [], lamp: [] };
+    const push = (k, g, x, y, z, ry = 0) => { if (ry) g.rotateY(ry); g.translate(x, y, z); G1[k].push(g.index ? g.toNonIndexed() : g); };
+    const side = (s) => { track.sample(s, F); const t1 = Math.hypot(F.pos.x + F.right.x * 200 - C.x, F.pos.z + F.right.z * 200 - C.z), t2 = Math.hypot(F.pos.x - F.right.x * 200 - C.x, F.pos.z - F.right.z * 200 - C.z); return t1 > t2 ? 1 : -1; };
+    // emplazamiento: el tramo más llano a unos 210 m de la pista, lejos del borde de la caldera y del túnel
+    let bestS = 0, bestK = Infinity;
+    for (let s = 0; s < track.length; s += 90) {
+      if (inTunnel(s) || inGap(s)) continue;
+      const sd = side(s), x = F.pos.x + F.right.x * sd * 210, z = F.pos.z + F.right.z * sd * 210;
+      if (Math.hypot(x - C.x, z - C.z) - R_CALDERA < 500) continue;
+      let lc2 = {}; track.locate(pP.set(x, 0, z), lc2); if (!lc2.far && lc2.dist < 150) continue;
+      const h0 = ground(x, z), k = Math.abs(ground(x + 60, z) - h0) + Math.abs(ground(x, z + 60) - h0) + Math.abs(ground(x - 60, z - 60) - h0) + bumpAt(x, z);
+      if (k < bestK) { bestK = k; bestS = s; }
+    }
+    const sd = side(bestS); track.sample(bestS, F);
+    const O = F.pos.clone().addScaledVector(F.right, sd * 210), ax = F.tan.clone().setY(0).normalize(), bx = new THREE.Vector3(-ax.z, 0, ax.x);
+    const at = (u, v) => { const x = O.x + ax.x * u + bx.x * v, z = O.z + ax.z * u + bx.z * v; return [x, ground(x, z), z]; };
+    // cúpulas con zócalo y pasillos entre ellas
+    const domes = [[0, 0, 22], [48, 14, 13], [-44, 20, 15], [10, 52, 11], [-30, -40, 12], [56, -34, 9]];
+    for (const [u, v, r] of domes) { const [x, y, z] = at(u, v);
+      push('pale', new THREE.SphereGeometry(r, 28, 12, 0, Math.PI * 2, 0, Math.PI / 2), x, y + 2.2, z);
+      push('dark', new THREE.CylinderGeometry(r * 1.06, r * 1.12, 6, 28), x, y - 0.6, z);
+      push('lamp', new THREE.TorusGeometry(r * 1.03, 0.22, 5, 40).rotateX(Math.PI / 2), x, y + 2.5, z); }
+    for (const [i, j] of [[0, 1], [0, 2], [0, 3], [0, 4], [1, 5]]) { const a = at(domes[i][0], domes[i][1]), b = at(domes[j][0], domes[j][1]), len = Math.hypot(b[0] - a[0], b[2] - a[2]);
+      const g = new THREE.CylinderGeometry(2.3, 2.3, len, 10).rotateZ(Math.PI / 2); push('pale', g, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 3, (a[2] + b[2]) / 2, -Math.atan2(b[2] - a[2], b[0] - a[0])); }
+    // depósitos tumbados en batería
+    for (let k = 0; k < 5; k++) { const [x, y, z] = at(-78 + k * 11, -4 + (k % 2) * 3); const ry = -Math.atan2(bx.z, bx.x);
+      push('pale', new THREE.CapsuleGeometry(4.2, 20, 4, 12).rotateZ(Math.PI / 2), x, y + 5.2, z, ry);
+      push('dark', new THREE.BoxGeometry(3, 2.2, 9), x, y + 0.6, z, ry); }
+    // mástiles con baliza
+    for (const [u, v, hM] of [[26, -22, 62], [-62, 48, 44], [84, 30, 38]]) { const [x, y, z] = at(u, v);
+      push('dark', new THREE.CylinderGeometry(0.35, 0.9, hM, 6), x, y + hM / 2, z); push('lamp', new THREE.SphereGeometry(1.5, 10, 8), x, y + hM + 1, z);
+      push('dark', new THREE.CylinderGeometry(4.5, 0.4, 2.4, 14, 1, true), x, y + hM * 0.72, z); }
+    // plataforma de aterrizaje
+    { const [x, y, z] = at(108, -30); push('dark', new THREE.CylinderGeometry(30, 32, 3, 36), x, y + 0.6, z); push('lamp', new THREE.TorusGeometry(26, 0.35, 5, 48).rotateX(Math.PI / 2), x, y + 2.3, z);
+      push('lamp', new THREE.BoxGeometry(14, 0.3, 1.6), x, y + 2.25, z); push('lamp', new THREE.BoxGeometry(1.6, 0.3, 14), x, y + 2.25, z); }
+    // conducción sobre apoyos, paralela a la pista, con balizas cada cierto tramo
+    { const pipeL = Math.min(1500, track.length * 0.3); let prev = null, n = 0;
+      for (let ds = -pipeL / 2; ds <= pipeL / 2; ds += 26) { const s = (bestS + ds + track.length) % track.length; if (inTunnel(s) || inGap(s)) { prev = null; continue; }
+        track.sample(s, F); const x = F.pos.x + F.right.x * sd * 78, z = F.pos.z + F.right.z * sd * 78, y = ground(x, z) + 3.4, cur = new THREE.Vector3(x, y, z);
+        if (prev && prev.distanceTo(cur) < 60) { const len = prev.distanceTo(cur), g = new THREE.CylinderGeometry(1.5, 1.5, len, 8).rotateX(Math.PI / 2); const m4 = new THREE.Matrix4().lookAt(prev, cur, new THREE.Vector3(0, 1, 0)); g.applyMatrix4(m4); push('pale', g, (prev.x + cur.x) / 2, (prev.y + cur.y) / 2, (prev.z + cur.z) / 2); }
+        push('dark', new THREE.BoxGeometry(1.2, 3.6, 3.4), x, y - 1.9, z, -Math.atan2(F.tan.z, F.tan.x));
+        if (n++ % 6 === 0) push('lamp', new THREE.SphereGeometry(0.7, 8, 6), x, y + 2.2, z);
+        prev = cur; } }
+    const mats = { pale: new THREE.MeshStandardMaterial({ color: ST.pale ?? 0x8a817a, roughness: 0.62, metalness: 0.25 }), dark: new THREE.MeshStandardMaterial({ color: ST.dark ?? 0x2a2522, roughness: 0.7, metalness: 0.4 }),
+      lamp: new THREE.MeshStandardMaterial({ color: 0x201008, emissive: ST.lamp ?? 0xff8a3c, emissiveIntensity: 2.4 }) };
+    for (const k of Object.keys(G1)) { if (!G1[k].length) continue; const list = G1[k].map((g) => { for (const a of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(a)) g.deleteAttribute(a); return g; });
+      const mg = mergeGeometries(list, false); list.forEach((g) => g.dispose()); const m = new THREE.Mesh(mg, mats[k]); m.receiveShadow = k !== 'lamp'; m.castShadow = false; m.name = 'base_' + k; world.add(m); own.push(mg, mats[k]); }
+  }
+
   // ── Viento: velos de polvo y remolinos ──
   const dust = new MarsDust(world, track, ground, nOut);
 
@@ -347,11 +401,11 @@ function marsTerrainMaterial() {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 });
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vMW;\nvarying vec3 vMN;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvMN = normalize(mat3(modelMatrix) * objectNormal);');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vMW;\nvarying vec3 vMN;\nattribute float aRel; varying float vRel;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvMN = normalize(mat3(modelMatrix) * objectNormal); vRel = aRel;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying vec3 vMW; varying vec3 vMN;
+        varying vec3 vMW; varying vec3 vMN; varying float vRel;
         float mh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
         float mn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(mh(i), mh(i+vec2(1,0)), f.x), mix(mh(i+vec2(0,1)), mh(i+vec2(1,1)), f.x), f.y); }
         ${REG_NOISE}`)
@@ -374,6 +428,9 @@ function marsTerrainMaterial() {
           float streak = mn(vec2(dot(P.xz, vec2(0.96, 0.28)) * 0.0009, dot(P.xz, vec2(-0.28, 0.96)) * 0.012));
           c *= 0.78 + 0.34 * streak;
           c *= 0.8 + 0.3 * n3;
+          // relieve en el color: fondos de cráter con polvo fino más oscuro, bordes y frentes de colada más claros
+          { float crF = smoothstep(3.0, 24.0, -vRel), rimF = smoothstep(4.0, 12.0, vRel);
+            c = mix(c, c * vec3(0.58, 0.54, 0.53), crF * 0.8); c = mix(c, c * 1.24 + vec3(0.035, 0.016, 0.0), rimF * 0.6); }
           ${regolithColor('c', 'P.xz', '1.0 - 0.45 * steep')}
           diffuseColor.rgb = c;
         }`)

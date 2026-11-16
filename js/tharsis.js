@@ -4,7 +4,7 @@
 // una nave-palco suspendida sobre la recta y una ciudad de arquitectura escalonada con ventanales y franjas de luz.
 import * as THREE from 'three';
 import { QUALITY } from './quality.js';
-import { REG_NOISE, regolithColor, REG_BUMP } from './regolith.js';
+import { REG_NOISE, regolithColor, REG_BUMP, marsRelief } from './regolith.js';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('tharsis');                      // trazado en espejo (reshape.js)
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -69,15 +69,16 @@ function roofMaterial() {
 }
 
 // Suelo: enlosado de piedra rosada en la ciudad; fuera, regolito marciano (polvo óxido, basalto en coladas y laderas)
-function plazaMaterial(track) {
+function plazaMaterial(track, city) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.93, metalness: 0 });
   m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW; varying vec3 vMN;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz; vMN = normalize(mat3(modelMatrix) * objectNormal);');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vMW; varying vec3 vMN;\n${GLSL_HASH}
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMW; varying vec3 vMN; attribute float aRel; varying float vRel;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMW = (modelMatrix * vec4(transformed, 1.0)).xyz; vMN = normalize(mat3(modelMatrix) * objectNormal); vRel = aRel;');
+    sh.uniforms.uCity = { value: city.tex }; sh.uniforms.uCityR = { value: new THREE.Vector3(city.x0, city.z0, city.inv) };
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vMW; varying vec3 vMN; varying float vRel;\nuniform sampler2D uCity; uniform vec3 uCityR;\n${GLSL_HASH}
       float vn2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(hh(i), hh(i+vec2(1,0)), f.x), mix(hh(i+vec2(0,1)), hh(i+vec2(1,1)), f.x), f.y); }
       ${REG_NOISE}`)
-      .replace('void main() {', 'void main() {\n  float rgBump = 0.0;')
+      .replace('void main() {', 'void main() {\n  float rgBump = 0.0; vec3 cityGlow = vec3(0.0);')
       .replace('#include <color_fragment>', `#include <color_fragment>
       {
         vec2 p = vMW.xz; float up = normalize(vMN).y;
@@ -92,6 +93,9 @@ function plazaMaterial(track) {
         reg = mix(reg, mix(basalt, rust * 0.7, vn2(vec2(vMW.y * 0.07, (p.x + p.y) * 0.002))), steep * 0.8);
         reg *= 0.8 + 0.3 * vn2(vec2(dot(p, vec2(0.96, 0.28)) * 0.0009, dot(p, vec2(-0.28, 0.96)) * 0.012));
         reg *= 0.88 + 0.2 * n;
+          // relieve en el color: fondos de cráter con polvo fino más oscuro, bordes y frentes de colada más claros
+          { float crF = smoothstep(3.0, 24.0, -vRel), rimF = smoothstep(4.0, 12.0, vRel);
+            reg = mix(reg, reg * vec3(0.58, 0.54, 0.53), crF * 0.8); reg = mix(reg, reg * 1.24 + vec3(0.035, 0.016, 0.0), rimF * 0.6); }
         // ciudad: losas de 24 m con juntas, piedra rosada; arena del estadio junto a la pista
         vec2 g = abs(fract(p / 24.0) - 0.5);
         float joint = 1.0 - smoothstep(0.0, 0.012, min(g.x, g.y));
@@ -100,7 +104,7 @@ function plazaMaterial(track) {
         vec3 stone = mix(vec3(0.5, 0.38, 0.32), vec3(0.62, 0.48, 0.4), vn2(floor(p / 6.0) * 1.7));
         stone *= 1.0 - joint * 0.45 - joint2 * 0.18;
         float r = length(p - vec2(${track.cx.toFixed(1)}, ${track.cz.toFixed(1)}));
-        float city = 1.0 - smoothstep(${(track.r0 + 200).toFixed(1)}, ${(track.r0 + 900).toFixed(1)}, r + (n - 0.5) * 500.0);
+        float city = 1.0 - smoothstep(${(track.r0 + 30).toFixed(1)}, ${(track.r0 + 230).toFixed(1)}, r + (n - 0.5) * 160.0);   // losas solo en el recinto del estadio: fuera, regolito con calles y solares
         float cityK = city * smoothstep(0.75, 0.9, up);
         ${regolithColor('reg', 'p', '1.0 - 0.45 * steep')}
         float rgB1 = rgBump;
@@ -108,8 +112,39 @@ function plazaMaterial(track) {
         ${regolithColor('stone', 'p', '0.3', '0.0')}
         stone *= 1.0 - joint * 0.3 - joint2 * 0.1;                      // las juntas siguen leyéndose bajo el polvo
         rgBump = mix(rgB1, rgBump, cityK);
-        diffuseColor.rgb = mix(reg, stone, cityK);
+        vec3 gcol = mix(reg, stone, cityK);
+        // ── mapa de la ciudad (tharsis.js, buildCityMap): R calle, G solar de cada edificio, B sombra arrojada, A eje de calle ──
+        vec2 cuv = (p - uCityR.xy) * uCityR.z;
+        vec2 ce = min(cuv, 1.0 - cuv); float cin = smoothstep(0.0, 0.02, min(ce.x, ce.y));
+        vec4 cm = texture2D(uCity, cuv) * cin;
+        float flat_ = smoothstep(0.7, 0.9, up);
+        float sdR = (cm.r - 0.5) * 64.0, aaR = clamp(fwidth(sdR), 0.25, 6.0);              // metros hasta el borde de la calzada (dentro > 0)
+        float road = smoothstep(-aaR, aaR, sdR) * flat_;
+        float verge = smoothstep(-5.0, -0.5, sdR) * (1.0 - road) * flat_;                 // arcén: polvo apisonado y oscurecido por el tráfico
+        float sdP = (cm.g - 0.5) * 96.0, aaP = clamp(fwidth(sdP), 0.25, 6.0);
+        float pad = smoothstep(-aaP, aaP, sdP) * flat_;                                   // solar enlosado alrededor de cada edificio
+        float seam = smoothstep(-1.4 - aaP, -1.4 + aaP, sdP) * (1.0 - smoothstep(-0.5 - aaP, -0.5 + aaP, sdP));   // bordillo del solar
+        vec3 slab = mix(vec3(0.34, 0.27, 0.24), vec3(0.43, 0.34, 0.3), vn2(floor(p / 6.0) * 1.7)) * (1.0 - joint2 * 0.3) * (0.85 + 0.3 * n);
+        gcol = mix(gcol, gcol * 0.68, verge);
+        gcol = mix(gcol, slab, pad * (1.0 - cityK));
+        gcol = mix(gcol, vec3(0.6, 0.5, 0.44), seam * 0.6 * flat_);
+        vec3 asphalt = vec3(0.07, 0.064, 0.066) * (0.75 + 0.5 * vn2(p * 0.4));
+        asphalt = mix(asphalt, reg * 0.55, 0.18 + 0.3 * smoothstep(0.45, 0.8, vn2(p * 0.03)));   // regueros de polvo sobre el asfalto
+        float edgeLine = smoothstep(1.3 + aaR, 1.3 - aaR, abs(sdR - 1.1)) * 0.0 + (1.0 - smoothstep(0.35, 0.35 + aaR, abs(sdR - 1.0)));   // línea de borde
+        asphalt = mix(asphalt, vec3(0.55, 0.5, 0.45), edgeLine * 0.55);
+        gcol = mix(gcol, asphalt, road);
+        // eje luminoso: balizas ámbar a tramos (se leen como alumbrado desde el aire y desde la pista)
+        float cd = (1.0 - cm.a) * 32.0;
+        float dash = step(0.45, fract(dot(p, vec2(0.031, 0.043))));
+        float axis = (1.0 - smoothstep(0.3, 0.3 + aaR, cd)) * dash * road;
+        cityGlow = vec3(1.0, 0.62, 0.28) * (axis * 2.6 + road * 0.02 * (1.0 - smoothstep(0.0, 9.0, cd)));
+        // sombra arrojada de los edificios (el sol va bajo: sombras largas) y oclusión de contacto en su base
+        float ao = smoothstep(-34.0, 4.0, sdP);
+        gcol *= (1.0 - 0.62 * cm.b) * (1.0 - 0.38 * ao * ao * (1.0 - pad * 0.35));
+        rgBump *= 1.0 - max(road, pad * 0.7);
+        diffuseColor.rgb = gcol;
       }`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += cityGlow;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${REG_BUMP}`);
   };
   m.customProgramCacheKey = () => 'tharsisGround';
@@ -250,8 +285,10 @@ export function buildTharsis(def, { world, own, srcMat }) {
   const tc = { cx: centroid.x, cz: centroid.z, r0: rCity };
   // suelo final: bajo el tablero se excava una vaguada para que la pista siempre vuele por encima
   const loc = {}, _p = new THREE.Vector3();
+  // relieve añadido (cráteres, dunas, coladas): casi nada en el recinto de la ciudad, pleno en la meseta
+  const relief = (x, z, detail) => marsRelief(x + 913, z - 477, detail) * lerp(0.0, 1, sstep(rCity + 500, rCity + 2100, Math.hypot(x - centroid.x, z - centroid.z)));
   const ground = (x, z) => {
-    let h = base(x, z);
+    let h = base(x, z) + relief(x, z, 'near');
     track.locate(_p.set(x, h, z), loc);
     if (loc.far || loc.dist > 320) return h;
     const floor = loc.deckY - 9, w = 1 - sstep(70, 300, loc.dist);
@@ -332,21 +369,27 @@ export function buildTharsis(def, { world, own, srcMat }) {
   }
 
   // ── Explanada ──
-  const pmat = plazaMaterial(tc); own.push(pmat);
+  // mapa de la ciudad: calles, solares, sombras y ejes luminosos, en una textura que lee el material del suelo
+  const CITY = { R: rMax + 2700, ts: QUALITY.lite ? 1024 : 2048 };
+  CITY.x0 = centroid.x - CITY.R; CITY.z0 = centroid.z - CITY.R; CITY.inv = 1 / (2 * CITY.R);
+  CITY.tex = new THREE.DataTexture(new Uint8Array(CITY.ts * CITY.ts * 4), CITY.ts, CITY.ts, THREE.RGBAFormat);
+  CITY.tex.magFilter = THREE.LinearFilter; CITY.tex.minFilter = THREE.LinearMipmapLinearFilter; CITY.tex.generateMipmaps = true; CITY.tex.anisotropy = 4; CITY.tex.needsUpdate = true;
+  own.push(CITY.tex);
+  const pmat = plazaMaterial(tc, CITY); own.push(pmat);
   {
     const bb = new THREE.Box3().setFromPoints(S);
     const near = { x0: bb.min.x - 1500, x1: bb.max.x + 1500, z0: bb.min.z - 1500, z1: bb.max.z + 1500 };
-    const grid = (x0, x1, z0, z1, step, hf, skip) => {
+    const grid = (x0, x1, z0, z1, step, hf, skip, af) => {
       const nx = Math.ceil((x1 - x0) / step), nz = Math.ceil((z1 - z0) / step);
-      const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [];
-      for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = x0 + i * step, z = z0 + j * step, o = (j * (nx + 1) + i) * 3; pos[o] = x; pos[o + 1] = hf(x, z); pos[o + 2] = z; }
+      const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [], rel = af ? new Float32Array((nx + 1) * (nz + 1)) : null;
+      for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = x0 + i * step, z = z0 + j * step, o = (j * (nx + 1) + i) * 3; pos[o] = x; pos[o + 1] = hf(x, z); pos[o + 2] = z; if (rel) rel[o / 3] = af(x, z); }
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { if (skip && skip(x0 + (i + 0.5) * step, z0 + (j + 0.5) * step)) continue; const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
-      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); gg.setIndex(idx); gg.computeVertexNormals(); return gg;
+      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (rel) gg.setAttribute('aRel', new THREE.BufferAttribute(rel, 1)); gg.setIndex(idx); gg.computeVertexNormals(); return gg;
     };
     const inNear = (x, z, m = 0) => x > near.x0 + m && x < near.x1 - m && z > near.z0 + m && z < near.z1 - m;
     const cx = (near.x0 + near.x1) / 2, cz = (near.z0 + near.z1) / 2, MID = 24000;
-    const gNear = grid(near.x0, near.x1, near.z0, near.z1, 20, ground);
-    const gMid = grid(cx - MID, cx + MID, cz - MID, cz + MID, 220, (x, z) => base(x, z) - (inNear(x, z, -400) ? 4 : 0), (x, z) => inNear(x, z, 220));
+    const gNear = grid(near.x0, near.x1, near.z0, near.z1, 20, ground, null, (x, z) => relief(x, z, 'near'));
+    const gMid = grid(cx - MID, cx + MID, cz - MID, cz + MID, 220, (x, z) => base(x, z) + relief(x, z, 'mid') - (inNear(x, z, -400) ? 4 : 0), (x, z) => inNear(x, z, 220), (x, z) => relief(x, z, 'mid'));
     const rings = 90, segs = 400, r0 = MID * 0.96, r1 = 300000, fp = [], fi = [];
     for (let i = 0; i <= rings; i++) { const r = r0 * Math.pow(r1 / r0, i / rings); for (let j = 0; j <= segs; j++) { const a = j / segs * Math.PI * 2, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; fp.push(x, base(x, z) - 20, z); } }
     for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) { const a = i * (segs + 1) + j, b = a + 1, c = a + segs + 1, d = c + 1; fi.push(a, b, c, b, d, c); }
@@ -570,8 +613,10 @@ export function buildTharsis(def, { world, own, srcMat }) {
   // con casi todas en cuadro). Ahora, celdas de 6 km: una docena de mallas; el troceado general del mundo recorta el resto.
   const cityKey = (x, z) => `${Math.floor(x / 6000)},${Math.floor(z / 6000)}`;
   const cells = new Map();
-  let curY = 0;
-  const put = (key, mat, geo) => { if (curY) geo.translate(0, curY, 0); const k = key + '|' + mat; if (!cells.has(k)) cells.set(k, { mat, list: [] }); cells.get(k).list.push(geo); };
+  let curY = 0, curB = null;
+  const BLD = [];                                // huella y altura de cada edificio (para calles, solares y sombras)
+  const put = (key, mat, geo) => { if (curY) geo.translate(0, curY, 0);
+    if (curB && (mat === 'stone' || mat === 'dark' || mat === 'teal' || mat === 'drum')) { geo.computeBoundingBox(); curB.union(geo.boundingBox); } const k = key + '|' + mat; if (!cells.has(k)) cells.set(k, { mat, list: [] }); cells.get(k).list.push(geo); };
   const trackPts = []; for (let s = 0; s < L; s += 16) { track.sample(s, F); trackPts.push([F.pos.x, F.pos.z]); }
   const clearance = (x, z) => { let d = Infinity; for (const [px, pz] of trackPts) d = Math.min(d, (px - x) ** 2 + (pz - z) ** 2); return Math.sqrt(d); };
   const B = (w, h, d, x, yb, z, rot, key, mat) => { const gg = new THREE.BoxGeometry(w, h, d); gg.rotateY(rot); gg.translate(x, yb + h / 2, z); put(key, mat, gg); };
@@ -658,8 +703,10 @@ export function buildTharsis(def, { world, own, srcMat }) {
       const s = scale * (0.7 + rnd() * 0.7), rot = Math.round(rnd() * 4) * Math.PI / 4 * 0.5;
       const t = rnd(); let acc = 0, kind = kinds[0][0];
       for (const [kk, w] of kinds) { acc += w; if (t < acc) { kind = kk; break; } }
-      curY = ground(x, z) - 2;
+      curY = ground(x, z) - 2; curB = new THREE.Box3();
       if (kind === 'zig') ziggurat(x, z, s, rot, key); else if (kind === 'tower') tower(x, z, s, rot, key); else if (kind === 'drum') drum(x, z, s, key); else disc(x, z, s, key);
+      if (!curB.isEmpty()) BLD.push({ x, z, x0: curB.min.x, x1: curB.max.x, z0: curB.min.z, z1: curB.max.z, h: curB.max.y - curY, far: r0 > rMax + 2000 });
+      curB = null;
       k++; nB++;
     }
   };
@@ -672,6 +719,7 @@ export function buildTharsis(def, { world, own, srcMat }) {
     curY = ground(x, z) - 2;
     lattice(x, z, 1.1, cityKey(x, z)); nB++;
   }
+  buildCityMap();
   let nMesh = 0;
   // pórticos de pilones cromados con anillos luminosos a ambos lados de la pista
   {
@@ -710,6 +758,66 @@ export function buildTharsis(def, { world, own, srcMat }) {
   for (const { mat, list } of cells.values()) {
     const mg = mergeGeometries(norm(list), false); list.forEach((gg) => gg.dispose());
     const mesh = new THREE.Mesh(mg, CM[mat]); mesh.castShadow = false; mesh.receiveShadow = true; world.add(mesh); nMesh++;
+  }
+
+  // ── Mapa de la ciudad: red de calles (árbol de expansión mínima entre edificios + enlaces vecinos, con troncales más
+  //    anchas donde confluye más ciudad), solares, sombras largas del sol bajo y ejes luminosos ──
+  function buildCityMap() {
+    const ts = CITY.ts, W = 2 * CITY.R, tx = W / ts, R = new Float32Array(ts * ts), Gp = new Float32Array(ts * ts), Bs = new Float32Array(ts * ts), A = new Float32Array(ts * ts);
+    const nodes = BLD.filter((b) => Math.hypot(b.x - centroid.x, b.z - centroid.z) < CITY.R - 260);
+    const n = nodes.length; if (n < 3) return;
+    const d2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
+    // árbol de expansión mínima (Prim) desde el edificio más cercano al estadio
+    let root = 0; nodes.forEach((b, i) => { if (d2(b, { x: centroid.x, z: centroid.z }) < d2(nodes[root], { x: centroid.x, z: centroid.z })) root = i; });
+    const inT = new Uint8Array(n), best = new Float32Array(n).fill(Infinity), par = new Int32Array(n).fill(-1), order = [];
+    best[root] = 0;
+    for (let it = 0; it < n; it++) { let u = -1; for (let i = 0; i < n; i++) if (!inT[i] && (u < 0 || best[i] < best[u])) u = i; inT[u] = 1; order.push(u);
+      for (let v = 0; v < n; v++) if (!inT[v]) { const d = d2(nodes[u], nodes[v]); if (d < best[v]) { best[v] = d; par[v] = u; } } }
+    const sub = new Float32Array(n).fill(1); for (let k = order.length - 1; k > 0; k--) sub[par[order[k]]] += sub[order[k]];
+    const edges = []; const seen = new Set();
+    for (let v = 0; v < n; v++) if (par[v] >= 0) { edges.push([v, par[v], 6.5 + 2.1 * Math.log2(sub[v])]); seen.add(Math.min(v, par[v]) + '_' + Math.max(v, par[v])); }
+    // enlaces con los dos vecinos más próximos (cierran manzanas), si no atraviesan otro edificio
+    const blocked = (a, b, i, j) => { const ax = b.x - a.x, az = b.z - a.z, l2 = ax * ax + az * az; for (let k = 0; k < n; k++) { if (k === i || k === j) continue; const q = nodes[k]; const t = Math.max(0, Math.min(1, ((q.x - a.x) * ax + (q.z - a.z) * az) / l2)); const dx = a.x + ax * t - q.x, dz = a.z + az * t - q.z, rr = Math.max(q.x1 - q.x0, q.z1 - q.z0) * 0.5 + 8; if (dx * dx + dz * dz < rr * rr) return true; } return false; };
+    for (let i = 0; i < n; i++) { const near = []; for (let j = 0; j < n; j++) if (j !== i) near.push([d2(nodes[i], nodes[j]), j]); near.sort((a, b) => a[0] - b[0]);
+      for (const [dd, j] of near.slice(0, 3)) { const key = Math.min(i, j) + '_' + Math.max(i, j); if (seen.has(key) || dd > 520 * 520 || blocked(nodes[i], nodes[j], i, j)) continue; seen.add(key); edges.push([i, j, 6]); } }
+    // rasterizado: distancia exacta a cada tramo (campo de distancias: el borde sale nítido a cualquier distancia)
+    const seg = (ax, az, bx, bz, hw) => {
+      const m = hw + 34, i0 = Math.max(0, Math.floor((Math.min(ax, bx) - m - CITY.x0) / tx)), i1 = Math.min(ts - 1, Math.ceil((Math.max(ax, bx) + m - CITY.x0) / tx));
+      const j0 = Math.max(0, Math.floor((Math.min(az, bz) - m - CITY.z0) / tx)), j1 = Math.min(ts - 1, Math.ceil((Math.max(az, bz) + m - CITY.z0) / tx));
+      const ex = bx - ax, ez = bz - az, l2 = ex * ex + ez * ez || 1;
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const x = CITY.x0 + (i + 0.5) * tx, z = CITY.z0 + (j + 0.5) * tx, t = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / l2));
+        const d = Math.hypot(ax + ex * t - x, az + ez * t - z), k = j * ts + i, r = 0.5 - (d - hw) / 64, a = 1 - d / 32; if (r > R[k]) R[k] = r; if (a > A[k]) A[k] = a; }
+    };
+    for (const [i, j, hw] of edges) {   // cada calle, ligeramente curvada
+      const a = nodes[i], b = nodes[j], mx_ = (a.x + b.x) / 2, mz_ = (a.z + b.z) / 2, len = Math.hypot(b.x - a.x, b.z - a.z), k = (h2(a.x * 0.01 + b.z * 0.013, a.z * 0.01) - 0.5) * 0.22 * len;
+      const cx = mx_ - (b.z - a.z) / len * k, cz = mz_ + (b.x - a.x) / len * k; let px = a.x, pz = a.z;
+      for (let q = 1; q <= 7; q++) { const t = q / 7, u = 1 - t, x = u * u * a.x + 2 * u * t * cx + t * t * b.x, z = u * u * a.z + 2 * u * t * cz + t * t * b.z; seg(px, pz, x, z, hw); px = x; pz = z; }
+    }
+    // solares (rectángulo redondeado alrededor de la huella) y sombras arrojadas
+    const sunH = sunH0(), tanE = Math.tan(0.1);
+    for (const b of BLD) {
+      const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, hx = (b.x1 - b.x0) / 2 + 9, hz = (b.z1 - b.z0) / 2 + 9, rr = 7, m = 50;
+      const i0 = Math.max(0, Math.floor((cx - hx - m - CITY.x0) / tx)), i1 = Math.min(ts - 1, Math.ceil((cx + hx + m - CITY.x0) / tx)), j0 = Math.max(0, Math.floor((cz - hz - m - CITY.z0) / tx)), j1 = Math.min(ts - 1, Math.ceil((cz + hz + m - CITY.z0) / tx));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const qx = Math.abs(CITY.x0 + (i + 0.5) * tx - cx) - hx + rr, qz = Math.abs(CITY.z0 + (j + 0.5) * tx - cz) - hz + rr;
+        const sd = Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - rr, v = 0.5 - sd / 96, k = j * ts + i; if (v > Gp[k]) Gp[k] = v; }
+      // sombra: la huella barrida en sentido contrario al sol; se desvanece con la distancia
+      const Ls = Math.min(b.h / tanE * 0.42, 780), sx = -sunH.x * Ls, sz = -sunH.z * Ls, fx = (b.x1 - b.x0) / 2, fz = (b.z1 - b.z0) / 2;
+      const u0 = Math.max(0, Math.floor((Math.min(cx, cx + sx) - fx - CITY.x0) / tx)), u1 = Math.min(ts - 1, Math.ceil((Math.max(cx, cx + sx) + fx - CITY.x0) / tx)), v0 = Math.max(0, Math.floor((Math.min(cz, cz + sz) - fz - CITY.z0) / tx)), v1 = Math.min(ts - 1, Math.ceil((Math.max(cz, cz + sz) + fz - CITY.z0) / tx));
+      const l2 = sx * sx + sz * sz || 1;
+      for (let j = v0; j <= v1; j++) for (let i = u0; i <= u1; i++) { const x = CITY.x0 + (i + 0.5) * tx - cx, z = CITY.z0 + (j + 0.5) * tx - cz, t = Math.max(0, Math.min(1, (x * sx + z * sz) / l2));
+        const taper = 1 - 0.45 * t; if (Math.abs(x - sx * t) > fx * taper || Math.abs(z - sz * t) > fz * taper) continue;
+        const v = 1 - 0.8 * t * t, k = j * ts + i; if (v > Bs[k]) Bs[k] = v; }
+    }
+    // la sombra, suavizada (dos pasadas de caja de ±2 texeles)
+    const tmp = new Float32Array(ts * ts);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let j = 0; j < ts; j++) { let acc = 0; const o = j * ts; for (let i = -2; i <= 2; i++) acc += Bs[o + Math.max(0, i)]; for (let i = 0; i < ts; i++) { tmp[o + i] = acc / 5; acc += Bs[o + Math.min(ts - 1, i + 3)] - Bs[o + Math.max(0, i - 2)]; } }
+      for (let i = 0; i < ts; i++) { let acc = 0; for (let j = -2; j <= 2; j++) acc += tmp[Math.max(0, j) * ts + i]; for (let j = 0; j < ts; j++) { Bs[j * ts + i] = acc / 5; acc += tmp[Math.min(ts - 1, j + 3) * ts + i] - tmp[Math.max(0, j - 2) * ts + i]; } }
+    }
+    const D = CITY.tex.image.data, q = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+    for (let k = 0; k < ts * ts; k++) { D[k * 4] = q(R[k]); D[k * 4 + 1] = q(Gp[k]); D[k * 4 + 2] = q(Bs[k]); D[k * 4 + 3] = q(A[k]); }
+    CITY.tex.needsUpdate = true;
+    CITY.roads = edges.length;
   }
 
   function sunH0() { const sd = tharsisSunDir(); return new THREE.Vector3(sd.x, 0, sd.z).normalize(); }

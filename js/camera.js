@@ -163,6 +163,44 @@ export class EagleFlight {
     return { i, f: (t - K[i][0]) / (K[i + 1][0] - K[i][0]), h: K[i + 1][0] - K[i][0] };
   }
 
+  // Evita que la cámara atraviese el terreno: recorre la trayectoria y, donde la cámara queda ENTERRADA (lo primero que
+  // hay sobre ella es el reverso de una superficie que mira hacia arriba: un monte, no el techo de un túnel o una cueva,
+  // que miran hacia abajo), la eleva lo justo para pasar por encima, con entrada y salida suaves.
+  avoidTerrain(meshes, clearance = 9) {
+    this.lift = null;
+    if (!meshes.length) return 0;
+    const dtS = 0.15, n = Math.ceil(this.duration / dtS) + 1, L = new Float32Array(n);
+    const rc = new THREE.Raycaster(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), nrm = new THREE.Vector3();
+    const sides = new Map(); for (const m of meshes) { const mats = Array.isArray(m.material) ? m.material : [m.material]; for (const q of mats) if (!sides.has(q)) { sides.set(q, q.side); q.side = THREE.DoubleSide; } }
+    let worst = 0;
+    for (let k = 0; k < n - 14; k++) {                       // los dos últimos segundos son la llegada a la nave: no se tocan
+      this.eval(Math.min(this.duration, k * dtS), 1, this.vPos, p);
+      let lift = 0;
+      for (let it = 0; it < 3; it++) {
+        rc.set(p, up); rc.far = 2500;
+        const h = rc.intersectObjects(meshes, false)[0];
+        if (!h || !h.face) break;
+        nrm.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+        if (nrm.y <= 0.15) break;                            // techo o pared: la cámara está en un hueco legítimo
+        const d = h.point.y - p.y + clearance; lift += d; p.y += d;
+      }
+      L[k] = lift; worst = Math.max(worst, lift);
+    }
+    for (const [q, sd] of sides) q.side = sd;
+    if (worst <= 0) return 0;
+    // margen antes y después (máximo móvil de ±1,2 s) y suavizado (dos medias móviles de ±0,75 s)
+    const win = (src, r, f) => { const o = new Float32Array(n); for (let i = 0; i < n; i++) { let a = f === 'max' ? 0 : 0, c = 0; for (let j = Math.max(0, i - r); j <= Math.min(n - 1, i + r); j++) { if (f === 'max') a = Math.max(a, src[j]); else { a += src[j]; c++; } } o[i] = f === 'max' ? a : a / c; } return o; };
+    let S = win(L, 8, 'max'); S = win(S, 5, 'avg'); S = win(S, 5, 'avg');
+    for (let i = 0; i < n; i++) S[i] = Math.max(S[i], L[i]);
+    this.lift = { S, dtS, n };
+    return worst;
+  }
+  liftAt(t) {
+    if (!this.lift) return 0;
+    const { S, dtS, n } = this.lift, x = Math.min(n - 1.001, Math.max(0, t / dtS)), i = Math.floor(x), f = x - i, fs = f * f * (3 - 2 * f);
+    return S[i] + (S[i + 1] - S[i]) * fs;
+  }
+
   // Hermite: columna c de las claves (1 posición, 2 objetivo) con sus velocidades V
   eval(t, c, V, out) {
     const { i, f, h } = this.seg(t), K = this.keys, f2 = f * f, f3 = f2 * f;
@@ -174,6 +212,7 @@ export class EagleFlight {
     this.t += dt * CONFIG.introSpeed;
     const t = Math.min(this.t, this.duration), { i, f } = this.seg(t);
     const p = this.eval(t, 1, this.vPos, new THREE.Vector3()), l = this.eval(t, 2, this.vLook, new THREE.Vector3());
+    p.y += this.liftAt(t);
     // alabeo de águila a partir de la curvatura de la trayectoria
     const e = 0.08;
     const p0 = this.eval(Math.max(0, t - e), 1, this.vPos, new THREE.Vector3()), p1 = this.eval(Math.min(this.duration, t + e), 1, this.vPos, new THREE.Vector3());

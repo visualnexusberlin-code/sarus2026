@@ -124,8 +124,8 @@ CIRCUITS.push({
   sunFrom: 'mars',
   atmosphere: {
     sunDir: new THREE.Vector3(0.6, 0.075, -0.8).normalize(),   // se recalcula con el trazado (marsSunDir)
-    baseDensity: 0.00008, heightDensity: 0.00011, heightFalloff: 0.00036, fogMax: 0.95,
-    exposure: 0.8, saturation: 0.5, redKeep: 0.5,
+    baseDensity: 0.00006, heightDensity: 0.00008, heightFalloff: 0.00036, fogMax: 0.92,
+    exposure: 0.82, saturation: 0.6, redKeep: 0.55,
     bloom: { strength: 0.42, radius: 0.7, threshold: 0.9 },
     sky: {
       horizon: [0.56, 0.43, 0.38], zenith: [0.42, 0.35, 0.34], below: [0.4, 0.27, 0.2], zLow: 0.0, zHigh: 0.7,
@@ -136,7 +136,7 @@ CIRCUITS.push({
     },
     clouds: { scale: 0.7, cover: 0.63, opacity: 0.28, light: [0.86, 0.8, 0.78], shadow: [0.58, 0.48, 0.45] },
   },
-  light: { sun: 0xdfe8ff, sunI: 1.7, hemiSky: 0xb98f80, hemiGround: 0x4a2214, hemiI: 1.1, env: 0.7 },
+  light: { sun: 0xdfe8ff, sunI: 2.9, hemiSky: 0xb98f80, hemiGround: 0x4a2214, hemiI: 0.72, env: 0.7 },   // sol más alto y más fuerte frente a la luz ambiente: el relieve se lee
   grade: { tint: [1.04, 0.97, 0.93], vignette: 0.48, grain: 0.05, contrast: 0.3 },
   paint: {
     edge: [0.9, 0.88, 0.84], chev: [0.95, 0.38, 0.1], lane: [0.8, 0.78, 0.74],
@@ -202,7 +202,7 @@ CIRCUITS.push({
   sunFrom: 'tharsis',
   atmosphere: {
     sunDir: new THREE.Vector3(0.95, 0.1, 0.2).normalize(),
-    baseDensity: 0.00005, heightDensity: 0.00055, heightFalloff: 0.0042, fogMax: 0.84,
+    baseDensity: 0.00005, heightDensity: 0.00042, heightFalloff: 0.0042, fogMax: 0.82,
     exposure: 0.84, saturation: 0.78, redKeep: 0.7,
     bloom: { strength: 0.5, radius: 0.62, threshold: 0.82 },
     sky: {
@@ -214,7 +214,7 @@ CIRCUITS.push({
     },
     clouds: { scale: 1.2, cover: 0.58, opacity: 0.32, light: [0.98, 0.82, 0.68], shadow: [0.6, 0.44, 0.38] },
   },
-  light: { sun: 0xffd2a8, sunI: 2.5, hemiSky: 0xc69478, hemiGround: 0x4a2414, hemiI: 0.95, env: 0.6 },
+  light: { sun: 0xffd2a8, sunI: 2.8, hemiSky: 0xc69478, hemiGround: 0x4a2414, hemiI: 0.82, env: 0.6 },
   grade: { tint: [1.04, 0.98, 0.93], vignette: 0.44, grain: 0.04, contrast: 0.26 },
   paint: {
     edge: [1.0, 0.62, 0.25], chev: [0.95, 0.3, 0.1], lane: [0.9, 0.85, 0.78],

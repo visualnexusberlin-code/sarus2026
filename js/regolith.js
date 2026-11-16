@@ -41,3 +41,39 @@ export const REG_BUMP = /* glsl */`
   { vec3 sp = -vViewPosition; vec3 dpx = dFdx(sp), dpy = dFdy(sp); float hx = dFdx(rgBump), hy = dFdy(rgBump);
     vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
     normal = normalize(abs(det) * normal - sign(det) * (hx * r1 + hy * r2)); }`;
+
+// ── Relieve de Marte en la malla (JS): cráteres de impacto con borde y eyecta, campos de dunas y frentes de colada.
+//    Con el sol bajo de las dos fases, el relieve real es lo que da sombra y lectura al terreno. ──
+const _h = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
+const _vn = (x, z) => { const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz, ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz);
+  return (_h(ix, iz) * (1 - ux) + _h(ix + 1, iz) * ux) * (1 - uz) + (_h(ix, iz + 1) * (1 - ux) + _h(ix + 1, iz + 1) * ux) * uz; };
+const _ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function craterField(x, z, cell, rMin, rMax, prob, seed) {
+  const gx = Math.floor(x / cell), gz = Math.floor(z / cell); let h = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const cx = gx + i, cz = gz + j, k = _h(cx + seed, cz - seed * 1.7); if (k > prob) continue;
+    const R = rMin + (rMax - rMin) * Math.pow(_h(cx * 1.3 + 5 + seed, cz * 0.7 + 2), 2.2);
+    const ox = (cx + 0.2 + 0.6 * _h(cx + 11 + seed, cz + 3)) * cell, oz = (cz + 0.2 + 0.6 * _h(cx + 7, cz + 13 + seed)) * cell;
+    const d = Math.hypot(x - ox, z - oz) / R; if (d > 1.9) continue;
+    const wob = 1 + 0.07 * Math.sin(Math.atan2(z - oz, x - ox) * 5 + k * 40), dd = d / wob;
+    const bowl = dd < 1 ? -0.2 * R * (1 - dd * dd) * (0.75 + 0.25 * dd * dd) : 0;         // cuenco de fondo algo plano
+    const rim = 0.065 * R * Math.exp(-(((dd - 1.02) / 0.16) ** 2));                           // borde levantado
+    const ejecta = dd >= 1 ? 0.018 * R * (1 - _ss(1, 1.9, dd)) : 0;                          // manto de eyecta
+    h += bowl + rim + ejecta;
+  }
+  return h;
+}
+// detalle: 'near' (parche cercano, malla de ~20 m) incluye cráteres medianos, dunas y frentes de colada; 'mid' solo los grandes
+export function marsRelief(x, z, detail = 'near') {
+  let h = craterField(x, z, 2600, 280, 700, 0.7, 3.0);
+  if (detail !== 'near') return h;
+  h += craterField(x, z, 560, 60, 230, 0.72, 17.0);
+  // dunas transversales al viento, en campos
+  const field = _ss(0.5, 0.68, _vn(x * 0.0011 + 4, z * 0.0011));
+  const u = (x * 0.96 + z * 0.28) * 0.052 + 2.4 * _vn(x * 0.004, z * 0.004);
+  h += field * 3.2 * (0.5 + 0.5 * Math.sin(u)) * (0.6 + 0.4 * _vn(x * 0.01, z * 0.01));
+  // frentes de colada: escalones lobulados de unos metros
+  const fl = _vn(x * 0.0026 + 9, z * 0.0026 - 4) + 0.35 * _vn(x * 0.011, z * 0.011);
+  h += 7 * _ss(0.6, 0.64, fl) + 5 * _ss(0.86, 0.9, fl);
+  return h;
+}

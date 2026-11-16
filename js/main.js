@@ -874,6 +874,17 @@ function resetRace() {
   G.missiles?.reset();
   G.chase.snap(player);
   G.intro = new EagleFlight(camera, track, player, G.chase, G.introKeys);
+  if (G.world) {   // la cámara de la intro no debe atravesar montes: se comprueba la trayectoria contra el escenario (una vez por circuito)
+    const c = G.liftCache;
+    if (c && c.world === G.world && c.duration === G.intro.duration) G.intro.lift = c.lift;
+    else {
+      const solid = []; G.world.updateMatrixWorld(true);
+      G.world.traverse((m) => { if (m.isMesh && m.visible && !m.isInstancedMesh && !m.material.transparent && m.geometry.attributes.position && m.geometry.attributes.position.count > 200) solid.push(m); });
+      const t0 = performance.now(), w = G.intro.avoidTerrain(solid);
+      if (CONFIG.debug || w > 0) console.info(`[SRS] intro: cámara elevada hasta ${w.toFixed(0)} m para no atravesar el terreno (${Math.round(performance.now() - t0)} ms)`);
+      G.liftCache = { world: G.world, duration: G.intro.duration, lift: G.intro.lift, worst: w };
+    }
+  }
   G.race = {
     laps: CONFIG.laps, lapTime: 0, total: 0, best: Infinity, times: [],
     sector: 1, sectorIdx: 0, bestSplits: {}, wrongWay: false, countdown: 0, lastCount: null,
@@ -2246,7 +2257,7 @@ addEventListener('pointerdown', firstGesture); addEventListener('keydown', first
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
 G.showChoice = showChoice; G.begin = begin; G.goMap = goMap; G.menu = showMenu; G.train = startTraining; G.menuAction = menuAction; G.setFamily = setFamily; G.selectNode = (n, c) => selectNode(G.map.nodes[n - 1], c); G.store = store; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer; G.THREE = { Frustum: THREE.Frustum, Matrix4: THREE.Matrix4 };
-G.sampleShape = sampleShape; G.circuits = CIRCUITS; G.THREE = THREE; G.thin = () => thinInstances(G.world); G.perf = perf; G.gov = perf; G.govSet = govSet; G.scene = scene; G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
+G.sampleShape = sampleShape; G.circuits = CIRCUITS; G.THREE = THREE; G.thin = () => thinInstances(G.world); G.perf = perf; G.gov = perf; G.govSet = govSet; G.scene = scene; G.THREE = THREE; G.composer = composer; G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };
