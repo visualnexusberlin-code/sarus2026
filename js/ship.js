@@ -481,10 +481,10 @@ export class Ship {
     this.h = this.C.hover; this.hv = 0;
     this.roll = 0; this.pitch = 0; this.yawVis = 0;
     this.boost = 1; this.boosting = false; this.boostKick = 0; this.mega = 0;
-    this.throttle = 0; this.accel = 0;
+    this.throttle = 0; this.push = 0; this.accel = 0;
     this.distance = 0;
     this.wallHit = 0; this.scraping = 0; this.bump = 0;
-    this.ammo = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.gripLoss = 0; this.fall = 0; this.inGap = false; this.airLoose = 0; this.fallEvent = null; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
+    this.ammo = 0; this.heavy = 0; this.spin = 0; this.stun = 0; this.qtRec = 0; this.gripLoss = 0; this.fall = 0; this.inGap = false; this.airLoose = 0; this.fallEvent = null; this.lift = 0; this.kv = 0; this.susp = 0; this.suspV = 0; this.wasAir = false; this.landEvent = 0;
     this.qt = 0; this.qtDir = 0; this.qtCool = 0; this.power = 0.2;
     this.hull = this.maxHull; this.dead = 0; this.invuln = 0; this.draft = 0;
     this.out = false; this.outAt = 0; this.deckScrape = 0; this.scrapeT = 0;
@@ -514,6 +514,8 @@ export class Ship {
     const abL = ctl ? 0 : input.abL, abR = ctl ? 0 : input.abR;
     const ab = Math.max(abL, abR);
     this.throttle += (thr - this.throttle) * Math.min(1, dt * 6);
+    // el empuje no llega al instante: las turbinas pesadas tardan en coger carga; al soltar, cae el doble de rápido
+    this.push += (thr - this.push) * Math.min(1, dt * (thr < this.push ? 2 : 1) * (C.spool || 9));
 
     // Boost
     this.boosting = !ctl && input.boost && this.boost > 0.02 && thr > 0.1;
@@ -529,13 +531,15 @@ export class Ship {
     const vmax = ((boostOn ? C.vmaxBoost : C.vmax) + (MG ? MG.vmax * megaK : 0)) * (1 + dr.vmax * this.draft) * (1 - 0.1 * this.dmg);   // tocada: pierde punta
 
     // Velocidad longitudinal
-    let a = thr * C.accel * (1 + dr.accel * this.draft) * Math.max(0, 1 - this.v / vmax) * (1 + (boostOn ? C.boostAccel / C.accel : 0));
+    const slip = Math.abs(Math.sin(this.psi - this.phi));
+    let a = this.push * C.accel * (1 + dr.accel * this.draft) * Math.max(0, 1 - this.v / vmax) * (1 + (boostOn ? C.boostAccel / C.accel : 0));
     if (MG) a += MG.accel * megaK * Math.max(0, 1 - this.v / vmax);
     if (this.v > vmax) a -= (this.v - vmax) * 0.8;
     a -= brk * C.brake;
     a -= (thr < 0.05 ? C.coastDrag : 0.01) * this.v;
     a -= ab * C.airbrakeDrag * this.v;
-    a -= this.frame.tan.y * 9.81 * 0.5 * (CONFIG.slopeG ?? 1);      // la pendiente cuenta: se gana en bajada, se pierde en subida (TRITON: baja gravedad)
+    a -= (C.slideDrag || 0) * slip * this.v;                         // derrape: el morro cruzado frena
+    a -= this.frame.tan.y * 9.81 * 0.5 * (CONFIG.slopeG ?? 1) * (C.slopeK || 1);      // la pendiente cuenta: se gana en bajada, se pierde en subida (TRITON: baja gravedad)
     // Paredes (CERES TRANSIT): en pendientes extremas el imán solo sujeta con velocidad. Por debajo del umbral
     // la nave se despega, pierde empuje y la pendiente pesa el doble; nunca se queda clavada (el empuje gana).
     this.gripLoss = 0;
@@ -655,7 +659,7 @@ export class Ship {
     const w = Math.PI * 2 * C.bobHz;
     const kv = tr.kvAt(this.s);                           // curvatura vertical: < 0 cresta, > 0 valle
     const hMax = CONFIG.hoverMax || 5;
-    const lift = THREE.MathUtils.clamp(-kv * this.v * this.v * 0.02, -0.55 * C.hover, hMax - C.hover - 0.4);
+    const lift = THREE.MathUtils.clamp(-kv * this.v * this.v * 0.02 * (C.liftK || 1), -0.55 * C.hover, hMax - C.hover - 0.4);
     this.lift = lift;
     const hTarget = C.hover + lift + (this.gripLoss || 0) * 2.6 + Math.sin(this.t * w) * C.bob + Math.sin(this.t * w * 2.2) * C.bob * 0.35 * sp;
     // muelle no lineal: más duro cerca del tablero (colchón), más blando arriba (imán que tira de vuelta)
@@ -782,20 +786,21 @@ export class Ship {
   }
 
   // Impacto de cohete: frenazo, trompo y un instante sin control. Devuelve 'hit' | 'destroyed' | null
-  hit() {
+  // n: puntos de blindaje que quita (2 = las dos cargas del cohete púrpura en la misma nave)
+  hit(n = 1) {
     if (this.out || this.invuln > 0) return null;
-    this.hull -= 1;
+    this.hull -= n;
     if (this.hull <= 0) {                                 // eliminada: sin reconstrucción
       this.hull = 0; this.out = true; this.dead = 1e9; this.outAt = this.t;
-      this.boost = 0; this.ammo = 0; this.boosting = false; this.boostKick = 0; this.mega = 0; this.draft = 0;
+      this.boost = 0; this.ammo = 0; this.heavy = 0; this.boosting = false; this.boostKick = 0; this.mega = 0; this.draft = 0;
       this.v *= 0.55; this.spin = 1; this.hv += 4 / this.C.mass;
       this.wreckRoll = (Math.random() < 0.5 ? -1 : 1) * (0.32 + Math.random() * 0.2);
       this.setDamage();
       return 'destroyed';
     }
     this.setDamage();
-    this.v *= 0.38;
-    this.spin = 1; this.stun = 0.7;
+    this.v *= (this.C.hitKeep ?? 0.38) * (n > 1 ? 0.8 : 1);
+    this.spin = 1; this.stun = (this.C.hitStun ?? 0.7) * (n > 1 ? 1.4 : 1);
     this.hv += 3.5 / this.C.mass;
     this.boostKick = 0; this.boosting = false; this.mega = 0;
     return 'hit';

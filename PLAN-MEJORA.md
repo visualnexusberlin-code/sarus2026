@@ -24,11 +24,17 @@ Documento de relevo: resume dónde está el juego, qué queda por hacer y cómo 
 - Repaso visual: THARSIS (calles, solares, sombras), relieve de Marte, OLYMPUS (luz y base), SELENE (suelo lunar), ARCADIA y SELENE (detalle de estructuras), NUEVA ITAKA (prado y árboles).
 - Pista: casco macizo en planetas y lunas (`js/deckprofile.js`), señalización futurista en el shader (`deckMaterial`, `js/dressing.js`).
 - Tipografías en local (`fonts/`, SIL OFL): ya no hay ninguna petición a servidores externos.
+- Físicas v2: la masa de cada nave manda en la inercia (frenada, empuje, cuestas, crestas, impactos) y V/A/M separan más las naves (`statsFor`, `js/fleet.js`).
+- Esfera púrpura y cohete de doble impacto (`js/pickups.js`, `CONFIG.heavy`).
 
 ## 2. Pendiente inmediato (antes de publicar en `main`)
 
 1. **Prueba de Dear en la beta:** fluidez real, pista nueva (grosor del casco, intensidad de los LED), luz de OLYMPUS, calles de THARSIS, SELENE.
+   - **Físicas v2:** probar tres naves opuestas (CALIBUR, THULE, WOLFEN) y decir si la diferencia se nota poco, bien o demasiado. Solo está comprobado por simulación que ninguna nave se vuelve inconducible para la IA; el tacto no se puede medir sin jugar.
+   - **Cohete de doble impacto:** si la esfera púrpura se distingue bien de la roja y si 45 s de reaparición es la escasez que se busca.
 2. Ajustes que salgan de esa prueba. Mandos fáciles:
+   - Diferencia entre naves: exponentes de la masa en `statsFor` (`js/fleet.js`); cada nave, en su `style`.
+   - Púrpura: `CONFIG.heavy` (`side`, `respawn`, `reach`) en `js/config.js`.
    - Casco: perfil `DECK_SOLID` en `js/deckprofile.js` (ancho del hombro, profundidad).
    - Brillo de la señalización: `edgeGlow` / `chevGlow` por circuito en `js/circuits.js` (`paint`), y los factores del bloque «Señalización de pista (v2)» en `js/dressing.js`.
 3. Publicar con copia de seguridad.

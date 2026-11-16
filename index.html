@@ -314,9 +314,11 @@
   .weapon i { width: 12px; height: 12px; border-radius: 50%; background: var(--fog-faint); }
   .weapon.on { opacity: 1; }
   .weapon.on i { background: #ff2a12; box-shadow: 0 0 12px 3px rgba(255, 42, 18, .7); }
+  .weapon.on.heavy i { background: #8a2bff; box-shadow: 0 0 14px 4px rgba(138, 43, 255, .8), 0 0 0 2px rgba(138, 43, 255, .35); }
   .weapon b { font-weight: 500; font-size: 14px; }
   .b-fire { grid-column: 3; grid-row: 3; justify-self: center; opacity: .35; }
   .b-fire.armed { opacity: 1; border-color: #ff2a12; box-shadow: 0 0 18px rgba(255, 42, 18, .55) inset; }
+  .b-fire.armed.heavy { border-color: #8a2bff; box-shadow: 0 0 20px rgba(138, 43, 255, .7) inset; }
   .res-head { display: flex; gap: 22px; align-items: center; }
   .res-pos { font-family: var(--display); font-size: clamp(44px, 7vw, 84px); color: var(--vermilion); line-height: 1; }
   .res-head h2 { text-align: left; }

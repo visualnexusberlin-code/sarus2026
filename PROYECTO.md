@@ -206,6 +206,21 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## Físicas v2 y cohete de doble impacto (16 de noviembre de 2026)
+
+**Por qué.** Las naves ya tenían estilo propio (respuesta, agarre, masa, inclinación), pero la masa solo afectaba a la flotación y a los choques, y V/A/M movían la punta, el empuje y el giro en márgenes del 4–13 %. Al volante se parecían demasiado.
+
+**Qué cambia** (todo en `statsFor`, `fleet.js`; PRIME-EX, 4·4·4 y masa 1, queda igual y sirve de referencia):
+- Punta 164–176 m/s (antes 166–174), empuje 66–80 m/s² (antes 68–77), giro ×0,92–1,10 (antes 0,95–1,085).
+- La **masa** manda en la inercia: frenada (`brake` 55–79), deceleración al soltar gas (`coastDrag`), retardo del empuje (`spool`: el empuje sigue al acelerador con retraso, `ship.push`), cuestas (`slopeK`), despegue en crestas (`liftK`), altura de flotación (`hover` 1,15–1,45), giro a alta velocidad (`turnHigh`) y reacción a un cohete (`hitKeep`, `hitStun`).
+- `turnLow` sale de la respuesta de la nave: las nerviosas giran más a baja velocidad.
+- `slideDrag`: llevar el morro cruzado frena, mucho a las naves de agarre y casi nada a las derrapadoras (WOLFEN).
+- La IA usa los mismos parámetros (frena suponiendo 46 m/s², por debajo de la frenada de cualquier nave).
+
+**Comprobado por simulación** (`/tmp/work/phys.py`: vuelta en solitario de las 22 naves con la IA en OLYMPUS y ARCADIA, antes y después): ninguna se sale ni golpea más los muros; las vueltas se alargan un 0,2–2,5 %. El tacto real solo se puede juzgar jugando.
+
+**Esfera púrpura (cohete de doble impacto).** Una por carrera; en cada salida ocupa el sitio de una roja distinta (`Pickups.placeHeavy`): 85 % de las veces en un carril lateral, nunca en las dos primeras filas ni junto a la azul. Al cogerla, el siguiente cohete es el pesado (`ship.heavy`). Lleva dos cargas: golpea al blanco y sigue hacia la nave siguiente (hasta 320 m); si no hay ninguna, las dos cargas estallan en la misma nave (dos puntos de blindaje, `ship.hit(2)`). Reaparece a los 45 s. La IA solo va a por ella si es agresiva y no lleva cohete. Mandos: `CONFIG.heavy`. Usa los mismos programas de shader que el cohete normal (cero compilaciones en carrera, medido).
+
 ## Pista: casco y señalización (16 de noviembre de 2026)
 
 - **Sección del tablero** (`js/deckprofile.js`): `DECK_SOLID` para planetas y lunas (hombro exterior de 3,6 m por fuera del muro, costado que baja 7,2 m, quilla en V a 9,6 m) y `DECK_THIN` (la losa de 1,7 m) para CERES y CASSINI. Los puntos del perfil van duplicados para que las aristas salgan vivas.

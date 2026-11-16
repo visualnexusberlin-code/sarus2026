@@ -71,7 +71,7 @@ export class Training {
   onPick(sh, it) {
     if (sh !== this.G.ship || this.done) return;
     const id = STEPS[this.i]?.id;
-    if ((id === 'boost' && it.type === 'G') || (id === 'ordnance' && it.type === 'R')) this.next();
+    if ((id === 'boost' && it.type === 'G') || (id === 'ordnance' && (it.type === 'R' || it.type === 'P'))) this.next();
   }
 
   onHit(shooter, victim) {

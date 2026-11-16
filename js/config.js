@@ -34,6 +34,9 @@ export const CONFIG = {
   // Esfera azul (mega turbo): una por circuito, al principio de la recta más larga. time: duración · vmax: punta extra sobre la del boost
   // · accel: empuje extra · minStraight: recta mínima para que el circuito tenga esfera · respawn: segundos hasta que reaparece.
   // Por circuito (circuits.js): mega: false la quita; megaAt: <metros> fija el sitio a mano.
+  // Esfera púrpura (cohete de doble impacto): una por carrera, en el sitio de una roja (casi siempre en un carril lateral).
+  // side: probabilidad de que caiga en un lateral · respawn: segundos hasta que vuelve tras cogerla · reach: alcance del segundo impacto.
+  heavy: { side: 0.85, respawn: 45, reach: 320 },
   mega: { time: 2.8, vmax: 62, accel: 85, minStraight: 300, respawn: 4 },
   gridOffset: 30,
   shipScale: 1.5,            // las naves de Blender miden ~5,5 m; en pista se ven a 1,5×            // metros por detrás de la línea de salida (Sector 01)
@@ -59,7 +62,7 @@ export const CONFIG = {
     boostRegen: 0.055,
     boostAccel: 34,
     // estilo por defecto (cada nave lo sobreescribe en fleet.js)
-    turnMult: 1, mass: 1, wallLoss: 1, lean: 0.42, bob: 0.06, bobHz: 2.4, driftYaw: 0.3, pitchK: 1, kick: 1,
+    turnMult: 1, mass: 1, spool: 9, slopeK: 1, slideDrag: 0.12, liftK: 1, hitKeep: 0.38, hitStun: 0.7, wallLoss: 1, lean: 0.42, bob: 0.06, bobHz: 2.4, driftYaw: 0.3, pitchK: 1, kick: 1,
   },
 
   camera: {

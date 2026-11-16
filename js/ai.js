@@ -69,7 +69,7 @@ export class AIDriver {
 
     // ── Ir a por esferas cercanas (verde siempre; roja si no lleva cohete) ──
     if (this.pickups && this.cruise === 1) {
-      const it = this.pickups.nearestAhead(sh, 30 + v * 0.9, sh.ammo === 0 && this.aggression > 0.35);
+      const it = this.pickups.nearestAhead(sh, 30 + v * 0.9, sh.ammo === 0 && this.aggression > 0.35);   // la púrpura, como la roja: solo la buscan los agresivos sin cohete
       if (it && Math.abs(it.x - xt) < 9) xt = xt + (it.x - xt) * 0.8;
     }
 

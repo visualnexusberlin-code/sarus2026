@@ -1647,6 +1647,12 @@ function updateRace(dt) {
         if (sh === ship) { audio.chime(false); audio.ring?.(); ringFilm([70, 150, 255]); G.chase.addShake(0.5); hud.banner(tr('Mega turbo', 'Mega turbo'), tr('Esfera azul · agárrate', 'Blue sphere · hold on'), false, 1.8, true); }
         return;
       }
+      if (it.type === 'P') {                               // esfera púrpura: el siguiente cohete es el de doble impacto
+        sh.ammo = Math.max(1, Math.min(CONFIG.maxAmmo ?? 2, sh.ammo + 1)); sh.heavy = 1;
+        G.training?.onPick(sh, it);
+        if (sh === ship) { audio.chime(true); audio.ring?.(); ringFilm([150, 40, 255]); hud.banner(tr('Cohete de doble impacto', 'Double-impact rocket'), IS_TOUCH ? tr('Dos cargas · pulsa COHETE', 'Two warheads · tap ROCKET') : tr('Dos cargas · F disparar', 'Two warheads · F fire'), false, 1.8, true); }
+        return;
+      }
       if (it.type === 'G') sh.boostPad(); else sh.ammo = Math.min(CONFIG.maxAmmo ?? 2, sh.ammo + 1);
       G.training?.onPick(sh, it);
       if (sh === ship) {
@@ -1697,7 +1703,7 @@ function updateRace(dt) {
       if (wants && sh.ammo > 0 && G.state === 'race' && G.missiles.fire(sh, G.ships) && (sh === ship || sh.root.position.distanceTo(ship.root.position) < 300)) audio.launch();
     }
   }
-  G.missiles.update(dt, G.ships, (shooter, victim, result, pos) => {
+  G.missiles.update(dt, G.ships, (shooter, victim, result, pos, info = {}) => {
     G.training?.onHit(shooter, victim);
     if (shooter && shooter !== victim && shooter.race) { shooter.race.hits++; if (result === 'destroyed') shooter.race.kills++; }
     const d = victim.root.position.distanceTo(ship.root.position);
@@ -1712,7 +1718,7 @@ function updateRace(dt) {
       G.chase.addShake(1.1);
       if (destroyed) hud.banner(tr('Eliminado', 'Eliminated'), `${tr('Fuera de carrera', 'Out of the race')} · ${shooter.name}`, true, 3.2);
       else hud.banner(ship.hull === 1 ? tr('Blindaje crítico', 'Critical armor') : tr('Impacto', 'Hit'), `${tr('Blindaje', 'Armor')} ${ship.hull}/${ship.maxHull} · ${shooter.name}`, true, 1.6);
-    } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} ${tr('eliminada', 'eliminated')}` : `${tr('Impacto', 'Hit')} · ${victim.name}`, destroyed ? tr('Fuera de carrera', 'Out of the race') : `${tr('Blindaje', 'Armor')} ${victim.hull}/${victim.maxHull}`, false, 1.6);
+    } else if (shooter === ship) hud.banner(destroyed ? `${victim.name} ${tr('eliminada', 'eliminated')}` : `${info.double ? tr('Doble impacto', 'Double hit') : info.second ? tr('Segundo impacto', 'Second hit') : tr('Impacto', 'Hit')} · ${victim.name}`, destroyed ? tr('Fuera de carrera', 'Out of the race') : `${tr('Blindaje', 'Armor')} ${victim.hull}/${victim.maxHull}`, false, 1.6);
     else if (destroyed && d < 900) hud.banner(`${victim.name} ${tr('eliminada', 'eliminated')}`, `${tr('por', 'by')} ${shooter.name}`, false, 1.4, true);
   });
   // jugador eliminado: unos segundos viendo los restos y a la clasificación
@@ -2261,7 +2267,7 @@ addEventListener('pointerdown', firstGesture); addEventListener('keydown', first
 G.tick = tick; G.input = input; G.audio = audio; G.AIDriver = AIDriver;
 G.showChoice = showChoice; G.begin = begin; G.goMap = goMap; G.menu = showMenu; G.train = startTraining; G.menuAction = menuAction; G.setFamily = setFamily; G.selectNode = (n, c) => selectNode(G.map.nodes[n - 1], c); G.store = store; G.confirm = confirmChoice; G.select = goSelect; G.next = goNext; G.pickCircuit = pickCircuit; G.buildCircuit = (id) => buildCircuit(circuitById(id));
 G.renderer = renderer; G.camera = camera; G.scene = scene; G.composer = composer; G.THREE = { Frustum: THREE.Frustum, Matrix4: THREE.Matrix4 };
-G.sampleShape = sampleShape; G.circuits = CIRCUITS; G.THREE = THREE; G.thin = () => thinInstances(G.world); G.perf = perf; G.gov = perf; G.govSet = govSet; G.scene = scene; G.THREE = THREE; G.composer = composer; G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
+G.AIDriver = AIDriver; G.statsFor = statsFor; G.CONFIG = CONFIG; G.sampleShape = sampleShape; G.circuits = CIRCUITS; G.THREE = THREE; G.thin = () => thinInstances(G.world); G.perf = perf; G.gov = perf; G.govSet = govSet; G.scene = scene; G.THREE = THREE; G.composer = composer; G.aoPass = aoPass; G.setAO = (on) => { aoOn = on; setView(renderPass.scene, renderPass.camera); };
 if (!location.search.includes('test')) requestAnimationFrame(frame);
 // simulación acelerada para pruebas: G.sim(segundos)
 G.sim = (sec, dt = 1 / 30) => { G.noRender = true; for (let t = 0; t < sec; t += dt) tick(dt); G.noRender = false; tick(0.0001); };

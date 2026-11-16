@@ -92,6 +92,7 @@ export class HUD {
     const armed = ship.ammo > 0;
     e.weapon.classList.toggle('on', armed); e.weaponN.textContent = armed ? `× ${ship.ammo}` : '—';
     e.fire?.classList.toggle('armed', armed);
+    const hv = armed && ship.heavy > 0; e.weapon.classList.toggle('heavy', hv); e.fire?.classList.toggle('heavy', hv);
     e.lapTot.textContent = race.laps;
     e.time.textContent = fmt(race.lapTime);
     e.best.textContent = `${L('Mejor', 'Best')} ${fmt(race.best)}`;

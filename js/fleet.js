@@ -88,17 +88,32 @@ export function traits(d) {
 
 export function statsFor(d) {
   const s = d.style || {};
-  const vmax = (139 + d.V * 3.2) * 1.12;  // 166 – 174 m/s (600 – 625 km/h)
+  const m = s.mass ?? 1;
+  const cl = (v, a, b) => Math.min(b, Math.max(a, v));
+  // Físicas v2 (nov. 2026): V, A y M separan más las naves y la MASA pasa a mandar en todo lo que es inercia.
+  // PRIME-EX (4·4·4, masa 1) es la referencia y queda igual que antes; las demás se alejan de ella.
+  const vmax = (131 + d.V * 5.2) * 1.12;  // 164 – 176 m/s (590 – 633 km/h); antes 166 – 174
   return {
     vmax,
     vmaxBoost: vmax + 46,
-    accel: (36 + d.A * 3) * 1.5,         // 68 – 77 m/s² desde parado
-    turnMult: 0.86 + d.M * 0.045,        // 0,95 – 1,085
+    accel: (30 + d.A * 4.6) * 1.5,       // 66 – 80 m/s² desde parado; antes 68 – 77
+    turnMult: 0.80 + d.M * 0.06,         // 0,92 – 1,10; antes 0,95 – 1,085
+    turnLow: 2.3 * cl(0.76 + (s.response ?? 7.5) / 31, 0.9, 1.15),   // ágil a baja velocidad quien responde rápido
+    turnHigh: 1.42 * cl(Math.pow(m, -0.25), 0.88, 1.07),             // a fondo, la masa cuesta de girar
     turnResponse: s.response ?? 7.5,
     grip: s.grip ?? 5.2,
     gripAirbrake: s.gripAB ?? 7.5,
     airbrakeTurn: (s.ab ?? 0.95) * 1.1,
-    mass: s.mass ?? 1,
+    mass: m,
+    brake: 70 / Math.sqrt(m),            // 55 (tanque) – 79 (ligera)
+    coastDrag: 0.10 * Math.pow(m, -0.8), // al soltar gas: la pesada conserva la inercia, la ligera se frena sola
+    spool: cl(9 * Math.pow(m, -1.5), 3.5, 12),   // lo que tarda el empuje en llegar al pisar (1/s)
+    slopeK: Math.sqrt(m),                // las cuestas pesan más (y las bajadas dan más) cuanta más masa
+    slideDrag: 0.12 * Math.pow((s.grip ?? 5.2) / 5.2, 1.5),   // derrapar roba velocidad a las de agarre; a las derrapadoras, casi nada
+    liftK: s.glide ?? cl(Math.pow(m, -0.8), 0.7, 1.25),       // cuánto despega en las crestas
+    hover: cl(1.3 + (1 - m) * 0.5, 1.15, 1.45),               // las ligeras flotan más alto
+    hitKeep: cl(0.38 * Math.pow(m, 0.6), 0.3, 0.52),          // velocidad que conserva tras un cohete
+    hitStun: 0.7 / Math.sqrt(m),                              // tiempo sin mando tras un cohete
     wallLoss: s.wallLoss ?? 1,
     lean: s.lean ?? 0.42,
     bob: s.bob ?? 0.06,

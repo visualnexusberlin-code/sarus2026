@@ -1,8 +1,9 @@
-// Esferas de energía sobre la pista (verde = boost, roja = cohete, azul = mega turbo) y cohetes teledirigidos.
+// Esferas de energía sobre la pista (verde = boost, roja = cohete, azul = mega turbo, púrpura = cohete de doble impacto)
+// y cohetes teledirigidos.
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 
-const COLORS = { G: new THREE.Color(0.22, 1.0, 0.36), R: new THREE.Color(1.0, 0.1, 0.04), B: new THREE.Color(0.1, 0.5, 1.0) };
+const COLORS = { G: new THREE.Color(0.22, 1.0, 0.36), R: new THREE.Color(1.0, 0.1, 0.04), B: new THREE.Color(0.1, 0.5, 1.0), P: new THREE.Color(0.3, 0.0, 0.8) };
 
 // Dónde va la esfera azul: en el primer tramo de la recta más larga del circuito (devuelve { s, straight } o null).
 // «Recta»: tramo donde el radio no baja de 300 m y el rumbo no gira más de 11° en total, sin saltos, vuelo libre,
@@ -120,7 +121,13 @@ export class Pickups {
     // esfera azul de mega turbo: una, en el centro, al principio de la recta más larga
     this.mega = megaSpot(track, opt);
     if (this.mega) this.items.push({ s: this.mega.s, x: 0, type: 'B', big: 1.7, active: true, t: 0, pop: 1, seed: Math.random() * 10 });
-    this.types = this.mega ? ['G', 'R', 'B'] : ['G', 'R'];
+    // esfera púrpura (cohete de doble impacto): una; en cada carrera ocupa el sitio de una roja (placeHeavy)
+    this.heavyItem = null;
+    if (CONFIG.heavy && opt.heavy !== false && this.items.some((i) => i.type === 'R')) {
+      this.heavyItem = { s: 0, x: 0, type: 'P', big: 1.2, active: true, t: 0, pop: 1, seed: Math.random() * 10 };
+      this.items.push(this.heavyItem);
+    }
+    this.types = ['G', 'R', ...(this.mega ? ['B'] : []), ...(this.heavyItem ? ['P'] : [])];
     this.meshes = {};
     const geo = new THREE.IcosahedronGeometry(1.25, 3);
     const quad = new THREE.PlaneGeometry(1, 1);
@@ -136,15 +143,30 @@ export class Pickups {
     }
     this.F = track.frame();
     this.t = 0;
+    this.placeHeavy();
     this.update(0, []);
   }
 
-  reset() { for (const it of this.items) { it.active = true; it.t = 0; it.pop = 1; } }
+  reset() { for (const it of this.items) { it.active = true; it.t = 0; it.pop = 1; } this.placeHeavy(); }
+
+  // La púrpura sustituye a una roja distinta en cada carrera: casi siempre en un carril lateral (hay que ir a por ella),
+  // nunca en las dos primeras filas (el pelotón aún va junto) ni pegada a la esfera azul.
+  placeHeavy() {
+    const h = this.heavyItem; if (!h) return;
+    if (h.of) h.of.replaced = false;
+    const C = CONFIG.pickups, tr = this.track;
+    const ok = this.items.filter((i) => i.type === 'R' && i.s > C.firstAt + C.every * 1.5 && !(this.mega && Math.abs(tr.delta(i.s, this.mega.s)) < 90));
+    const reds = ok.length ? ok : this.items.filter((i) => i.type === 'R');
+    const side = reds.filter((i) => Math.abs(i.x) > 1), mid = reds.filter((i) => Math.abs(i.x) <= 1);
+    const pool = side.length && (!mid.length || Math.random() < (CONFIG.heavy.side ?? 0.85)) ? side : mid.length ? mid : reds;
+    const r = pool[Math.floor(Math.random() * pool.length)];
+    h.of = r; r.replaced = true; h.s = r.s; h.x = r.x;
+  }
 
   nearestAhead(ship, range, wantRed) {
     let best = null, bd = Infinity;
     for (const it of this.items) {
-      if (!it.active || (it.type === 'R' && !wantRed)) continue;
+      if (!it.active || it.replaced || (it.type === 'R' && !wantRed) || (it.type === 'P' && (ship.heavy || !wantRed))) continue;
       const d = this.track.delta(ship.s, it.s);
       if (d > 12 && d < range) {
         const score = d + Math.abs(it.x - ship.x) * 4 - (it.type === 'B' ? 60 : it.type === 'G' ? 15 : 0);
@@ -158,6 +180,7 @@ export class Pickups {
     this.t += dt;
     const tr = this.track, respawn = CONFIG.pickups.respawn, megaRespawn = CONFIG.mega?.respawn ?? respawn;
     for (const it of this.items) {
+      if (it.replaced) continue;
       if (!it.active) { it.t -= dt; if (it.t <= 0) { it.active = true; it.pop = 0; } continue; }
       it.pop = Math.min(1, it.pop + dt * 2.5);
       for (const sh of ships) {
@@ -165,7 +188,7 @@ export class Pickups {
         const d = tr.delta(sh.s, it.s);
         const big = it.big || 1;
         if (Math.abs(d) < sh.length * 0.5 + 1.2 * big && Math.abs(sh.x - it.x) < sh.halfWidthGeo + 1.3 * big) {
-          it.active = false; it.t = it.type === 'B' ? megaRespawn : respawn;
+          it.active = false; it.t = it.type === 'B' ? megaRespawn : it.type === 'P' ? (CONFIG.heavy?.respawn ?? 45) : respawn;
           onPick?.(sh, it);
           break;
         }
@@ -177,7 +200,7 @@ export class Pickups {
       halo.material.uniforms.uTime.value = this.t;
       for (const it of list) {
         tr.sample(it.s, this.F);
-        const sc = it.active ? (1 - Math.pow(1 - it.pop, 3)) * (1 + 0.06 * Math.sin(this.t * 4 + it.seed)) * (it.big || 1) : 0;
+        const sc = it.active && !it.replaced ? (1 - Math.pow(1 - it.pop, 3)) * (1 + 0.06 * Math.sin(this.t * 4 + it.seed)) * (it.big || 1) : 0;
         _v.copy(this.F.pos).addScaledVector(this.F.right, it.x).addScaledVector(this.F.up, (it.big ? 3.1 : 2.3) + Math.sin(this.t * 1.8 + it.seed) * 0.25);
         _q.setFromAxisAngle(this.F.up, this.t * 1.3 + it.seed);
         _m.compose(_v, _q, _s.setScalar(Math.max(sc, 1e-4)));
@@ -213,6 +236,10 @@ export class Missiles {
       spr.visible = false; spr.frustumCulled = false; this.scene.add(spr); return spr;
     });
     this.flashI = 0;
+    // cohete de doble impacto: mismo programa de shader que el normal (solo cambian colores), así no compila nada en carrera
+    this.bodyMatP = this.bodyMat.clone(); this.bodyMatP.color.set(0x140a22); this.bodyMatP.emissive.set(0x7a12ff); this.bodyMatP.emissiveIntensity = 1.1;
+    this.flameMatP = this.flameMat.clone(); this.flameMatP.color.setRGB(3.2, 0.9, 7);
+    this.colN = new THREE.Color(8, 4, 1.8); this.colP = new THREE.Color(4.5, 1.2, 9);
   }
 
   reset() { for (const m of this.list) this.scene.remove(m.obj); this.list.length = 0; }
@@ -220,6 +247,7 @@ export class Missiles {
   fire(owner, ships) {
     if (owner.ammo <= 0) return false;
     owner.ammo--;
+    const heavy = owner.heavy > 0; if (heavy) owner.heavy = 0;
     // objetivo: la nave más cercana por delante (hasta 450 m)
     let target = null, bd = Infinity;
     for (const o of ships) {
@@ -230,12 +258,13 @@ export class Missiles {
       if (d > 4 && d < (st ? 240 : 450)) { const sc = d + Math.abs(o.x - owner.x) * 6 + st * 140; if (sc < bd) { bd = sc; target = o; } }
     }
     const obj = new THREE.Group();
-    obj.add(new THREE.Mesh(this.bodyGeo, this.bodyMat));
-    const flame = new THREE.Sprite(this.flameMat);
+    obj.add(new THREE.Mesh(this.bodyGeo, heavy ? this.bodyMatP : this.bodyMat));
+    const flame = new THREE.Sprite(heavy ? this.flameMatP : this.flameMat);
     flame.scale.set(1.6, 1.6, 1); flame.position.z = -0.9;
     obj.add(flame);
+    if (heavy) { obj.scale.setScalar(1.7); flame.scale.set(2.2, 2.2, 1); }
     this.scene.add(obj);
-    this.list.push({ obj, owner, target, s: owner.s + owner.length * 0.6, x: owner.x, v: Math.max(owner.v + 55, 120), life: 4.5, h: 1.3 });
+    this.list.push({ obj, owner, target, s: owner.s + owner.length * 0.6, x: owner.x, v: Math.max(owner.v + 55, 120), life: 4.5, h: 1.3, heavy, charges: heavy ? 2 : 1, skip: null });
     return true;
   }
 
@@ -263,13 +292,29 @@ export class Missiles {
       // impacto
       let hit = null;
       for (const o of ships) {
-        if ((o === m.owner && m.life > 4.2) || o.out) continue;
+        if ((o === m.owner && m.life > 4.2) || o.out || o === m.skip) continue;
         if (Math.abs(tr.delta(m.s, o.s)) < 3 && Math.abs(o.x - m.x) < 2.1) { hit = o; break; }
       }
       const wall = Math.abs(m.x) > Math.max(15.6, (tr.flightAt ? tr.flightAt(m.s) : 0) * (tr.flightR || 26) * 1.92 + 1);
       if (hit || wall || m.life <= 0) {
-        this.explode(pos, !!hit);
-        if (hit) { const r = hit.hit(); if (r) onHit?.(m.owner, hit, r, pos.clone()); }
+        this.explode(pos, !!hit, m.heavy);
+        if (hit) {
+          // Doble impacto: tras el primer blanco, la segunda carga sigue hacia la nave siguiente; si no hay ninguna a su alcance,
+          // las dos cargas estallan en la misma nave (dos puntos de blindaje).
+          let next = null;
+          if (m.charges > 1) {
+            let bd = CONFIG.heavy?.reach ?? 320;
+            for (const o of ships) {
+              if (o === hit || o === m.owner || o.out || o.dead > 0 || o.invuln > 0) continue;
+              const d = tr.delta(hit.s, o.s);
+              if (d > 3 && d < bd) { bd = d; next = o; }
+            }
+          }
+          const n = next ? 1 : m.charges;
+          const r = hit.hit(n);
+          if (r) onHit?.(m.owner, hit, r, pos.clone(), { heavy: m.heavy, double: n > 1, chain: !!next, second: m.heavy && m.charges === 1 });
+          if (next) { m.charges = 1; m.skip = hit; m.target = next; m.life = 3.6; m.v = Math.max(m.v, 200); continue; }
+        }
         this.scene.remove(m.obj);
         this.list.splice(i, 1);
       }
@@ -283,7 +328,7 @@ export class Missiles {
     }
   }
 
-  explode(pos, big) {
+  explode(pos, big, heavy = false) {
     this.fx.sparks.burst(pos, _v.set(0, 0.3, 0), big ? 70 : 25, big ? 22 : 12);
     for (let k = 0; k < (big ? 14 : 5); k++) {
       const d = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8, Math.random() - 0.5).multiplyScalar(10);
@@ -292,6 +337,7 @@ export class Missiles {
     const spr = this.flashPool[this.flashI++ % this.flashPool.length];
     const old = this.flashes.findIndex((f) => f.spr === spr); if (old >= 0) this.flashes.splice(old, 1);
     spr.position.copy(pos); spr.visible = true; spr.scale.setScalar(4); spr.material.opacity = 1;
+    spr.material.color.copy(heavy ? this.colP : this.colN);
     this.flashes.push({ spr, t: 0 });
   }
 }
