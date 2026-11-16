@@ -41,7 +41,7 @@ function towerMaterial() {
 export function buildSelene(world, track, own, avoid = []) {
   const lite = QUALITY.lite;
   const SEG = lite ? 10 : 16;
-  const T = towerMaterial(), dark = new THREE.MeshStandardMaterial({ color: 0x0b0c10, roughness: 0.55, metalness: 0.6, envMapIntensity: 0.5 });
+  const T = towerMaterial(), dark = new THREE.MeshStandardMaterial({ color: 0x1a1c22, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.6 });   // algo más claro: con el despiece (detail.js) se lee como chapa y no como hueco negro
   const teal = new THREE.MeshStandardMaterial({ color: 0x06201f, emissive: 0x39d6c8, emissiveIntensity: 2.2 });
   const rose = new THREE.MeshStandardMaterial({ color: 0x24101c, emissive: 0xe07ab4, emissiveIntensity: 2.0 });
   const warm = new THREE.MeshStandardMaterial({ color: 0x2a1a0c, emissive: 0xffc27a, emissiveIntensity: 2.4 });

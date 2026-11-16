@@ -206,6 +206,16 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## Repaso visual de las fases antiguas y de Marte (16 de noviembre de 2026)
+
+- **Intro sin atravesar el terreno** (`EagleFlight.avoidTerrain`, `camera.js`): al montar la intro se recorre la trayectoria con rayos contra el escenario; donde la cámara queda enterrada (lo primero que hay encima es el reverso de una superficie que mira hacia arriba) se eleva con entrada y salida suaves. No actúa bajo techos (túneles, cuevas). En ENCELADUS la cámara pasaba hasta 217 m bajo el hielo entre los segundos 7,4 y 9. Resultado en caché por circuito (`G.liftCache`).
+- **THARSIS SIERRA · mapa de ciudad** (`buildCityMap`, `tharsis.js`): textura de 2048² (1024² en ligera) que lee el material del suelo. R: distancia con signo al borde de calle; G: al solar de cada edificio; B: sombra arrojada (sol bajo, hasta 780 m); A: eje de calle. La red es un árbol de expansión mínima entre edificios más enlaces a vecinos; las troncales se ensanchan según cuánta ciudad cuelga de ellas. Son campos de distancia: el borde sale nítido de cerca. Las losas quedan solo en el recinto del estadio.
+- **Relieve de Marte** (`marsRelief`, `regolith.js`; atributo `aRel` en las mallas de terreno): cráteres con borde y eyecta a dos escalas, dunas y frentes de colada en la geometría, y su tinte en el shader (fondos oscuros, bordes claros). En OLYMPUS, sol a 0,15 rad (antes 0,075) y más fuerte frente al ambiente, menos bruma, y una base de apoyo (cúpulas, depósitos, mástiles, plataforma y conducción; mallas `base_*`).
+- **ARCADIA y SELENE · detalle de superficie** (`detail.js`): todo material estándar liso (sin textura ni shader propio) recibe despiece en paneles, registros, suciedad, variación de pulido y relieve por derivadas, en coordenadas de mundo. `?nodetail` lo desactiva. `userData.noDetail` excluye un material.
+- **SELENE:** suelo lunar nuevo (`basaltMaterial`: mares, cráteres a tres escalas con rayos, relieve), el «mar» pasa de espejo negro a llanura de basalto, luz de Tierra azulada de relleno.
+- **NUEVA ITAKA:** prado más claro con flores y sombras amplias, copas con tinte por árbol y relleno propio, sombra de contacto bajo cada árbol (`treeShade`, una malla instanciada).
+- **GLSL:** `patch` es palabra reservada en GLSL ES 3.0; no usarla como nombre de variable (dejó la isla de ITAKA sin dibujar).
+
 ## Fluidez en carrera (16 de noviembre de 2026)
 
 Medido con `renderer.info` en carrera, calidad completa, sin GPU (órdenes de dibujo y triángulos son reales; los fps no).

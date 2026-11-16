@@ -299,22 +299,51 @@ export const lavaUniforms = { uTime: { value: 0 } };
 
 // ── Basalto con ruido triplanar barato (el material original no exporta color) ──
 export function basaltMaterial() {
-  const m = new THREE.MeshStandardMaterial({ color: 0x2a2b2a, roughness: 0.93, metalness: 0.04 });
+  // Mar lunar: regolito gris con manchas de mare, cráteres a tres escalas (fondo oscuro, borde claro, rayos de eyecta
+  // en los jóvenes), estratos en los cortes y relieve por derivadas. Antes era un gris casi negro con ruido.
+  const m = new THREE.MeshStandardMaterial({ color: 0x4a4a4d, roughness: 0.95, metalness: 0.02 });
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vBW;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBW = (modelMatrix * vec4(transformed,1.0)).xyz;');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vBW; varying vec3 vBN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBW = (modelMatrix * vec4(transformed,1.0)).xyz; vBN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying vec3 vBW;
+        varying vec3 vBW; varying vec3 vBN;
         float bh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
         float bn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
-          return mix(mix(bh(i),bh(i+vec2(1,0)),f.x), mix(bh(i+vec2(0,1)),bh(i+vec2(1,1)),f.x), f.y); }`)
+          return mix(mix(bh(i),bh(i+vec2(1,0)),f.x), mix(bh(i+vec2(0,1)),bh(i+vec2(1,1)),f.x), f.y); }
+        // cráteres en rejilla: devuelve (altura, albedo)
+        vec2 bCr(vec2 p, float C, float prob){ vec2 g = floor(p / C); vec2 o = vec2(0.0);
+          for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 c = g + vec2(float(i), float(j)); float k = bh(c + 3.7); if (k > prob) continue;
+            vec2 q = (c + 0.25 + 0.5 * vec2(bh(c + 1.3), bh(c + 8.1))) * C; float R = C * (0.12 + 0.3 * bh(c + 5.5) * bh(c + 5.5)); float d = length(p - q) / R;
+            if (d > 2.6) continue;
+            float bowl = d < 1.0 ? -(1.0 - d * d) : 0.0, rim = exp(-pow((d - 1.0) / 0.2, 2.0));
+            float ray = step(k, prob * 0.3) * smoothstep(2.6, 1.0, d) * step(1.0, d) * smoothstep(0.55, 0.9, bn(vec2(atan(p.y - q.y, p.x - q.x) * 5.0, k * 30.0)));
+            o += vec2((bowl * 0.8 + rim * 0.5) * R, bowl * -0.0 + (d < 1.0 ? -0.22 * (1.0 - d) : 0.0) + rim * 0.2 + ray * 0.22); }
+          return o; }`)
+      .replace('void main() {', 'void main() {\n  float bBump = 0.0;')
       .replace('#include <color_fragment>', `#include <color_fragment>
-        float bnz = bn(vBW.xz * 0.02) * 0.5 + bn(vBW.xz * 0.09) * 0.3 + bn(vBW.xz * 0.4) * 0.2;
-        float strata = smoothstep(0.4, 0.6, bn(vec2(vBW.y * 0.08, vBW.x * 0.004)));
-        diffuseColor.rgb *= 0.45 + 0.9 * bnz * (0.8 + 0.2 * strata);`);
+        {
+          vec2 p = vBW.xz; float up = normalize(vBN).y;
+          float aa = clamp(1.0 - length(fwidth(p)) / 6.0, 0.0, 1.0);
+          float mare = smoothstep(0.35, 0.7, bn(p * 0.0016) * 0.65 + bn(p * 0.007) * 0.35);
+          float fine = bn(p * 0.09) * 0.55 + bn(p * 0.45) * 0.45;
+          vec2 c1 = bCr(p, 420.0, 0.7), c2 = bCr(p + 91.0, 110.0, 0.6), c3 = bCr(p - 37.0, 26.0, 0.5) * aa;
+          float alb = 0.62 + 0.5 * mare + (c1.y + c2.y * 0.8 + c3.y * 0.6);
+          float strata = smoothstep(0.4, 0.6, bn(vec2(vBW.y * 0.08, vBW.x * 0.004)));
+          float steep = 1.0 - smoothstep(0.55, 0.85, up);
+          vec3 c = diffuseColor.rgb * clamp(alb, 0.25, 1.6) * (0.8 + 0.4 * fine * aa + 0.2 * (1.0 - aa));
+          c = mix(c, c * (0.55 + 0.5 * strata), steep * 0.8);
+          c *= mix(vec3(1.0), vec3(1.03, 1.0, 0.95), mare);                 // los mares, apenas más cálidos
+          diffuseColor.rgb = c;
+          bBump = (c1.x * 0.5 + c2.x * 0.6 + c3.x * 0.8) * 0.22 + fine * 0.5 * aa;
+        }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        { vec3 sp = -vViewPosition; vec3 dpx = dFdx(sp), dpy = dFdy(sp); float hx = dFdx(bBump), hy = dFdy(bBump);
+          vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
+          normal = normalize(abs(det) * normal - sign(det) * (hx * r1 + hy * r2)); }`);
   };
+  m.customProgramCacheKey = () => 'lunarMare';
   return m;
 }
 

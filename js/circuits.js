@@ -33,7 +33,7 @@ export const CIRCUITS = [
       stars: 1,
       clouds: null,
     },
-    light: { sun: 0xfff6ec, sunI: 3.4, hemiSky: 0x46505e, hemiGround: 0x16171a, hemiI: 0.5, env: 0.62 },
+    light: { sun: 0xfff6ec, sunI: 3.4, hemiSky: 0x5a6e92, hemiGround: 0x1c1d22, hemiI: 0.8, env: 0.7 },   // luz de Tierra: relleno azulado que deja leer el suelo y las torres en sombra
     grade: { tint: [1.0, 1.0, 1.02], vignette: 0.46, grain: 0.04, contrast: 0.3 },
     // pintura de pista (uniforms de dressing.js)
     paint: {
@@ -56,8 +56,8 @@ export const CIRCUITS = [
     hoverMax: 8,                     // en las crestas se despega más
     atmosphere: {
       sunDir: new THREE.Vector3(0.52, 0.55, -0.65).normalize(),
-      baseDensity: 0.00008, heightDensity: 0.00016, heightFalloff: 0.0032, fogMax: 0.86,
-      exposure: 0.84, saturation: 1.0,
+      baseDensity: 0.00006, heightDensity: 0.0001, heightFalloff: 0.0032, fogMax: 0.82,
+      exposure: 0.84, saturation: 1.06,
       bloom: { strength: 0.22, radius: 0.5, threshold: 0.97 },
       sky: {
         horizon: [0.60, 0.74, 0.86], zenith: [0.10, 0.28, 0.64], below: [0.16, 0.34, 0.46], zLow: -0.02, zHigh: 0.5,
@@ -65,8 +65,8 @@ export const CIRCUITS = [
       },
       clouds: { scale: 1.15, cover: 0.5, opacity: 0.92, light: [1.02, 1.0, 0.97], shadow: [0.56, 0.62, 0.72] },
     },
-    light: { sun: 0xfff0d8, sunI: 3.1, hemiSky: 0xb8d4f5, hemiGround: 0x5d6b35, hemiI: 0.95, env: 1.0 },
-    grade: { tint: [1.02, 1.0, 0.97], vignette: 0.26, grain: 0.02, contrast: 0.16 },
+    light: { sun: 0xfff0d8, sunI: 3.3, hemiSky: 0xb8d4f5, hemiGround: 0x5d6b35, hemiI: 0.82, env: 1.0 },
+    grade: { tint: [1.02, 1.0, 0.97], vignette: 0.26, grain: 0.02, contrast: 0.22 },
     paint: {
       edge: [0.95, 0.95, 0.92], chev: [0.95, 0.16, 0.5], lane: [1.0, 0.8, 0.12],
       kerbA: [1.0, 0.78, 0.08], kerbB: [0.1, 0.42, 0.92], edgeGlow: 0.08, chevGlow: 0.12, kerbGlow: 0.05,
@@ -173,7 +173,7 @@ CIRCUITS.push({
     },
     clouds: null,
   },
-  light: { sun: 0xfff6ea, sunI: 3.0, hemiSky: 0x9fb8d8, hemiGround: 0x1d2a1f, hemiI: 0.55, env: 0.6 },
+  light: { sun: 0xfff6ea, sunI: 3.2, hemiSky: 0xa9c4e4, hemiGround: 0x2c4a2a, hemiI: 0.78, env: 0.7 },   // más relleno: el prado y las copas ya no se empastan en verde oscuro
   grade: { tint: [0.98, 1.0, 1.04], vignette: 0.4, grain: 0.03, contrast: 0.24 },
   paint: {
     edge: [0.85, 0.95, 1.0], chev: [0.2, 0.8, 1.0], lane: [0.88, 0.9, 0.92],

@@ -323,9 +323,12 @@ export function buildItaka(def, { world, own, srcMat }) {
       { geo: cross(13, 14), map: treeTexture('broad'), n: 1600 },
     ];
     const lc = {}, ps = new THREE.Vector3(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    const feet = [], tint = new THREE.Color();   // pie de cada árbol: para la sombra de contacto
     for (const kd of kinds) {
       own.push(kd.geo, kd.map);
       const tm = new THREE.MeshStandardMaterial({ map: kd.map, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, metalness: 0 }); own.push(tm);
+      tm.color.setRGB(1.5, 1.5, 1.42);   // las copas salían casi negras bajo la cúpula
+      tm.emissive.setRGB(1, 1, 1); tm.emissiveMap = kd.map; tm.emissiveIntensity = 0.2;   // relleno propio: se lee el verde también a contraluz
       const im = new THREE.InstancedMesh(kd.geo, tm, kd.n);
       let k = 0, tries = 0;
       while (k < kd.n && tries < kd.n * 10) {
@@ -337,9 +340,23 @@ export function buildItaka(def, { world, own, srcMat }) {
         track.locate(ps.set(x, 0, z), lc); if (!lc.far && lc.dist < 55) continue;
         const s = 0.75 + Math.random() * 0.6;
         ps.set(x, ground(x, z) - 0.8, z);
+        const v = Math.random(); im.setColorAt(k, tint.setRGB(0.82 + 0.3 * v, 0.9 + 0.2 * Math.random(), 0.7 + 0.25 * v));   // cada árbol, un verde algo distinto
+        feet.push(x, ps.y + 0.95, z, s * (kd.n > 2000 ? 6.5 : 9.5));
         im.setMatrixAt(k++, m4.compose(ps, q.setFromEuler(new THREE.Euler(0, Math.random() * 6.28, 0)), sc.set(s, s * (0.85 + Math.random() * 0.4), s)));
       }
-      im.count = k; im.computeBoundingSphere(); im.receiveShadow = true; world.add(im); im.userData.chunkInst = true;
+      im.count = k; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); im.receiveShadow = true; world.add(im); im.userData.chunkInst = true;
+    }
+    // sombra de contacto bajo cada árbol: un disco suave oscuro pegado a la hierba (antes flotaban sobre un verde plano)
+    {
+      const G = 64, cv = document.createElement('canvas'); cv.width = cv.height = G; const cx = cv.getContext('2d');
+      const gr = cx.createRadialGradient(G / 2, G / 2, 0, G / 2, G / 2, G / 2); gr.addColorStop(0, 'rgba(0,0,0,0.62)'); gr.addColorStop(0.45, 'rgba(0,0,0,0.38)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      cx.fillStyle = gr; cx.fillRect(0, 0, G, G);
+      const st = new THREE.CanvasTexture(cv), sg = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+      const sm = new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: true });
+      own.push(st, sg, sm);
+      const n = feet.length / 4, sh = new THREE.InstancedMesh(sg, sm, n);
+      for (let i = 0; i < n; i++) { const r = feet[i * 4 + 3]; sh.setMatrixAt(i, m4.compose(ps.set(feet[i * 4] + r * 0.18, feet[i * 4 + 1], feet[i * 4 + 2] + r * 0.1), q.identity(), sc.set(r * 2.3, 1, r * 1.9))); }
+      sh.computeBoundingSphere(); sh.renderOrder = 1; sh.userData.chunkInst = true; sh.name = 'treeShade'; world.add(sh);
     }
   }
 
@@ -405,7 +422,7 @@ function islandMaterial() {
         {
           vec3 P = vMW; float up = normalize(vMN).y;
           float n1 = mn(P.xz * 0.002), n2 = mn(P.xz * 0.015), n3 = mn(P.xz * 0.11);
-          vec3 meadow = vec3(0.25, 0.36, 0.15), dry = vec3(0.42, 0.4, 0.22), forest = vec3(0.09, 0.17, 0.09), rock = vec3(0.3, 0.29, 0.27);
+          vec3 meadow = vec3(0.3, 0.44, 0.17), dry = vec3(0.48, 0.45, 0.24), forest = vec3(0.11, 0.21, 0.1), rock = vec3(0.3, 0.29, 0.27);
           vec3 c = mix(meadow, dry, smoothstep(0.45, 0.8, n1 * 0.7 + n2 * 0.3));
           c = mix(c, forest, smoothstep(0.5, 0.56, mn(P.xz * 0.0025 + vec2(9.0, 0.0)) * 0.9 + n2 * 0.1));
           // parcelas de cultivo (como el valle del Eifel)
@@ -420,6 +437,14 @@ function islandMaterial() {
           c = mix(c, c * vec3(0.8, 0.95, 1.02), smoothstep(0.6, 0.8, mn(P.xz * 0.004 + 11.0)) * grassy * 0.4);  // manchas frescas
           c = mix(c, rock * (0.8 + 0.4 * gd.g), 1.0 - smoothstep(0.62, 0.86, up));
           c *= 0.85 + 0.25 * n3;
+          // flores silvestres en corros (blancas, amarillas, malvas): solo de cerca
+          { vec2 fc = P.xz * 1.6; vec2 fi = floor(fc), ff = fract(fc) - 0.5; float fh = mh(fi + 31.0);
+            float corro = smoothstep(0.62, 0.8, mn(P.xz * 0.02 + 5.0)) * grassy * clamp(1.0 - length(fwidth(fc)) * 1.6, 0.0, 1.0);
+            float dot_ = step(0.8, fh) * (1.0 - smoothstep(0.1, 0.2, length(ff + (vec2(mh(fi), mh(fi + 9.0)) - 0.5) * 0.5)));
+            vec3 fcol = fh > 0.93 ? vec3(0.95, 0.82, 0.2) : fh > 0.87 ? vec3(0.72, 0.5, 0.85) : vec3(0.95, 0.95, 0.9);
+            c = mix(c, fcol, dot_ * corro * 0.85); }
+          // sombras amplias, como de nube, para dar profundidad a las laderas
+          c *= 0.82 + 0.3 * smoothstep(0.3, 0.7, mn(P.xz * 0.0011 + 21.0));
           diffuseColor.rgb = c;
         }`);
   };

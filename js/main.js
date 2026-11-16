@@ -48,6 +48,7 @@ import { buildPluto, plutoSunDir } from './pluto.js';
 import { buildSelene } from './selene.js';
 import { buildDeckDetail } from './deckdetail.js';
 import { chunkWorld, thinInstances } from './chunks.js';
+import { detailPlain } from './detail.js';
 import { SHADOW_ONLY } from './ship.js';
 import { TrackPreview, rememberShape, shapeFor, sampleShape } from './trackshape.js';
 import { QUALITY, LITE, setQuality } from './quality.js';
@@ -763,6 +764,7 @@ function buildCircuit(def) {
   for (const o of keep) { o.parent?.remove(o); o.matrix.copy(o.matrixWorld); o.matrix.decompose(o.position, o.quaternion, o.scale); world.add(o); }
   const water = createWater(def.seaLevel ?? -66);
   if (arcadia) { water.material.dispose(); water.material = seaMaterial(); }
+  else if (def.earth) { water.material.dispose(); water.material = basaltMaterial(); water.material.color.set(0x2e2e32); water.receiveShadow = true; }   // SELENE: el «mar» es llanura de basalto con cráteres, no un espejo negro
   own.push(water.geometry, water.material);
   world.add(water, padGroup);
   scene.add(world);
@@ -817,6 +819,8 @@ function finishCircuit(def, world, track, t0) {
   G.hud?.setTrack(track);
   rememberShape(def.id, track, G.structures?.tunnel);          // trazado para la vista previa del Solar Map
   if (G.lens[def.id] !== Math.round(track.length)) { G.lens[def.id] = Math.round(track.length); store.set('sarus-len', G.lens); }
+  // fases del modelo original (ARCADIA, SELENE): las estructuras lisas ganan despiece, suciedad y relieve en el shader
+  if (!def.generated && !new URLSearchParams(location.search).has('nodetail')) { const nd = detailPlain(world, def.id === 'saturn' ? { grime: 0.22, seam: 0.5, vary: 0.14 } : { grime: 0.26, seam: 0.34, vary: 0.08 }); console.info(`[SRS] detalle de superficie en ${nd} materiales`); }
   if (!new URLSearchParams(location.search).has('nochunk')) { const ck = chunkWorld(world, LITE ? { cell: 380 } : { cell: 640, perCell: 12000, minTris: 24000, maxCells: 49 }); G.chunkInfo = ck; console.info(`[SRS] mundo troceado: ${ck.meshes} mallas en ${ck.chunks} celdas`); if (perf.low) thinInstances(world); }
   console.info(`[SRS] ${def.name} construido en ${(performance.now() - t0).toFixed(0)} ms`);
 }
@@ -879,10 +883,10 @@ function resetRace() {
     if (c && c.world === G.world && c.duration === G.intro.duration) G.intro.lift = c.lift;
     else {
       const solid = []; G.world.updateMatrixWorld(true);
-      G.world.traverse((m) => { if (m.isMesh && m.visible && !m.isInstancedMesh && !m.material.transparent && m.geometry.attributes.position && m.geometry.attributes.position.count > 200) solid.push(m); });
+      G.world.traverse((m) => { if (m.isMesh && m.visible && !m.isInstancedMesh && m.material.isMeshStandardMaterial && !m.material.transparent && !/^S6 \|/.test(m.material.name || '') && !m.material.userData.track && m.geometry.attributes.position && m.geometry.attributes.position.count > 200) solid.push(m); });   // solo sólidos del escenario: ni capas de atmósfera (ShaderMaterial) ni la pista del modelo original
       const t0 = performance.now(), w = G.intro.avoidTerrain(solid);
       if (CONFIG.debug || w > 0) console.info(`[SRS] intro: cámara elevada hasta ${w.toFixed(0)} m para no atravesar el terreno (${Math.round(performance.now() - t0)} ms)`);
-      G.liftCache = { world: G.world, duration: G.intro.duration, lift: G.intro.lift, worst: w };
+      G.liftCache = { world: G.world, duration: G.intro.duration, lift: G.intro.lift, worst: w, info: G.intro.liftInfo };
     }
   }
   G.race = {

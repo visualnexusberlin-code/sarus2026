@@ -193,7 +193,7 @@ export function deckMaterial(base, opts = {}) {
         }`);
   };
   if (wet) m.customProgramCacheKey = () => 'deckWet9' + (LITE ? 'L' : '');
-  return m;
+  m.userData.track = true; return m;
 }
 
 // Guardarraíl: bordillo bermellón/marfil en las curvas, sobre la banda alta del muro.
@@ -214,7 +214,7 @@ export function guardMaterial(base) {
           totalEmissiveRadiance += kerb * band * cm * uGlow.z;
         }`);
   };
-  return m;
+  m.userData.track = true; return m;
 }
 
 // Balizas ("boyas"): naranja intenso con una ola de luz que corre en el sentido de la carrera.

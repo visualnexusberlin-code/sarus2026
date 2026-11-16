@@ -168,9 +168,10 @@ export class EagleFlight {
   // que miran hacia abajo), la eleva lo justo para pasar por encima, con entrada y salida suaves.
   avoidTerrain(meshes, clearance = 9) {
     this.lift = null;
+    this.liftInfo = [];
     if (!meshes.length) return 0;
     const dtS = 0.15, n = Math.ceil(this.duration / dtS) + 1, L = new Float32Array(n);
-    const rc = new THREE.Raycaster(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), nrm = new THREE.Vector3();
+    const rc = new THREE.Raycaster(), up = new THREE.Vector3(0, 1, 0), down = new THREE.Vector3(0, -1, 0), p = new THREE.Vector3(), nrm = new THREE.Vector3();
     const sides = new Map(); for (const m of meshes) { const mats = Array.isArray(m.material) ? m.material : [m.material]; for (const q of mats) if (!sides.has(q)) { sides.set(q, q.side); q.side = THREE.DoubleSide; } }
     let worst = 0;
     for (let k = 0; k < n - 14; k++) {                       // los dos últimos segundos son la llegada a la nave: no se tocan
@@ -183,6 +184,7 @@ export class EagleFlight {
         nrm.copy(h.face.normal).transformDirection(h.object.matrixWorld);
         if (nrm.y <= 0.15) break;                            // techo o pared: la cámara está en un hueco legítimo
         const d = h.point.y - p.y + clearance; lift += d; p.y += d;
+        if (this.liftInfo.length < 40) this.liftInfo.push(`${(k * dtS).toFixed(1)}s ${(h.object.name || h.object.material.name || h.object.material.type).slice(0, 30)} +${d.toFixed(0)} tris ${Math.round((h.object.geometry.index ? h.object.geometry.index.count : h.object.geometry.attributes.position.count) / 3)}`);
       }
       L[k] = lift; worst = Math.max(worst, lift);
     }
