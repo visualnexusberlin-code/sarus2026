@@ -4,6 +4,7 @@
 //  Tramos subterráneos con paneles hexagonales, subidas a dos colinas altas y una cúpula
 //  de rejilla hexagonal sobre toda la isla. Fondo: espacio, con la Tierra y la Luna.
 // ─────────────────────────────────────────────────────────────
+import { DECK_SOLID } from './deckprofile.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('itaka');                      // trazado en espejo (reshape.js)
@@ -163,7 +164,7 @@ export function buildItaka(def, { world, own, srcMat }) {
 
   // ── Tablero, muros y detalles (vuelta completa, sin saltos) ──
   const L = track.length;
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   const spine = [[-3.2, -1.6], [3.2, -1.6], [2.2, -4.6], [-2.2, -4.6]];

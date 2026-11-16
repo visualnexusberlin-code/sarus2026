@@ -4,6 +4,7 @@
 // abajo brilla la ciudad azul. Junto a la salida, gradas estratificadas como terrazas de arenisca con luz cálida;
 // por la llanura, cúpulas de cristal hexagonal y torres-faro. Anillos de carrera: atravesarlos repara el blindaje,
 // recarga dos cohetes y da un empujón de velocidad (con una película de luz azul).
+import { DECK_SOLID } from './deckprofile.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('europa');                      // trazado en espejo (reshape.js)
@@ -509,7 +510,7 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
     gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gg.setIndex(idx); gg.computeVertexNormals();
     return gg;
   };
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   parts.deck.push(sweepSeg(0, L, 3, deckProf, true, 32));

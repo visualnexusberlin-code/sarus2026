@@ -206,6 +206,13 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## Pista: casco y señalización (16 de noviembre de 2026)
+
+- **Sección del tablero** (`js/deckprofile.js`): `DECK_SOLID` para planetas y lunas (hombro exterior de 3,6 m por fuera del muro, costado que baja 7,2 m, quilla en V a 9,6 m) y `DECK_THIN` (la losa de 1,7 m) para CERES y CASSINI. Los puntos del perfil van duplicados para que las aristas salgan vivas.
+- **Señalización** (bloque «Señalización de pista (v2)» de `deckMaterial`, `dressing.js`): tiras de LED en los bordes con un pulso que avanza, dos raíles de energía con flujo y nodos, flechas de sentido en las rectas, galones luminosos antes de curva, travesaños cada 100 m, retícula hexagonal grabada (no en ligera) y casco oscuro despiezado con líneas de luz. Usa `aTrack` (s, x, h, máscara de curva); el casco se distingue por `h < -0,3` o `|x| > 16,6`. Colores y brillo por circuito: `paint` en `circuits.js`.
+- **Tipografías en local** (`fonts/`, SIL OFL 1.1): Michroma e IBM Plex Mono como `@font-face` en `index.html`; `build.mjs` copia la carpeta. El juego no hace ninguna petición externa.
+- **Plan general y relevo:** `PLAN-MEJORA.md`.
+
 ## Repaso visual de las fases antiguas y de Marte (16 de noviembre de 2026)
 
 - **Intro sin atravesar el terreno** (`EagleFlight.avoidTerrain`, `camera.js`): al montar la intro se recorre la trayectoria con rayos contra el escenario; donde la cámara queda enterrada (lo primero que hay encima es el reverso de una superficie que mira hacia arriba) se eleva con entrada y salida suaves. No actúa bajo techos (túneles, cuevas). En ENCELADUS la cámara pasaba hasta 217 m bajo el hielo entre los segundos 7,4 y 9. Resultado en caché por circuito (`G.liftCache`).

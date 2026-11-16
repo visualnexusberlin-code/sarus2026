@@ -3,6 +3,7 @@
 //  Circuito generado (no viene del GLB): trazado digitalizado de la referencia,
 //  cotas que siguen la montaña, dos saltos sobre grietas y un túnel dentro de una lengua de lava.
 // ─────────────────────────────────────────────────────────────
+import { DECK_SOLID } from './deckprofile.js';
 import { REG_NOISE, regolithColor, REG_BUMP, marsRelief } from './regolith.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
@@ -181,7 +182,7 @@ export function buildMars(def, { world, own, srcMat }) {
     if (!cuts.length) spans.push([0, L]);
     else cuts.forEach((c, i) => { const nx = cuts[(i + 1) % cuts.length]; spans.push([c.s1, nx.s0 + (i === cuts.length - 1 ? L : 0)]); });
   }
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   const spine = [[-3.2, -1.6], [3.2, -1.6], [2.2, -4.6], [-2.2, -4.6]];

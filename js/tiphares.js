@@ -2,6 +2,7 @@
 // La pista se despliega sobre una cadena de plataformas flotantes de nácar y oro con jardines;
 // en el gran espacio interior del trazado (donde estaría el lago) flota la ciudadela Tiphares: un loto metálico
 // de pétalos curvos, con una cúpula de cristal llena de agujas y un tallo de discos que se hunde en las nubes.
+import { DECK_SOLID } from './deckprofile.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('tiphares');                      // trazado en espejo (reshape.js)
@@ -232,7 +233,7 @@ export function buildTiphares(def, { world, own, srcMat }) {
     gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gg.setIndex(idx); gg.computeVertexNormals();
     return gg;
   };
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   parts.deck.push(sweepSeg(0, L, 3, deckProf, true, 32));

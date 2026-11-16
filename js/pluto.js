@@ -7,6 +7,7 @@
 //   ELLIOT BOWL       cuenco técnico: paredes interiores, eses en el fondo y el pico central
 //   THE CLIMB         rampa a ~52° por la pared sur hasta el borde y vuelta a la superficie
 //   WHALE BACK        cierre ondulante sobre la superficie rojiza antes de la recta final
+import { DECK_SOLID } from './deckprofile.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
@@ -560,7 +561,7 @@ export function buildPluto(def, { world, own, srcMat }) {
     gg.computeVertexNormals();
     return gg;
   };
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   for (const [a, b] of [[gapS1, gapS0 + L]]) {

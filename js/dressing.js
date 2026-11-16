@@ -176,23 +176,69 @@ export function deckMaterial(base, opts = {}) {
       .replace('#include <common>', '#include <common>\nvarying vec4 vTrack; uniform float uTime; uniform float uLen; ' + PAINT_U)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         {
-          float s = vTrack.x, x = vTrack.y, ax = abs(x), cm = vTrack.w;
+          // ── Señalización de pista (v2): no es una carretera. Tiras de LED en los bordes con un pulso que corre hacia
+          //    delante, dos raíles de energía con flujo y nodos, flechas de sentido en las rectas, galones luminosos antes
+          //    de las curvas, travesaños de distancia cada 100 m, retícula hexagonal grabada en el carril central y, en el
+          //    casco (hombro y costado), paneles oscuros con una línea de luz. Todo en el shader: sin geometría nueva. ──
+          float s = vTrack.x, x = vTrack.y, ax = abs(x), hh = vTrack.z, cm = vTrack.w;
           vec3 amber = uEdge, verm = uChev, ivory = uLane;
-          float edge = smoothstep(12.55, 12.6, ax) * (1.0 - smoothstep(13.05, 13.1, ax));
-          float lane = (1.0 - smoothstep(0.07, 0.11, abs(ax - 5.4))) * step(fract(s / 14.0), 0.45);
-          float chev = step(fract((s + ax * 0.6) / 7.0), 0.16) * (1.0 - smoothstep(9.0, 9.5, ax)) * step(3.0, ax) * cm;
+          float fs = fwidth(s), near = clamp(1.0 - fs * 0.22, 0.0, 1.0), mid = clamp(1.0 - fs * 0.05, 0.0, 1.0);   // de lejos, el detalle fino se funde
+          float top = step(-0.3, hh) * (1.0 - step(16.6, ax));
+          // bordes: tira de LED segmentada + paquete de luz que avanza
+          float edge = smoothstep(12.5, 12.56, ax) * (1.0 - smoothstep(13.1, 13.16, ax)) * top;
+          float led = mix(0.62, step(0.22, fract(s / 1.5)), near);
+          float chase = smoothstep(0.86, 1.0, fract(s / 120.0 - uTime * 0.85));
+          // raíles de energía: línea fina continua, tramos que fluyen hacia delante y nodos en rombo cada 28 m
+          float rl = abs(ax - 5.4);
+          float rail = (1.0 - smoothstep(0.045, 0.1 + fs * 0.02, rl)) * top;
+          float flow = step(fract(s / 14.0 - uTime * 1.7), 0.32);
+          float node = (1.0 - smoothstep(0.34, 0.42, rl + abs(fract(s / 28.0) - 0.5) * 28.0 * 0.5)) * top * mid;
+          // flechas de sentido en las rectas (tres galones finos), que se encienden en secuencia
+          float sm = fract(s / 56.0) * 56.0;
+          float arrowBand = step(sm, 5.4) * (1.0 - step(2.6, ax)) * (1.0 - cm) * top * mid;
+          float av = fract((sm + ax * 0.9) / 1.8);
+          float arrow = arrowBand * step(av, 0.2) * step(0.9 * ax, sm) ;
+          float seq = 0.55 + 0.45 * step(0.5, fract(sm / 5.4 - uTime * 1.3));
+          // galones antes de curva (ya existían): ahora luminosos y más nítidos
+          float chev = step(fract((s + ax * 0.6) / 7.0), 0.16) * (1.0 - smoothstep(9.0, 9.5, ax)) * step(3.0, ax) * cm * top;
+          // travesaños de distancia cada 100 m: dos trazos transversales entre raíl y borde, con tres muescas
+          float ds100 = abs(fract(s / 100.0 + 0.5) - 0.5) * 100.0;
+          float tick = (1.0 - smoothstep(0.1, 0.16 + fs * 0.05, ds100)) * step(6.4, ax) * (1.0 - step(11.9, ax)) * top * mid;
+          float notch = (1.0 - smoothstep(0.1, 0.16, abs(ds100 - 1.2))) * step(10.2, ax) * (1.0 - step(11.9, ax)) * step(0.5, fract(ax * 1.6)) * top * near;
+          // retícula hexagonal grabada (solo de cerca, carril central)
+          #ifdef WET_LITE
+            float hexl = 0.0;
+          #else
+            vec2 hp = vec2(x, s) / 1.9; vec2 hr = vec2(1.0, 1.7320508), hhf = hr * 0.5;
+            vec2 ha = mod(hp, hr) - hhf, hb = mod(hp - hhf, hr) - hhf; vec2 hg = dot(ha, ha) < dot(hb, hb) ? ha : hb;
+            float hd = 0.5 - max(abs(hg.x), dot(abs(hg), normalize(hr)));
+            float hexl = (1.0 - smoothstep(0.02, 0.055, hd)) * (1.0 - smoothstep(4.3, 4.9, ax)) * near * top;
+          #endif
           float dS = min(s, uLen - s);
           float sf = 1.0 - smoothstep(2.4, 2.5, dS);
           float chk = mod(floor(s * 0.8) + floor((x + 16.0) * 0.8), 2.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.5 + 0.02, hexl * 0.55);
           diffuseColor.rgb = mix(diffuseColor.rgb, amber * 0.8, edge * 0.9);
-          diffuseColor.rgb = mix(diffuseColor.rgb, ivory * 0.7, lane * 0.55);
-          diffuseColor.rgb = mix(diffuseColor.rgb, verm, chev * 0.75);
-          diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.03), vec3(0.86, 0.84, 0.78), chk), sf * (1.0 - smoothstep(14.0, 14.2, ax)));
+          diffuseColor.rgb = mix(diffuseColor.rgb, ivory * 0.75, max(rail * 0.7, node * 0.9));
+          diffuseColor.rgb = mix(diffuseColor.rgb, ivory * 0.8, arrow * 0.7);
+          diffuseColor.rgb = mix(diffuseColor.rgb, verm, chev * 0.8);
+          diffuseColor.rgb = mix(diffuseColor.rgb, amber * 0.8, max(tick, notch) * 0.8);
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.03), vec3(0.86, 0.84, 0.78), chk), sf * (1.0 - smoothstep(14.0, 14.2, ax)) * top);
+          // casco: hombro exterior y costados, en chapa oscura despiezada, con una línea de luz a media altura
+          float hull = 1.0 - top;
+          float seamH = 1.0 - smoothstep(0.02, 0.07 + fs * 0.03, abs(fract(s / 9.0) - 0.5) * 9.0 - 4.44);
+          vec3 hullCol = vec3(0.07, 0.075, 0.085) * (0.85 + 0.3 * fract(sin(floor(s / 9.0) * 12.9898) * 43758.5453)) * (1.0 - 0.45 * seamH * mid);
+          diffuseColor.rgb = mix(diffuseColor.rgb, hullCol + diffuseColor.rgb * 0.18, hull * step(0.5, step(17.0, ax) + step(hh, -0.35)));
+          float strip = max(1.0 - smoothstep(0.12, 0.2, abs(hh + 1.35)), (1.0 - smoothstep(0.07, 0.13, abs(hh + 4.6))) * step(0.5, fract(s / 6.0))) * step(19.0, ax) * hull;   // línea de luz continua y, más abajo, una segunda a trazos
           float pulse = 0.75 + 0.25 * sin(uTime * 6.0 - s * 0.08);
-          totalEmissiveRadiance += amber * edge * uGlow.x + verm * chev * uGlow.y * pulse;
+          totalEmissiveRadiance += amber * edge * uGlow.x * (0.55 * led + 1.6 * chase)
+            + ivory * (rail * (0.22 + 0.75 * flow) + node * 1.1 + arrow * seq * 0.9) * uGlow.x * 0.75
+            + verm * chev * max(uGlow.y, 0.6) * pulse * 1.25
+            + amber * (tick * 0.7 + notch * 0.5) * uGlow.x
+            + amber * strip * (0.9 + 1.6 * chase) * max(uGlow.x, 0.8);
         }`);
   };
-  if (wet) m.customProgramCacheKey = () => 'deckWet9' + (LITE ? 'L' : '');
+  if (wet) m.customProgramCacheKey = () => 'deckWet10' + (LITE ? 'L' : '');
   m.userData.track = true; return m;
 }
 

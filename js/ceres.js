@@ -7,6 +7,7 @@
 //   THE WALL   pared del asteroide Gamma a 55°; en la cumbre la nave despega y vuela sobre el cruce del 8
 //   SHADOW STRAIGHT recta abierta entre campos de fuerza, con impactos anunciados y rebufo de iones
 // Estética: polvo a contraluz, roca parda, acentos en blanco sal y ámbar sodio (las sales de los cráteres de Ceres).
+import { DECK_THIN } from './deckprofile.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
@@ -553,7 +554,7 @@ export function buildCeres(def, { world, own, srcMat, renderer }) {
   };
   // tramos con tablero: la vuelta menos los dos vuelos
   const solid = []; { const g = [...track.gaps].sort((a, b) => a.s0 - b.s0); let a = g[g.length - 1].s1 - L; for (const gp of g) { solid.push([a, gp.s0]); a = gp.s1; } }
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_THIN;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   for (const [a, b] of solid) {

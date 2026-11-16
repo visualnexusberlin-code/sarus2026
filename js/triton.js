@@ -7,6 +7,7 @@
 //   GEYSER FIELD     penachos de nitrógeno a los lados (turbulencia: sacudida)
 //   NEPTUNE STRAIGHT recta final hacia Neptuno, que domina el horizonte
 // Bajo tierra: niebla de altura densa y clara (lo lejano se aclara, lo cercano queda oscuro: siluetas brutalistas).
+import { DECK_SOLID } from './deckprofile.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
@@ -591,7 +592,7 @@ export function buildTriton(def, { world, own, srcMat }) {
     return gg;
   };
   const solid = [[gapS1, gapS0 + L]];
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   for (const [a, b] of solid) {

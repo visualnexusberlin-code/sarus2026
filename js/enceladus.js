@@ -8,6 +8,7 @@
 //   GALLERIES II  segundo anillo de cohetes
 //   THE ASCENT    vuelta a la superficie
 // Estructuras: arquitectura tubular blanca segmentada (referencia del autor) sobre las ruinas de estaciones anteriores a SARUS.
+import { DECK_SOLID } from './deckprofile.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Track } from './track.js';
@@ -653,7 +654,7 @@ export function buildEnceladus(def, { world, own, srcMat, renderer }) {
   const span = (a, b, fn) => { const out = []; let st = null; for (let q = a; q <= b; q += 2) { const ok = fn(q); if (ok && st === null) st = q; if (!ok && st !== null) { out.push([st, q]); st = null; } } if (st !== null) out.push([st, b]); return out; };
   const noFly = (q) => !inRange(q, S.fly0, S.fly1);
   const railed = (q) => !inRange(q, S.fly0 - RAMP, S.fly1 + RAMP);
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_SOLID;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   for (const [a, b] of span(0, L, noFly)) parts.deck.push(sweepSeg(a, b, 3, deckProf, true));

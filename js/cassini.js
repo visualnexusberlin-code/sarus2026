@@ -2,6 +2,7 @@
 // El tablero descansa en columnas clavadas en fragmentos de hielo y roca de los anillos; bajo la pista,
 // el enjambre de fragmentos; hasta el horizonte, la lámina de anillos con sus bandas; al fondo, Saturno
 // (colores naturales: beige dorado apagado, bandas suaves; anillos crema, tostado y gris azulado).
+import { DECK_THIN } from './deckprofile.js';
 import * as THREE from 'three';
 import { reshapeLoop, mx } from './reshape.js';
 const MX = mx('cassini');                      // trazado en espejo (reshape.js)
@@ -171,7 +172,7 @@ export function buildCassini(def, { world, own, srcMat }) {
     gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gg.setIndex(idx); gg.computeVertexNormals();
     return gg;
   };
-  const deckProf = [[-16.8, 0], [16.8, 0], [17.3, -0.6], [15.2, -1.7], [-15.2, -1.7], [-17.3, -0.6]];
+  const deckProf = DECK_THIN;   // sección del tablero: deckprofile.js
   const wallL = [[-16.35, -0.05], [-16.35, 1.75], [-16.9, 1.95], [-17.4, 1.75], [-17.4, -0.7]];
   const wallR = wallL.map(([x, h]) => [-x, h]).reverse();
   parts.deck.push(sweepSeg(0, L, 3, deckProf, true, 32));
