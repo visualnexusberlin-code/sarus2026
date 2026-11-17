@@ -107,3 +107,18 @@ Opus 5.5 puede continuar todo lo anterior: la base del juego se hizo con él y e
 - Una tarea acotada por sesión (un circuito, o un paso de Android), siempre en una rama `claude/…` y con prueba en la beta.
 - Pedir medida antes y después (órdenes de dibujo, errores en los 15 circuitos) y capturas.
 - Para el trabajo de shaders y de rendimiento, pedir que explique la causa antes de cambiar nada.
+
+## 8. Próximas sesiones, en orden (pensadas para Opus 5.5)
+
+Guiones de prueba sin tarjeta gráfica: `tools/pruebas/` (`rperf.py` carrera: órdenes de dibujo, compilaciones y errores; `phys.py` vuelta de cada nave con la IA; `heavy.py` esfera púrpura; `isheet.py` intros). Uso: `python3 -I tools/pruebas/rperf.py dist olympus nogov 20`.
+
+1. **Publicar la rama `claude/fluidez`** en `main` con copia `estable/…` (cuando Dear diga «publica»).
+2. **Android, primer APK.** Capacitor + una acción de GitHub que compile el APK de prueba y lo deje como descarga (Dear no usa terminal). Objetivo: jugar en un móvil real cuanto antes.
+3. **Lo que Android rompe y la web no:** pérdida del contexto WebGL al pasar a segundo plano (`webglcontextlost` / `restored`: hoy no se gestiona), pausa y audio en `pause`/`resume`, botón Atrás, pantalla siempre encendida, modo inmersivo.
+4. **Guardado seguro.** El progreso vive en `localStorage`; en Android el sistema puede borrarlo. Pasarlo a `@capacitor/preferences` con migración.
+5. **Tamaño.** Solo flota ligera, geometría comprimida (meshopt), música revisada. Meta: menos de 80 MB.
+6. **Compras** (`sarus_full`), con restaurar compra y modo sin conexión.
+7. **Idiomas:** auditoría ES/EN completa (buscar textos sin `tr(…)` / `L(…)`).
+8. **Privacidad y ficha:** política de privacidad, «Seguridad de los datos», créditos y aviso de contenido generado con IA, capturas, textos ES/EN.
+9. **Prueba cerrada** en Play. Empezarla pronto: es el plazo más largo y no depende del código.
+10. **Limpieza de código, sin prisa:** barrido de pista común a los 12 circuitos, `main.js` (2.300 líneas) en módulos (carrera, menús, regulador), fuga de geometrías, sello de versión en Ajustes.
