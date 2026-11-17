@@ -122,3 +122,12 @@ Guiones de prueba sin tarjeta gráfica: `tools/pruebas/` (`rperf.py` carrera: ó
 8. **Privacidad y ficha:** política de privacidad, «Seguridad de los datos», créditos y aviso de contenido generado con IA, capturas, textos ES/EN.
 9. **Prueba cerrada** en Play. Empezarla pronto: es el plazo más largo y no depende del código.
 10. **Limpieza de código, sin prisa:** barrido de pista común a los 12 circuitos, `main.js` (2.300 líneas) en módulos (carrera, menús, regulador), fuga de geometrías, sello de versión en Ajustes.
+
+## 9. Editor de etalonaje por circuito (petición de Dear, 17 de noviembre)
+
+Herramienta dentro del propio juego, solo con `?editor` en la dirección (nunca en la versión de la tienda): un panel con deslizadores que cambian la imagen en vivo durante la carrera o la intro.
+
+- **Ya existe la base:** el pase final `grade` (`js/main.js`) tiene saturación, contraste, tinte, viñeta, grano y `uRedKeep`; cada circuito trae sus valores en `grade` (`js/circuits.js`). El AO es `aoPass` (intensidad, radio).
+- **Añadir al shader de `grade`:** exposición, luminosidad, niveles (negro, blanco, gamma) y balance sombras / medios / luces por color; curvas como textura de 256 px (LUT 1D) generada desde los puntos del panel. Todo son uniformes: no recompila nada.
+- **Panel:** deslizadores, botón «antes / después», «restablecer circuito» y «copiar ajustes» (JSON). Guardado provisional en `localStorage` por circuito; Dear pega el JSON en el chat y el modelo lo deja fijo en `circuits.js`.
+- **Encaja después del punto 2 de la sección 8** (ver el resultado en el móvil antes de etalonar: la pantalla cambia mucho el color).
