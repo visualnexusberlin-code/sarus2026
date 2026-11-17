@@ -206,6 +206,23 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
+## Rotulado de carenado de la flota (17 de noviembre de 2026)
+
+**Por qué.** Muchas naves no llevaban el nombre, o lo llevaban tan pequeño (0,6 m sobre 6 m de nave), fino o mal proyectado que no se leía; cada una tenía su propia letra.
+
+**Sistema común** (`tools/livery/`): una «placa de identidad» igual para toda la flota.
+- Bloque de tinta oscura con el extremo izquierdo en semicírculo; dentro, un círculo con el color de la propulsión de la escudería (el único color), el NOMBRE en Michroma (la tipografía de la interfaz, engrosada para que aguante la distancia), un raíl de barra y nodos que codifica en binario el número de la nave (cada nave tiene el suyo) y el resto del nombre de la escudería con su número en IBM Plex Mono. Referencias: carteles de tinta sobre papel (barras con terminales circulares), bloques redondeados de la Bauhaus y la microtipografía editorial.
+- El bloque oscuro garantiza el contraste sobre cualquier casco (cromo, nácar, blindaje con relieve).
+- Va en los dos costados (lo que se ve en el hangar, en las intros y cuando un rival pasa al lado). Una placa encima apenas se lee desde la cámara de carrera (16° sobre el horizonte).
+- `apply.mjs` busca el sitio: el mayor rectángulo de casco liso, igual a los dos lados, sin cristal ni emisores, con el rayo de proyección horizontal o inclinado 22–40° (55° en RAMA) para los flancos que se cierran hacia arriba. Las letras se proyectan sobre el casco real (rejilla de rayos), separadas 8 mm.
+- Un atlas para las 20 placas (2048×2560; 1024×1280 en ligera) y un único material «FLEET | Name livery»: un solo programa de shader para toda la flota (antes, uno por nave).
+- WOLFEN y BERLIN no llevan placa: ya tienen el nombre enorme pintado en la textura original.
+- Los sitios elegidos quedan en `tools/livery/spots.json`; la flota ligera usa los mismos (`SPOTS=`). Ajustes por nave en `OVERRIDE` (`apply.mjs`).
+- Regenerar: desde una carpeta con @gltf-transform, sharp, gl-matrix y opentype.js, `F=ships45.glb OUT=… SAVE=tools/livery/spots.json node livery/apply.mjs` y luego `LITE=1 SPOTS=tools/livery/spots.json F=ships45_lite.glb OUT=… node livery/apply.mjs`. Las tipografías TTF salen de `fonts/` (woff2 → ttf con fontTools).
+- Visor de la flota sin el juego: `tools/view/fleet.html?f=/ships45.glb&views=hangar,hangarL,chase`.
+
+**SEILATOR VANGUARD.** La escudería de Plutón pasa a llamarse SEILATOR (nombre corto) / SEILATOR VANGUARD (escudería). El identificador interno sigue siendo `SAILETOR_22` (nodo del GLB, láminas, preferencias guardadas).
+
 ## Físicas v2 y cohete de doble impacto (16 de noviembre de 2026)
 
 **Por qué.** Las naves ya tenían estilo propio (respuesta, agarre, masa, inclinación), pero la masa solo afectaba a la flotación y a los choques, y V/A/M movían la punta, el empuje y el giro en márgenes del 4–13 %. Al volante se parecían demasiado.

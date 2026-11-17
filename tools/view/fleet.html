@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#222}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head><body>
+<script type="module">
+// Hoja de la flota: cada nave desde la cámara de carrera (detrás y arriba), desde arriba y de lado. uso: fleet.html?f=ships45.glb[&only=A,B]
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+const Q = new URLSearchParams(location.search), W = +(Q.get('w') || 420), H = Math.round(W * 0.62);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+const s = new THREE.Scene(); s.background = new THREE.Color(0x3a3f47);
+s.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(2, 5, -1); s.add(sun);
+const g = await new GLTFLoader().loadAsync(Q.get('f'));
+const only = Q.get('only')?.split(',');
+const roots = g.scene.children.filter((n) => /_\d+$/.test(n.name) && (!only || only.some((o) => n.name.startsWith(o))));
+const views = (Q.get('views') || 'chase,top,side').split(',');
+const dirs = { hangar: [1, 0.22, 0.75], hangarL: [-1, 0.22, -0.6], sideL: [-1, 0.12, 0], chase: [0, 0.42, -1], top: [0, 1, -0.001], side: [1, 0.15, 0], rear: [0.55, 0.3, -1], front: [0.5, 0.35, 1] };
+const cv = document.createElement('canvas'); cv.width = W * views.length; cv.height = H * roots.length; const x = cv.getContext('2d');
+const cam = new THREE.PerspectiveCamera(28, W / H, 0.01, 200);
+s.add(g.scene); for (const n of g.scene.children) n.visible = false;
+roots.forEach((o, j) => {
+  o.visible = true; o.traverse((c) => { if (/_lod|LOD|shadow/i.test(c.name)) c.visible = false; });
+  const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3()), R = b.getSize(new THREE.Vector3()).length() * 0.5;
+  views.forEach((v, i) => { cam.position.copy(c).add(new THREE.Vector3(...dirs[v]).normalize().multiplyScalar(R * (v === 'top' ? 3.6 : 3.4))); cam.up.set(0, 1, 0); if (v === 'top') cam.up.set(0, 0, 1); cam.lookAt(c); r.render(s, cam); x.drawImage(r.domElement, i * W, j * H); });
+  x.fillStyle = '#fff'; x.font = '22px monospace'; x.fillText(o.name, 10, j * H + 28);
+  o.visible = false;
+});
+window.__dbg = roots.map((o) => { const b = new THREE.Box3(); o.visible = true; b.setFromObject(o); let n = 0; o.traverse((c) => { if (c.isMesh) n++; }); o.visible = false; return [o.name, n, b.min.toArray().map((v) => +v.toFixed(2)), b.max.toArray().map((v) => +v.toFixed(2))]; }); window.__img = cv.toDataURL('image/jpeg', 0.85); window.__done = true;
+</script></body></html>

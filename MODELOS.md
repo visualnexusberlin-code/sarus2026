@@ -16,7 +16,8 @@ Cada cambio en la rama `main` reconstruye el juego y lo publica en Firebase (pes
 OLYMPUS-3 no usa GLB: se genera en `js/mars.js`.
 
 ## Reglas para que la nave siga funcionando al exportar desde Blender
-- Un objeto raíz por nave con el nombre de la flota (`ILION_1`, `SCUBA_2`, `THULE_3`… `VOSTOK_21`, `SAILETOR_22`; ver `js/fleet.js`).
+- Un objeto raíz por nave con el nombre de la flota (`ILION_1`, `SCUBA_2`, `THULE_3`… `VOSTOK_21`, `SAILETOR_22` —la SEILATOR VANGUARD—; ver `js/fleet.js`).
+- El nombre de la escudería en los costados lo pone `tools/livery/apply.mjs` (no hace falta modelarlo).
 - Morro hacia +Z (hacia −Y en Blender antes de exportar con +Y arriba), escala real (~5,5 m de largo).
 - Materiales con estos sufijos, que el juego reconoce: `_Hover` (emisores de levitación), `_Ion` (toberas).
 - Logo del hangar: objeto `LOGO_NOMBRE` (p. ej. `LOGO_ILION`).
