@@ -5,7 +5,7 @@ Documento de relevo: resume dónde está el juego, qué queda por hacer y cómo 
 ## 0. Cómo trabajar en este repositorio
 
 - **Ramas y publicación.** `main` se publica sola en https://sarus-2026.web.app. Cada push a una rama `claude/**` o `beta/**` se publica en el canal beta (https://sarus-2026--beta-rc97nqys.web.app) sin tocar la versión pública. Regla de Dear: nunca publicar en `main` sin su «publica» explícito, y antes guardar copia en una rama `estable/AAAA-MM-DD-motivo`.
-- **Estado actual.** Rama `claude/fluidez`: contiene fluidez, repaso visual, pista nueva y tipografías en local. Está en la beta y **pendiente de aprobación** para pasar a `main`.
+- **Estado actual.** Todo lo de `claude/fluidez` (fluidez, repaso visual, pista, físicas v2, cohete púrpura, rotulado de la flota) está publicado en `main` desde el 17 de noviembre de 2026.
 - **Compilar:** `npm run build` (esbuild → `dist/`).
 - **Verificar sin GPU** (el entorno de trabajo no tiene tarjeta gráfica): se miden órdenes de dibujo, triángulos, compilaciones de shader y errores con Playwright + SwiftShader y los ganchos de prueba (`window.__srs`, `?test`, `?nogov`, `?debug`). Los fps y el aspecto final solo los puede juzgar Dear en la beta. Decirlo siempre así.
 - **Reglas que ya costaron un fallo** (no repetir):
@@ -112,7 +112,7 @@ Opus 5.5 puede continuar todo lo anterior: la base del juego se hizo con él y e
 
 Guiones de prueba sin tarjeta gráfica: `tools/pruebas/` (`rperf.py` carrera: órdenes de dibujo, compilaciones y errores; `phys.py` vuelta de cada nave con la IA; `heavy.py` esfera púrpura; `isheet.py` intros). Uso: `python3 -I tools/pruebas/rperf.py dist olympus nogov 20`.
 
-1. **Publicar la rama `claude/fluidez`** en `main` con copia `estable/…` (cuando Dear diga «publica»).
+1. ~~Publicar la rama `claude/fluidez` en `main`~~ **Hecho el 17 de noviembre** (con rotulado de carenado y SEILATOR VANGUARD). Copia de la versión anterior: rama `estable/2026-11-17-antes-de-fluidez`.
 2. **Android, primer APK.** Capacitor + una acción de GitHub que compile el APK de prueba y lo deje como descarga (Dear no usa terminal). Objetivo: jugar en un móvil real cuanto antes.
 3. **Lo que Android rompe y la web no:** pérdida del contexto WebGL al pasar a segundo plano (`webglcontextlost` / `restored`: hoy no se gestiona), pausa y audio en `pause`/`resume`, botón Atrás, pantalla siempre encendida, modo inmersivo.
 4. **Guardado seguro.** El progreso vive en `localStorage`; en Android el sistema puede borrarlo. Pasarlo a `@capacitor/preferences` con migración.
