@@ -26,8 +26,11 @@ const ASPECT = TILE_W / TILE_H;
 export const OVERRIDE = {
   WOLFEN_6: { skip: true },     // ya lleva WOLFEN enorme en los costados (textura original)
   BERLIN_10: { skip: true },    // ya lleva BERLIN enorme en los costados (textura original)
+  // Revisión de Dear (18 nov. 2026): en estas la placa caía sobre la cabina o en mal sitio; vuelven a su rótulo original
+  SCUBA_2: { skip: true }, NEXUS_8: { skip: true }, MANTA_9: { skip: true }, X3LEE_11: { skip: true },
+  HUEMING_12: { skip: true }, VEGA_13: { skip: true }, RAMA_14: { skip: true }, KIBEROS_17: { skip: true },
+  ORION_18: { skip: true }, PHANTOM_19: { skip: true }, ANTARES_20: { skip: true },
   SAILETOR_22: { maxW: 1.7, tilts: [0, 12, 25] },   // casco muy trabajado: placa más corta y casi vertical, sobre el composite liso del flanco
-  RAMA_14: { tilts: [40, 55, 65] },   // flancos que se cierran mucho: la placa va en el hombro de nácar
 };
 // SPOTS=fichero.json: usa los sitios guardados (SAVE=) en una pasada anterior (la flota ligera copia los de la completa)
 const SAVED = process.env.SPOTS ? JSON.parse(fs.readFileSync(process.env.SPOTS, 'utf8')) : null;
@@ -202,9 +205,10 @@ const jobs = [];
 for (const d of fleet) {
   if (only && !only.includes(d.node)) continue;
   const R = scene.listChildren().find((n) => n.getName() === d.node); if (!R) { console.log('falta', d.node); continue; }
-  for (const c of [...R.listChildren()]) if (c.getName() === `${d.node}_name`) c.dispose();
   const o = { ...(OVERRIDE[d.node] || {}), ...(SAVED?.[d.node] || {}) };
-  if (SKIP.has(d.node) || o.skip) { console.log(d.node.padEnd(12), 'sin placa'); continue; }
+  // sin placa: la nave conserva su rótulo original (calcomanía propia o nombre pintado en la textura)
+  if (SKIP.has(d.node) || o.skip) { console.log(d.node.padEnd(12), 'rótulo original'); continue; }
+  for (const c of [...R.listChildren()]) if (c.getName() === `${d.node}_name`) c.dispose();
   const tris = gather(R);
   const fields = { top: makeField(tris, PROJ.top), side: {} };
   for (const t of TILTS) fields.side[t] = { right: makeField(tris, sideProj(1, t)), left: makeField(tris, sideProj(-1, t)) };
