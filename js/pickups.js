@@ -127,7 +127,14 @@ export class Pickups {
       this.heavyItem = { s: 0, x: 0, type: 'P', big: 1.2, active: true, t: 0, pop: 1, seed: Math.random() * 10 };
       this.items.push(this.heavyItem);
     }
-    this.types = ['G', 'R', ...(this.mega ? ['B'] : []), ...(this.heavyItem ? ['P'] : [])];
+    // filas de tres azules (ÍO): el circuito las pide en track.megaRows (s); sustituyen a la fila normal que caiga ahí
+    for (const ms of track.megaRows || []) {
+      this.items = this.items.filter((i) => Math.abs(track.delta(i.s, ms)) > 26);
+      const wq = Math.min(1, track.wAt ? track.wAt(ms) : 1);
+      for (const x of C.lanes) this.items.push({ s: ms, x: x * wq, type: 'B', big: 1.35, active: true, t: 0, pop: 1, seed: Math.random() * 10, row: true });
+    }
+    this.megaRespawn = track.megaRespawn;
+    this.types = ['G', 'R', ...(this.mega || track.megaRows?.length ? ['B'] : []), ...(this.heavyItem ? ['P'] : [])];
     this.meshes = {};
     const geo = new THREE.IcosahedronGeometry(1.25, 3);
     const quad = new THREE.PlaneGeometry(1, 1);
@@ -178,7 +185,7 @@ export class Pickups {
 
   update(dt, ships, onPick) {
     this.t += dt;
-    const tr = this.track, respawn = CONFIG.pickups.respawn, megaRespawn = CONFIG.mega?.respawn ?? respawn;
+    const tr = this.track, respawn = CONFIG.pickups.respawn, megaRespawn = this.megaRespawn ?? CONFIG.mega?.respawn ?? respawn;
     for (const it of this.items) {
       if (it.replaced) continue;
       if (!it.active) { it.t -= dt; if (it.t <= 0) { it.active = true; it.pop = 0; } continue; }

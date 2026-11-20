@@ -62,6 +62,8 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
 
 **Medido** (`tools/pruebas/branchtest.py`, carrera acelerada de 180 s con 21 rivales): 33 pasos por el viaducto, 32 saltos, 3 eliminaciones en la lava (≈ 5 %); ninguna nave retrocede en la clasificación; 313 órdenes de dibujo; ninguna compilación de shader en carrera. CERES y EUROPA sin cambios.
 
+**Filas de turbos azules** (petición de Dear, 20 de noviembre): cinco filas de tres esferas de megaturbo que reaparecen a los 1,2 s (`track.megaRows`, `track.megaRespawn` en `io.js`; las lee `Pickups`). Dos seguidas en la recta de salida, una que lanza al viaducto, una en la terraza antes del túnel y otra dentro del túnel que lanza al salto. Medido en 3 min de carrera: 190–220 megaturbos cogidos (casi todo el pelotón, en casi todas las filas) y 6–8 eliminados en la lava, casi todos al entrar con megaturbo en el viaducto o en el salto. La IA con el megaturbo encendido solo se tira al viaducto si es temeraria. Mandos: posiciones en `megaRows`; reaparición en `megaRespawn`.
+
 **Pendiente de la fase 1:** el salto no es aún un vuelo balístico real (sigue la cota del ramal); la recepción no castiga despegar lento.
 
 ## Orden de trabajo

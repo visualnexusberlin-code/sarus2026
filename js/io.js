@@ -84,7 +84,7 @@ export function ioTrack() {
   // A · VIADUCTO: carril y medio (12 m), sin guardarraíles en todo el cruce, baja hacia la ensenada de lava
   const ptsA = branchPoints(track, { sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, yMid: [[0.5, 80]], tension: 0.3 });
   const A = track.addBranch({ id: 'viaduct', pts: ptsA, sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, width: 12, lethal: true });
-  A.open = [[110, A.blen - 110]]; A.aiTake = 0.45;
+  A.open = [[170, A.blen - 110]]; A.aiTake = 0.45;   // los primeros 170 m con muro: la nave se asienta antes de quedar sin red
   // B · SALTO: dos carriles (16 m); rampa que sube, vuelo sobre la cresta, recepción más baja (bordes abiertos los primeros 70 m)
   const ptsB = branchPoints(track, { sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, yMid: [[0.2, 172], [0.27, 176], [0.5, 120]], tension: 0.3 });
   const B = track.addBranch({ id: 'jump', pts: ptsB, sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, width: 16, lethal: true });
@@ -92,6 +92,11 @@ export function ioTrack() {
   let uTop = 0, yTop = -1e9; for (let u = 110; u < B.blen - 110; u += 2) { B.sampleU(u, F); if (F.pos.y > yTop) { yTop = F.pos.y; uTop = u; } }
   const uLand = uTop + 95;
   B.bgaps = [[uTop, uLand]]; B.open = [[uLand, uLand + 70]]; B.view.gaps = [{ s0: B.sOfU(uTop), s1: B.sOfU(uLand) }]; B.aiTake = 0.5;
+  // Filas de tres turbos azules (petición de Dear, 20 nov.): reaparecen enseguida para que casi todos cojan uno.
+  // Puestas para la locura: dos seguidas en la recta de salida, una que lanza al viaducto sin guardarraíles,
+  // una en la terraza que mete al pelotón en el túnel y otra dentro del túnel que lanza al salto.
+  track.megaRows = [300, 760, s.forkA - 260, s.mergeA + 420, s.tunnel + 260].map((q) => track.wrap(q));
+  track.megaRespawn = 1.2;
   return { track, s, M, A, B };
 }
 

@@ -82,6 +82,8 @@ export class AIDriver {
         if (d <= 0 || d > 220 + v * 0.8) continue;
         const key = `${q.id}:${Math.floor(sh.distance / tr.length)}`;
         if (this.route?.key !== key) this.route = { key, take: Math.random() < clamp((q.aiTake ?? 0.5) * (0.6 + 0.5 * skill + 0.3 * (this.aggression - 0.5)), 0, 0.95) };
+        // con el megaturbo encendido, al viaducto sin red solo se tira el más temerario
+        if (this.route.take && (sh.mega > 0 || v > C.vmaxBoost) && q.open?.length && d < 160 && !this.route.mad) { this.route.mad = true; if (Math.random() > 0.15 + 0.3 * this.aggression) this.route.take = false; }
         const w = clamp(1 - (d - 40) / (180 + v * 0.6), 0, 1);           // se va colocando al acercarse
         const want = this.route.take ? q.offA : q.splitX - q.side * 7;
         xt += (want - xt) * w;
