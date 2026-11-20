@@ -38,6 +38,7 @@ import { buildTharsis, tharsisSunDir } from './tharsis.js';
 import { buildCassini, cassiniSunDir } from './cassini.js';
 import { buildTiphares, tipharesSunDir } from './tiphares.js';
 import { buildEuropa, europaSunDir } from './europa.js';
+import { buildIo, ioSunDir } from './io.js';
 import { buildMiranda, mirandaSunDir } from './miranda.js';
 import { buildPhobos, phobosSunDir } from './phobos.js';
 import { buildCeres, ceresSunDir } from './ceres.js';
@@ -446,6 +447,7 @@ function applyLook(def) {
   if (def.sunFrom === 'cassini' && !def._sun) { def.atmosphere.sunDir = cassiniSunDir(); def._sun = true; }
   if (def.sunFrom === 'tiphares' && !def._sun) { def.atmosphere.sunDir = tipharesSunDir(); def._sun = true; }
   if (def.sunFrom === 'europa' && !def._sun) { def.atmosphere.sunDir = europaSunDir(); def._sun = true; }
+  if (def.sunFrom === 'io' && !def._sun) { def.atmosphere.sunDir = ioSunDir(); def._sun = true; }
   if (def.sunFrom === 'miranda' && !def._sun) { def.atmosphere.sunDir = mirandaSunDir(); def._sun = true; }
   if (def.sunFrom === 'phobos' && !def._sun) { def.atmosphere.sunDir = phobosSunDir(); def._sun = true; }
   if (def.sunFrom === 'ceres' && !def._sun) { def.atmosphere.sunDir = ceresSunDir(); def._sun = true; }
@@ -792,7 +794,7 @@ function srcMat(name, tweak) {
 function buildGenerated(def, own, t0) {
   const world = G.world = new THREE.Group();
   world.name = `WORLD ${def.name}`;
-  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus, mercury: buildMercury, triton: buildTriton, pluto: buildPluto })[def.generated](def, { world, own, srcMat, renderer });
+  const r = ({ itaka: buildItaka, mars: buildMars, tharsis: buildTharsis, cassini: buildCassini, tiphares: buildTiphares, europa: buildEuropa, io: buildIo, miranda: buildMiranda, phobos: buildPhobos, ceres: buildCeres, enceladus: buildEnceladus, mercury: buildMercury, triton: buildTriton, pluto: buildPluto })[def.generated](def, { world, own, srcMat, renderer });
   const track = G.track = r.track;
   trackUniforms.uLen.value = track.length;
   scene.add(world);
@@ -1632,6 +1634,11 @@ function updateRace(dt) {
     }
     sh.update(dt, i, locked);
     if (sh === ship && sh.landEvent) { G.chase.addShake(sh.landEvent); sh.landEvent = 0; }
+    if (sh.fallEvent === 'lava') {                       // ÍO: caída desde un desvío → eliminada
+      if (sh === ship) { hud.banner(tr('Eliminado', 'Eliminated'), tr('Tragado por la lava', 'Swallowed by the lava'), true, 3.2); G.chase.addShake(1.2); }
+      else if (G.track.delta(ship.s, sh.s) < 900) hud.banner(`${sh.name} ${tr('eliminada', 'eliminated')}`, tr('en la lava', 'in the lava'), false, 1.4, true);
+      sh.fallEvent = null;
+    }
     if (sh.fallEvent) {
       if (sh === ship) {
         if (sh.fallEvent === 'fell') { hud.banner(tr('Fuera de pista', 'Off the track'), tr('Caída al vacío', 'Into the void'), false, 2.0); audio.whoosh(); G.chase.addShake(0.6); }

@@ -166,7 +166,7 @@ export class Pickups {
   nearestAhead(ship, range, wantRed) {
     let best = null, bd = Infinity;
     for (const it of this.items) {
-      if (!it.active || it.replaced || (it.type === 'R' && !wantRed) || (it.type === 'P' && (ship.heavy || !wantRed))) continue;
+      if (!it.active || it.replaced || (it.branch || null) !== (ship.branch || null) || (it.type === 'R' && !wantRed) || (it.type === 'P' && (ship.heavy || !wantRed))) continue;
       const d = this.track.delta(ship.s, it.s);
       if (d > 12 && d < range) {
         const score = d + Math.abs(it.x - ship.x) * 4 - (it.type === 'B' ? 60 : it.type === 'G' ? 15 : 0);
@@ -184,7 +184,7 @@ export class Pickups {
       if (!it.active) { it.t -= dt; if (it.t <= 0) { it.active = true; it.pop = 0; } continue; }
       it.pop = Math.min(1, it.pop + dt * 2.5);
       for (const sh of ships) {
-        if (sh.dead > 0) continue;
+        if (sh.dead > 0 || (it.branch || null) !== (sh.branch || null)) continue;   // ÍO: cada ruta tiene sus esferas
         const d = tr.delta(sh.s, it.s);
         const big = it.big || 1;
         if (Math.abs(d) < sh.length * 0.5 + 1.2 * big && Math.abs(sh.x - it.x) < sh.halfWidthGeo + 1.3 * big) {
@@ -251,7 +251,7 @@ export class Missiles {
     // objetivo: la nave más cercana por delante (hasta 450 m)
     let target = null, bd = Infinity;
     for (const o of ships) {
-      if (o === owner || o.dead > 0 || o.invuln > 0) continue;
+      if (o === owner || o.dead > 0 || o.invuln > 0 || o.branch !== owner.branch) continue;   // ÍO: solo blancos de su misma ruta
       const d = this.track.delta(owner.s, o.s);
       // firma mínima (PHANTOM): solo se fija a corta distancia y cuesta más elegirla como blanco
       const st = o.C?.stealth ? 1 : 0;
@@ -264,7 +264,7 @@ export class Missiles {
     obj.add(flame);
     if (heavy) { obj.scale.setScalar(1.7); flame.scale.set(2.2, 2.2, 1); }
     this.scene.add(obj);
-    this.list.push({ obj, owner, target, s: owner.s + owner.length * 0.6, x: owner.x, v: Math.max(owner.v + 55, 120), life: 4.5, h: 1.3, heavy, charges: heavy ? 2 : 1, skip: null });
+    this.list.push({ obj, owner, target, s: owner.s + owner.length * 0.6, x: owner.x, v: Math.max(owner.v + 55, 120), life: 4.5, h: 1.3, heavy, charges: heavy ? 2 : 1, skip: null, route: owner.branch || null });
     return true;
   }
 
@@ -274,16 +274,20 @@ export class Missiles {
       const m = this.list[i];
       m.life -= dt;
       m.v = Math.min(270, m.v + 120 * dt);
-      m.s = tr.wrap(m.s + m.v * dt);
+      // ÍO: un cohete disparado en un ramal lo sigue hasta que vuelve a la ruta principal
+      if (m.route && tr.delta(m.route.sB, m.s) >= 0) { m.x += m.route.offB; m.route = null; }
+      const mt = m.route ? m.route.view : tr;
+      m.s = tr.wrap(m.s + m.v * dt * (mt.ratio || 1));
+      if (m.target && m.target.branch !== m.route) m.target = null;
       if (m.target) {
         const d = tr.delta(m.s, m.target.s);
         if (d < -6) m.target = null;
         else m.x += THREE.MathUtils.clamp(m.target.x - m.x, -1, 1) * 42 * dt;
       }
       let pos;
-      if (tr.flight && tr.flightAt(m.s) > 0) { this._pl = this._pl || { pos: new THREE.Vector3(), up: new THREE.Vector3(), right: new THREE.Vector3() };
-        tr.place(m.s, m.x, m.h, this.F, this._pl); pos = _v.copy(this._pl.pos); }
-      else { tr.sample(m.s, this.F); pos = _v.copy(this.F.pos).addScaledVector(this.F.right, m.x).addScaledVector(this.F.up, m.h); }
+      if (mt.flight && mt.flightAt(m.s) > 0) { this._pl = this._pl || { pos: new THREE.Vector3(), up: new THREE.Vector3(), right: new THREE.Vector3() };
+        mt.place(m.s, m.x, m.h, this.F, this._pl); pos = _v.copy(this._pl.pos); }
+      else { mt.sample(m.s, this.F); pos = _v.copy(this.F.pos).addScaledVector(this.F.right, m.x).addScaledVector(this.F.up, m.h); }
       m.obj.position.copy(pos);
       m.obj.lookAt(pos.clone().add(this.F.tan));
       // estela
@@ -292,10 +296,10 @@ export class Missiles {
       // impacto
       let hit = null;
       for (const o of ships) {
-        if ((o === m.owner && m.life > 4.2) || o.out || o === m.skip) continue;
+        if ((o === m.owner && m.life > 4.2) || o.out || o === m.skip || o.branch !== m.route) continue;
         if (Math.abs(tr.delta(m.s, o.s)) < 3 && Math.abs(o.x - m.x) < 2.1) { hit = o; break; }
       }
-      const wall = Math.abs(m.x) > Math.max(15.6, (tr.flightAt ? tr.flightAt(m.s) : 0) * (tr.flightR || 26) * 1.92 + 1);
+      const wall = Math.abs(m.x) > Math.max(15.6 * (mt.isBranch ? mt.wAt(m.s) : 1), (mt.flightAt ? mt.flightAt(m.s) : 0) * (mt.flightR || 26) * 1.92 + 1);
       if (hit || wall || m.life <= 0) {
         this.explode(pos, !!hit, m.heavy);
         if (hit) {
@@ -305,7 +309,7 @@ export class Missiles {
           if (m.charges > 1) {
             let bd = CONFIG.heavy?.reach ?? 320;
             for (const o of ships) {
-              if (o === hit || o === m.owner || o.out || o.dead > 0 || o.invuln > 0) continue;
+              if (o === hit || o === m.owner || o.out || o.dead > 0 || o.invuln > 0 || o.branch !== hit.branch) continue;
               const d = tr.delta(hit.s, o.s);
               if (d > 3 && d < bd) { bd = d; next = o; }
             }

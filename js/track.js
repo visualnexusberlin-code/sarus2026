@@ -188,7 +188,11 @@ export class Track {
     this.flightR = opts.flightR || 26; this.flightRamp = opts.flightRamp || 110;
     this.gaps = (opts.gaps || []).map(([f0, f1]) => ({ s0: f0 * this.length, s1: f1 * this.length }));
     this.sectors.sort((a, b) => a.s - b.s);
+    this.branches = [];
   }
+
+  // Ramal (desvío real, ÍO): geometría propia entre sA y sB de la ruta principal. Ver class Branch.
+  addBranch(def) { const b = new Branch(this, def); this.branches.push(b); return b; }
 
   // Índice espacial (rejilla XZ de 60 m) sobre la línea central ORIGINAL del GLB.
   buildIndex() {
@@ -326,4 +330,102 @@ export class Track {
     }
     return { s: best * this.ds, dist: Math.sqrt(bd) };
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Ramales (ÍO · LOKI PATERA, nov. 2026)
+// ─────────────────────────────────────────────────────────────
+// Un ramal es una pista abierta con su propia línea central que sale de la principal en sA y vuelve en sB.
+// Para no tocar el resto del juego, la nave que va por un ramal sigue midiendo su posición «s» en la ruta principal:
+// el ramal traduce s → su propia longitud (u) en proporción. Así vueltas, clasificación, esferas y rebufo siguen
+// funcionando igual, y un atajo más corto avanza s más deprisa (ratio > 1): la ventaja de tiempo sale sola.
+// Física, muros y dibujo usan la geometría real del ramal (metros de verdad).
+//
+// def: {
+//   id, pts: [Vector3]   línea central (empieza en main(sA) + right·offA y acaba en main(sB) + right·offB)
+//   sA, sB               s de salida y de vuelta en la ruta principal
+//   offA, offB           desplazamiento lateral del eje del ramal respecto al principal en los extremos (+ = derecha)
+//   splitX               línea de reparto en sA: entra quien va más allá (del lado de offA); por defecto offA/2
+//   width                anchura del tablero (m); 32 = la normal
+//   open: [[u0, u1]]     tramos sin guardarraíles (en metros del ramal): salirse = caer
+//   gaps: [[u0, u1]]     tramos sin tablero (salto): se vuela en parábola
+//   lethal               caer desde el ramal elimina la nave (lava)
+// }
+export class Branch {
+  constructor(main, def) {
+    Object.assign(this, { id: def.id, main, sA: def.sA, sB: def.sB, offA: def.offA, offB: def.offB, lethal: !!def.lethal });
+    this.splitX = def.splitX ?? def.offA / 2;
+    this.side = Math.sign(def.offA) || 1;
+    const curve = new THREE.CatmullRomCurve3(def.pts, false, 'centripetal', 0.5);
+    curve.arcLengthDivisions = def.pts.length * 40;
+    this.blen = curve.getLength();
+    const M = Math.max(8, Math.round(this.blen));
+    this.bds = this.blen / M; this.count = M + 1;
+    const P = curve.getSpacedPoints(M);
+    this.pos = new Float32Array(this.count * 3); this.tan = new Float32Array(this.count * 3);
+    this.right = new Float32Array(this.count * 3); this.up = new Float32Array(this.count * 3);
+    this.kappa = new Float32Array(this.count); const yaw = new Float32Array(this.count);
+    for (let i = 0; i < this.count; i++) {
+      const p = P[i], pn = P[Math.min(M, i + 1)], pp = P[Math.max(0, i - 1)];
+      this.pos.set([p.x, p.y, p.z], i * 3);
+      const t = _a.subVectors(pn, pp).normalize(); this.tan.set([t.x, t.y, t.z], i * 3);
+      const r = _b.crossVectors(t, UP).normalize(); this.right.set([r.x, r.y, r.z], i * 3);
+      const u = new THREE.Vector3().crossVectors(r, t).normalize(); this.up.set([u.x, u.y, u.z], i * 3);
+      yaw[i] = Math.atan2(t.x, t.z);
+    }
+    const raw = new Float32Array(this.count);
+    for (let i = 0; i < this.count; i++) { const a = Math.max(0, i - 2), b = Math.min(M, i + 2); let d = yaw[b] - yaw[a]; d = Math.atan2(Math.sin(d), Math.cos(d)); raw[i] = d / Math.max(1e-3, (b - a) * this.bds); }
+    for (let i = 0; i < this.count; i++) { let s = 0, n = 0; for (let k = -6; k <= 6; k++) { const j = i + k; if (j < 0 || j > M) continue; s += raw[j]; n++; } this.kappa[i] = s / n; }
+    if (def.bank) for (let i = 0; i < this.count; i++) {
+      const a = def.bank(i / M, this.kappa[i]); if (!a) continue;
+      const c = Math.cos(a), sn = Math.sin(a), o = i * 3;
+      const rx = this.right[o], ry = this.right[o + 1], rz = this.right[o + 2], ux = this.up[o], uy = this.up[o + 1], uz = this.up[o + 2];
+      this.right.set([rx * c + ux * sn, ry * c + uy * sn, rz * c + uz * sn], o);
+      this.up.set([ux * c - rx * sn, uy * c - ry * sn, uz * c - rz * sn], o);
+    }
+    this.wScale = (def.width || 32) / (main.width || 32);
+    this.open = def.open || []; this.bgaps = def.gaps || [];
+    this.span = main.delta(this.sA, this.sB); if (this.span <= 0) this.span += main.length;
+    this.ratio = this.span / this.blen;                // s principal por metro real recorrido en el ramal
+    this.view = new BranchView(this);
+  }
+  // s principal → metros del ramal (acotado a sus extremos)
+  u(s) { const d = this.main.delta(this.sA, s); return Math.min(this.blen, Math.max(0, d / this.ratio)); }
+  sOfU(u) { return this.main.wrap(this.sA + u * this.ratio); }
+  // dentro del ramal (en s principal)
+  contains(s) { const d = this.main.delta(this.sA, s); return d >= 0 && d <= this.span; }
+  sampleU(u, out) {
+    const f = Math.min(this.count - 1.0001, Math.max(0, u / this.bds)), i = Math.floor(f), j = i + 1, t = f - i;
+    const l3 = (arr, v) => v.set(arr[i * 3] + (arr[j * 3] - arr[i * 3]) * t, arr[i * 3 + 1] + (arr[j * 3 + 1] - arr[i * 3 + 1]) * t, arr[i * 3 + 2] + (arr[j * 3 + 2] - arr[i * 3 + 2]) * t);
+    l3(this.pos, out.pos); l3(this.tan, out.tan).normalize(); l3(this.right, out.right).normalize(); l3(this.up, out.up).normalize();
+    out.kappa = this.kappa[i] + (this.kappa[j] - this.kappa[i]) * t;
+    return out;
+  }
+  openAtU(u) { for (const [a, b] of this.open) if (u >= a && u <= b) return true; return false; }
+  gapAtU(u) { for (const [a, b] of this.bgaps) if (u >= a && u <= b) return (u - a) / (b - a); return -1; }
+}
+
+// Lo que la nave, la IA y los cohetes ven mientras van por el ramal: la misma interfaz que Track,
+// con s en la ruta principal. wrap, delta y length son los de la principal.
+class BranchView {
+  constructor(b) {
+    this.b = b; this.isBranch = true; this.branch = b;
+    this.length = b.main.length; this.width = b.main.width; this.ratio = b.ratio;
+    this.gaps = b.bgaps.map(([a, c]) => ({ s0: b.sOfU(a), s1: b.sOfU(c) }));
+    this.obstacles = null; this.flight = null;
+  }
+  wrap(s) { return this.b.main.wrap(s); }
+  delta(a, c) { return this.b.main.delta(a, c); }
+  frame() { return this.b.main.frame(); }
+  sample(s, out) { return this.b.sampleU(this.b.u(s), out); }
+  place(s, x, h, F, out) { this.sample(s, F); out.pos.copy(F.pos).addScaledVector(F.right, x).addScaledVector(F.up, h); out.up.copy(F.up); out.right.copy(F.right); return out; }
+  flightAt() { return 0; }
+  idx(s) { return Math.min(this.b.count - 1, Math.max(0, Math.round(this.b.u(s) / this.b.bds))); }
+  kappaAt(s) { return this.b.kappa[this.idx(s)]; }
+  wAt() { return this.b.wScale; }
+  lineAt() { return 0; }
+  kvAt(s) { const u = this.b.u(s), i = Math.max(0, Math.round((u - 6) / this.b.bds)), j = Math.min(this.b.count - 1, Math.round((u + 6) / this.b.bds)); return (this.b.tan[j * 3 + 1] - this.b.tan[i * 3 + 1]) / Math.max(1, (j - i) * this.b.bds); }
+  gapAt(s) { return this.b.gapAtU(this.b.u(s)); }
+  jumpLift(s, v) { const t = this.gapAt(s); return t < 0 ? 0 : 4 * t * (1 - t) * Math.min(16, 3 + v * 0.06); }
+  openAt(s) { return this.b.openAtU(this.b.u(s)); }
 }

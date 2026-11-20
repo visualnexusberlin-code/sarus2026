@@ -476,6 +476,7 @@ export class Ship {
   }
 
   reset(s, x = 0) {
+    this.leaveBranch(); this._ps = undefined; this.sunk = false; this.fallLethal = false; this.routeEvent = null;
     this.s = this.track.wrap(s);
     this.x = x; this.psi = 0; this.phi = 0; this.v = 0; this.omega = 0;
     this.h = this.C.hover; this.hv = 0;
@@ -499,8 +500,9 @@ export class Ship {
     const C = this.C;
     this.t += dt;
     // eliminada: restos que se arrastran hasta pararse y quedan tendidos en la pista
-    if (this.out) { this.wreckUpdate(dt); return; }
+    if (this.out) { if (!this.sunk) this.wreckUpdate(dt); return; }
     if (this.fall > 0) { this.fallUpdate(dt); return; }
+    this.routeStep();
     if (this.invuln > 0) { this.invuln = Math.max(0, this.invuln - dt); this.model.visible = this.invuln === 0 || Math.floor(this.invuln * 12) % 2 === 0; }
     const tr = this.track;
     tr.sample(this.s, this.frame);
@@ -610,7 +612,7 @@ export class Ship {
     this.flyW = flyW;
     if (guard > 0) {
       const xp = this.x - this.v * Math.sin(this.phi) * 0.55;
-      const over = Math.abs(xp) - (limW - 2.2);
+      const over = Math.abs(xp) - (limW - Math.min(2.2, limW * 0.3));   // en un tablero estrecho (viaducto de ÍO) el margen se escala: si no, el seguro zigzaguea
       if (over > 0) target += Math.sign(xp) * Math.min(2.4, over * 0.35) * guard;
     }
     this.omega += (target - this.omega) * Math.min(1, dt * (qtOn ? 12 : C.turnResponse));
@@ -621,7 +623,7 @@ export class Ship {
     this.phi += (this.psi - this.phi) * Math.min(1, dt * grip) - k * sdot * dt;
     this.psi = THREE.MathUtils.clamp(this.psi, -1.6, 1.6);
     this.phi = THREE.MathUtils.clamp(this.phi, -1.6, 1.6);
-    const ds = sdot * dt;
+    const ds = sdot * dt * (tr.ratio || 1);               // en un ramal, s avanza en la medida de la ruta principal
     this.s = tr.wrap(this.s + ds);
     this.distance += ds;
     this.x += -this.v * Math.sin(this.phi) * dt;
@@ -633,8 +635,12 @@ export class Ship {
     // aterrizaje: fuera del tablero → caída al vacío; en el borde, roce contra el muro
     const airNow = !!CONFIG.fallOff && tr.gapAt(this.s) >= 0;
     if (this.inGap && !airNow && Math.abs(this.x) > (C.wallAt + 1.0) * tr.wAt(this.s) + this.halfWidthGeo * 0.3) { this.inGap = false; this.startFall(); return; }
+    // tablero sin guardarraíles (viaducto de ÍO): salirse del borde es caer
+    const openEdge = !airNow && !!tr.openAt && tr.openAt(this.s);
+    if (openEdge && Math.abs(this.x) > (C.wallAt + 0.6) * tr.wAt(this.s) + this.halfWidthGeo * 0.2) { this.startFall(); return; }
     this.inGap = airNow; if (!airNow) this.airLoose = 0;
-    if (!airNow && flyW > 0.5 && Math.abs(this.x) > lim) {
+    if (openEdge) { /* sin muro */ }
+    else if (!airNow && flyW > 0.5 && Math.abs(this.x) > lim) {
       // vuelo libre: las bandas exteriores no son muros; rozarlas frena y saca chispas
       this.x = Math.sign(this.x) * lim; this.scraping = 1; this.v *= 1 - 0.5 * dt; this.phi *= 0.6; this.psi *= 0.8;
     } else if (!airNow && Math.abs(this.x) > lim) {
@@ -761,7 +767,30 @@ export class Ship {
     this.fall = 1e-4; this.fallY = 0; this.fallVy = 2; this.fallVx = -this.v * Math.sin(this.phi);
     this.fallRoll = (this.x > 0 ? 1 : -1) * (1.2 + Math.random()); this.invuln = 4;
     this.boosting = false; this.boostKick = 0; this.mega = 0; this.fallEvent = 'fell';
+    this.fallLethal = !!this.branch?.lethal;              // desde un ramal sobre la lava: no hay vuelta
   }
+
+  // Ramales (ÍO): al cruzar sA del lado del desvío la nave pasa a la geometría del ramal; en sB vuelve a la principal.
+  // x se traduce con el desplazamiento del eje en cada extremo; s sigue midiendo la ruta principal.
+  routeStep() {
+    const ps = this._ps; this._ps = this.s;
+    const b = this.branch;
+    if (b) {
+      if (b.main.delta(b.sB, this.s) >= 0) { this.x += b.offB; this.track = b.main; this.branch = null; this.routeEvent = 'merge'; }
+      return;
+    }
+    const main = this.track;
+    if (!main.branches?.length || ps === undefined) return;
+    for (const q of main.branches) {
+      const d0 = main.delta(q.sA, ps), d1 = main.delta(q.sA, this.s);
+      if (d0 < 0 && d1 >= 0 && d1 < 40 && q.side * (this.x - q.splitX) > 0) {
+        this.branch = q; this.track = q.view; this.x -= q.offA; this._ps = this.s; this.routeEvent = q.id;
+        return;
+      }
+    }
+  }
+  // vuelve a la ruta principal (salida, reinicio, caída no letal)
+  leaveBranch() { if (this.branch) { this.track = this.branch.main; this.branch = null; } }
   fallUpdate(dt) {
     this.fall += dt;
     this.v *= Math.exp(-0.25 * dt);
@@ -774,7 +803,15 @@ export class Ship {
     const k = this.fall;
     _e.set(0.35 * k, this.yawVis + 0.6 * k, this.fallRoll * k, 'YXZ'); this.body.quaternion.setFromEuler(_e);
     this.deckScrape = 0;
+    if (this.fall > 2.6 && this.fallLethal) {           // en la lava: eliminada, sin restos
+      this.fall = 0; this.fallLethal = false;
+      this.hull = 0; this.out = true; this.sunk = true; this.dead = 1e9; this.outAt = this.t;
+      this.boost = 0; this.ammo = 0; this.heavy = 0; this.v = 0; this.draft = 0;
+      this.root.visible = false; this.fallEvent = 'lava';
+      return;
+    }
     if (this.fall > 2.6) {
+      this.leaveBranch();
       const R = CONFIG.respawn;
       this.s = this.track.wrap(this.fallGap.s0 - 110);
       this.x = 0; this.psi = 0; this.phi = 0; this.omega = 0; this.v = 60; this.fall = 0; this.inGap = false; this.airLoose = 0;
@@ -836,6 +873,7 @@ export class Ship {
   }
 
   respawn() {
+    this.leaveBranch();
     const R = CONFIG.respawn;
     this.s = this.track.wrap(this.s - R.back);
     this.x = 0; this.psi = 0; this.phi = 0; this.omega = 0; this.v = 45;

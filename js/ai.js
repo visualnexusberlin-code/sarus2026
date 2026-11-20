@@ -18,7 +18,7 @@ export class AIDriver {
   }
 
   update(dt, ships, rubber = 0) {
-    const sh = this.ship, tr = this.track, C = sh.C, inp = this.inp;
+    const sh = this.ship, tr = sh.track || this.track, C = sh.C, inp = this.inp;   // en un ramal (ÍO), la geometría del ramal
     this.t += dt;
     const v = sh.v;
     const skill = clamp(this.skill + rubber, 0.4, 1.02) * this.cruise;
@@ -37,7 +37,8 @@ export class AIDriver {
     const Ld = 14 + v * 0.36;
     const lineAhead = tr.lineAt(sh.s + Ld);
     const wander = Math.sin(this.t * 0.31 + this.seed * 17) * 1.4 * (1 - Math.min(1, Math.abs(lineAhead) / 6));
-    let xt = lineAhead * (0.75 + 0.25 * skill) + this.bias + wander + (E === 'wobble' ? this.err.dir * 6 * Math.sin(this.err.t * 5) : 0);
+    const wN = tr.isBranch ? tr.wAt(sh.s) : 1;            // ramal estrecho (ÍO): todo se escala a su anchura
+    let xt = lineAhead * (0.75 + 0.25 * skill) + (this.bias + wander) * wN + (E === 'wobble' ? this.err.dir * 6 * wN * Math.sin(this.err.t * 5) : 0);
 
     // ── Esquivar a quien va delante y más lento ──
     let avoidT = 0;
@@ -64,7 +65,8 @@ export class AIDriver {
       }
     }
     this.avoid += (avoidT - this.avoid) * Math.min(1, dt * (tr.obstacles?.length ? 4 : 2.5));
-    const xw = 13.6 * tr.wAt(sh.s);
+    let xw = 13.6 * tr.wAt(sh.s);
+    if (tr.openAt && (tr.openAt(sh.s) || tr.openAt(sh.s + Ld))) xw *= 0.45;   // sin guardarraíles: lejos del borde
     xt = clamp(xt + this.avoid, -xw, xw);
 
     // ── Ir a por esferas cercanas (verde siempre; roja si no lleva cohete) ──
@@ -73,8 +75,21 @@ export class AIDriver {
       if (it && Math.abs(it.x - xt) < 9) xt = xt + (it.x - xt) * 0.8;
     }
 
+    // ── Desvíos (ÍO): cada piloto decide una vez por ramal y vuelta; los más hábiles y agresivos arriesgan más ──
+    if (!sh.branch && tr.branches?.length) {
+      for (const q of tr.branches) {
+        const d = tr.delta(sh.s, q.sA);
+        if (d <= 0 || d > 220 + v * 0.8) continue;
+        const key = `${q.id}:${Math.floor(sh.distance / tr.length)}`;
+        if (this.route?.key !== key) this.route = { key, take: Math.random() < clamp((q.aiTake ?? 0.5) * (0.6 + 0.5 * skill + 0.3 * (this.aggression - 0.5)), 0, 0.95) };
+        const w = clamp(1 - (d - 40) / (180 + v * 0.6), 0, 1);           // se va colocando al acercarse
+        const want = this.route.take ? q.offA : q.splitX - q.side * 7;
+        xt += (want - xt) * w;
+      }
+    }
+
     // ── Dirección: rumbo deseado hacia el punto objetivo + anticipación de la curva ──
-    const phiDes = Math.atan2(sh.x - xt, Ld);
+    const phiDes = Math.atan2(sh.x - xt, tr.isBranch ? Ld * 1.8 : Ld);   // ramal estrecho: corrección más suave (si no, zigzaguea)
     tr.sample(sh.s + v * 0.12, this.F);
     const wff = this.F.kappa * v;
     const rate = (C.turnLow + (C.turnHigh - C.turnLow) * Math.min(1, v / C.vmax)) * (C.turnMult || 1);
@@ -134,6 +149,7 @@ export function resolveCollisions(ships, track, onHit, dt = 1 / 60) {
     for (let j = i + 1; j < ships.length; j++) {
       const a = ships[i], b = ships[j];
       if (a.out && b.out) continue;
+      if (a.branch !== b.branch || a.sunk || b.sunk) continue;          // en rutas distintas (ÍO) no se tocan
       const ds = track.delta(a.s, b.s);                    // + → b va delante
       const len = (a.length + b.length) * 0.5 * 0.92;
       if (Math.abs(ds) > len) continue;
@@ -154,7 +170,7 @@ export function resolveCollisions(ships, track, onHit, dt = 1 / 60) {
         if (l.v < 12) { l.wreckT = (l.wreckT || 0) + dt; if (l.wreckT > 1.2) { l.wreckT = 0; l.wreckFree = 2.5; continue; } }
         // Lado de salida: el suyo, salvo que entre los restos y el muro no quepa; entonces sale por el lado abierto.
         // (Antes se la empujaba siempre hacia su lado: contra el muro quedaba encajada, y el muro le quitaba la velocidad cada frame.)
-        const lim = Math.max(l.C.wallAt * track.wAt(l.s) - l.halfWidthGeo * 0.85, (track.flightAt ? track.flightAt(l.s) : 0) * (track.flightR || 26) * 1.92);   // mismo límite que el muro en ship.js
+        const lt = l.track || track, lim = Math.max(l.C.wallAt * lt.wAt(l.s) - l.halfWidthGeo * 0.85, (lt.flightAt ? lt.flightAt(l.s) : 0) * (lt.flightR || 26) * 1.92);   // mismo límite que el muro en ship.js
         const fits = (sg) => Math.abs(w.x + sg * (wid + 0.05)) <= lim;
         let sgn = Math.sign(l.x - w.x) || 1, cross = false;
         if (!fits(sgn)) { if (!fits(-sgn)) continue; sgn = -sgn; cross = true; }   // sin hueco por ningún lado: los restos no bloquean

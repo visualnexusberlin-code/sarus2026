@@ -464,6 +464,44 @@ CIRCUITS.push({
   pad: 0x2c313a,
 });
 
+// ÍO · LOKI PATERA (en construcción): caldera con lago de lava, colonia minera y dos desvíos letales (io.js, IO-LOKI.md)
+CIRCUITS.push({
+  id: 'io',
+  name: 'ÍO · LOKI PATERA',
+  sub: L('Júpiter · caldera de Loki', 'Jupiter · Loki caldera'),
+  blurb: L('Ío · lago de lava, colonia minera y dos atajos sin red: caer es quedar fuera', 'Io · lava lake, mining colony and two shortcuts with no safety net: fall and you are out'),
+  unlockAfter: 'europa',
+  generated: 'io',
+  music: 'pursuit',
+  inSectorOrder: false,
+  hoverMax: 6,
+  far: 400000,
+  rockets: false,
+  fallOff: true,                              // en los desvíos no hay muros: caer a la lava elimina
+  sunFrom: 'io',
+  atmosphere: {
+    sunDir: new THREE.Vector3(-0.4, 0.5, 0.75).normalize(),
+    baseDensity: 0.00002, heightDensity: 0.00012, heightFalloff: 0.006, fogMax: 0.55,
+    exposure: 1.0, saturation: 1.0, redKeep: 0.95,
+    bloom: { strength: 0.7, radius: 0.6, threshold: 0.82 },
+    sky: {
+      horizon: [0.03, 0.018, 0.01], zenith: [0.002, 0.0018, 0.0016], below: [0.06, 0.02, 0.008], zLow: -0.05, zHigh: 0.3,
+      glow: [1.0, 0.5, 0.2], glowK: 0.2, glowExp: 4, haloCol: [1.0, 0.7, 0.4], halo: 0.0, haloExp: 400,
+      sun: [1.0, 0.97, 0.92], corona: 0.2, coronaExp: 5000, disc: 3.0, discExp: 60000,
+    },
+    clouds: null,
+  },
+  light: { sun: 0xfff2e2, sunI: 2.2, hemiSky: 0x6a4630, hemiGround: 0x5a1c08, hemiI: 0.55, env: 0.5 },
+  grade: { tint: [1.04, 0.99, 0.93], vignette: 0.46, grain: 0.04, contrast: 0.28 },
+  paint: {
+    edge: [1.0, 0.62, 0.25], chev: [1.0, 0.5, 0.15], lane: [0.95, 0.9, 0.8],
+    kerbA: [0.95, 0.9, 0.8], kerbB: [1.0, 0.45, 0.12], edgeGlow: 0.6, chevGlow: 0.45, kerbGlow: 0.2,
+    buoy: 0xff8a3c, guide: 0xffd2a0,
+  },
+  structures: { dark: 0x2a2320, pale: 0xb8a48c, lamp: 0xffa040, ivory: 0xfff0dc },
+  pad: 0x2a2320,
+});
+
 // Novena fase: MIRANDA, luna de Urano. Todo sobre el terreno, al borde de Verona Rupes, con Urano al fondo
 // (trazado de archivo en ocho: el cruce es un gran puente en arco con el anillo de recuperación; miranda.js)
 CIRCUITS.push({
@@ -634,7 +672,7 @@ CIRCUITS.push({
 });
 
 // ── Orden del campeonato (Solar Map): cada circuito se desbloquea al terminar el anterior ──
-const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'cassini', 'enceladus', 'miranda', 'triton', 'pluto'];
+const ORDER = ['arcadia', 'saturn', 'tiphares', 'caloris', 'itaka', 'olympus', 'tharsis', 'phobos', 'ceres', 'europa', 'io', 'cassini', 'enceladus', 'miranda', 'triton', 'pluto'];
 CIRCUITS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 CIRCUITS.forEach((c, i) => {
   c.unlockAfter = i ? CIRCUITS[i - 1].id : undefined;
