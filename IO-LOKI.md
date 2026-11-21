@@ -1,4 +1,4 @@
-# ÍO · LOKI PATERA — diseño de la fase (en construcción)
+# ÍO · LOKI PATERA — diseño de la fase (publicada en `main` el 21 de noviembre de 2026)
 
 Concepto de Dear (20 de noviembre de 2026): circuito en la caldera de Loki, en Ío, con un lago de lava en el centro, tres cascadas de lava por las paredes de basalto y una colonia minera habitada en la terraza alta (expansión humana de *Cortesía del Tiempo*). Va en el Mapa Solar después de EUROPA: del hielo al fuego, en el mismo sistema de Júpiter.
 
@@ -104,6 +104,12 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
 - **Guardarraíl izquierdo** en el viaducto y en la recepción del salto (`rail: 'L'` en `addBranch`; `openAt(s, x)` mira el lado). El lado derecho sigue abierto y letal.
 - Medido en 2,5 min: ninguna caída en el viaducto (antes, 1–3); 3 en la recepción del salto.
 - Dear lo encuentra algo fácil de ganar (con mucha experiencia de juego). Pendiente de decidir si se sube el ritmo de la IA en ÍO.
+
+## Publicación (21 de noviembre)
+
+- Música propia: **Glacial Pursuit** (Dear, con Gemini), `music-glacial-pursuit.mp3`, clave `glacial` en `js/audio.js`. Antes usaba `pursuit`.
+- Rama `claude/io` publicada en `main`. Copia de la versión anterior: rama `estable/2026-11-21-antes-de-io`.
+- Pendiente de la fase: ritmo de la IA en ÍO (Dear la encuentra fácil), los cuatro arcos con sus premios, salto balístico real, lava letal en todo el lago.
 
 ## Orden de trabajo
 
