@@ -472,7 +472,7 @@ CIRCUITS.push({
   blurb: L('Ío · lago de lava, colonia minera y dos atajos sin red: caer es quedar fuera', 'Io · lava lake, mining colony and two shortcuts with no safety net: fall and you are out'),
   unlockAfter: 'europa',
   generated: 'io',
-  music: 'pursuit',
+  music: 'glacial',              // Glacial Pursuit (Dear, con Gemini)
   inSectorOrder: false,
   hoverMax: 6,
   far: 400000,

@@ -18,7 +18,7 @@ fs.mkdirSync('dist', { recursive: true });
 // 1) Web (Firebase): página ligera; modelos y música como archivos aparte (sin límite de tamaño, caché del navegador)
 const web = head + `<script>\n${js}\n</script>` + tail;
 fs.writeFileSync('dist/index.html', web);
-for (const f of ['saturn6.glb', 'ships45.glb', 'ships45_lite.glb', 'music-obsidian-perimeter.mp3', 'music-obsidian-pursuit.mp3', 'music-black-glass-horizon.mp3', 'music-glass-observatory.mp3', 'music-theorbo-in-motion.mp3', 'music-velvet-velocity.mp3', 'music-beneath-the-ninth.mp3', 'sarus-mark.svg', 'miranda.jpg', 'cover-title.jpg', 'cover-title-sm.jpg']) fs.copyFileSync(f, 'dist/' + f);
+for (const f of ['saturn6.glb', 'ships45.glb', 'ships45_lite.glb', 'music-obsidian-perimeter.mp3', 'music-obsidian-pursuit.mp3', 'music-black-glass-horizon.mp3', 'music-glass-observatory.mp3', 'music-theorbo-in-motion.mp3', 'music-velvet-velocity.mp3', 'music-beneath-the-ninth.mp3', 'music-glacial-pursuit.mp3', 'sarus-mark.svg', 'miranda.jpg', 'cover-title.jpg', 'cover-title-sm.jpg']) fs.copyFileSync(f, 'dist/' + f);
 fs.cpSync('pilots', 'dist/pilots', { recursive: true });
 fs.cpSync('fonts', 'dist/fonts', { recursive: true });     // tipografías en local (sin Google Fonts)   // láminas de pilotos del hangar (WebP, se cargan bajo demanda)
 // 2) Visor de Claude: todo incrustado en un solo archivo (límite 16 MB)
