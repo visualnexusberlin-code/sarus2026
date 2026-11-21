@@ -344,7 +344,7 @@ export class Track {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Ramales (ÍO · LOKI PATERA, nov. 2026)
+//  Ramales (ÍO · LOKI CALDERA, nov. 2026)
 // ─────────────────────────────────────────────────────────────
 // Un ramal es una pista abierta con su propia línea central que sale de la principal en sA y vuelve en sB.
 // Para no tocar el resto del juego, la nave que va por un ramal sigue midiendo su posición «s» en la ruta principal:

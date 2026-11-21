@@ -113,7 +113,7 @@ Opus 5.5 puede continuar todo lo anterior: la base del juego se hizo con él y e
 Guiones de prueba sin tarjeta gráfica: `tools/pruebas/` (`rperf.py` carrera: órdenes de dibujo, compilaciones y errores; `phys.py` vuelta de cada nave con la IA; `heavy.py` esfera púrpura; `isheet.py` intros). Uso: `python3 -I tools/pruebas/rperf.py dist olympus nogov 20`.
 
 1. ~~Publicar la rama `claude/fluidez` en `main`~~ **Hecho el 17 de noviembre** (con rotulado de carenado y SEILATOR VANGUARD). Copia de la versión anterior: rama `estable/2026-11-17-antes-de-fluidez`.
-1b. ~~Fase ÍO · LOKI PATERA~~ **Publicada el 21 de noviembre** (ramales en el motor, lava letal, colonia, tráfico aéreo, música Glacial Pursuit; también arregla que los cohetes no impactaran). Copia anterior: `estable/2026-11-21-antes-de-io`. Lo que le falta, en `IO-LOKI.md`.
+1b. ~~Fase ÍO · LOKI CALDERA~~ **Publicada el 21 de noviembre** (ramales en el motor, lava letal, colonia, tráfico aéreo, música Glacial Pursuit; también arregla que los cohetes no impactaran). Copia anterior: `estable/2026-11-21-antes-de-io`. Lo que le falta, en `IO-LOKI.md`.
 2. **Android, primer APK.** Capacitor + una acción de GitHub que compile el APK de prueba y lo deje como descarga (Dear no usa terminal). Objetivo: jugar en un móvil real cuanto antes.
 3. **Lo que Android rompe y la web no:** pérdida del contexto WebGL al pasar a segundo plano (`webglcontextlost` / `restored`: hoy no se gestiona), pausa y audio en `pause`/`resume`, botón Atrás, pantalla siempre encendida, modo inmersivo.
 4. **Guardado seguro.** El progreso vive en `localStorage`; en Android el sistema puede borrarlo. Pasarlo a `@capacitor/preferences` con migración.

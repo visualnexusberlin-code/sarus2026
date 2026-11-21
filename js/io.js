@@ -1,4 +1,4 @@
-// ÍO · LOKI PATERA (en construcción, nov. 2026) · ver IO-LOKI.md
+// ÍO · LOKI CALDERA (en construcción, nov. 2026) · ver IO-LOKI.md
 // Fase 1: trazado en gris para probar los RAMALES (desvíos reales) del motor:
 //   A · VIADUCTO  puente sin guardarraíles por dentro de la curva superior derecha; caer = lava = eliminada
 //   B · SALTO     rampa interior tras el túnel, vuelo sobre una cresta y recepción más baja; caer = eliminada

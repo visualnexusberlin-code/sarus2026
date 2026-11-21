@@ -206,7 +206,7 @@ Referencia: vídeo de Dear generado en Higgsfield. Solo afecta a EUROPA; nada de
 - **Marte desde Fobos** (`MARS_BAKE` y `marsMaterial`, `phobos.js`): provincias de basalto con borde deshilachado, cráteres a dos escalas, Tharsis con cuatro volcanes en escudo, Valles Marineris con ramal, Hellas, casquetes irregulares con surcos, bruma de polvo y filo azulado en el limbo. Mapa de 2048 px fuera del modo ligero.
 - Banco de pruebas usado: una página aparte que importa los cuatro materiales y los dibuja como esferas (no está en el repositorio).
 
-## ÍO · LOKI PATERA (en construcción, desde el 20 de noviembre de 2026)
+## ÍO · LOKI CALDERA (en construcción, desde el 20 de noviembre de 2026)
 
 Diseño, decisiones y estado en `IO-LOKI.md`. Lo nuevo del motor son los **ramales** (desvíos reales con geometría propia, `js/track.js`), que sirven para cualquier fase futura.
 

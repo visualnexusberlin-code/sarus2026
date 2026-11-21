@@ -1,4 +1,4 @@
-# ÍO · LOKI PATERA — diseño de la fase (publicada en `main` el 21 de noviembre de 2026)
+# ÍO · LOKI CALDERA — diseño de la fase (publicada en `main` el 21 de noviembre de 2026)
 
 Concepto de Dear (20 de noviembre de 2026): circuito en la caldera de Loki, en Ío, con un lago de lava en el centro, tres cascadas de lava por las paredes de basalto y una colonia minera habitada en la terraza alta (expansión humana de *Cortesía del Tiempo*). Va en el Mapa Solar después de EUROPA: del hielo al fuego, en el mismo sistema de Júpiter.
 

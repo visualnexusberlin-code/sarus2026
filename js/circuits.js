@@ -464,10 +464,10 @@ CIRCUITS.push({
   pad: 0x2c313a,
 });
 
-// ÍO · LOKI PATERA (en construcción): caldera con lago de lava, colonia minera y dos desvíos letales (io.js, IO-LOKI.md)
+// ÍO · LOKI CALDERA: caldera con lago de lava, colonia minera y dos desvíos letales (io.js, IO-LOKI.md)
 CIRCUITS.push({
   id: 'io',
-  name: 'ÍO · LOKI PATERA',
+  name: 'ÍO · LOKI CALDERA',
   sub: L('Júpiter · caldera de Loki', 'Jupiter · Loki caldera'),
   blurb: L('Ío · lago de lava, colonia minera y dos atajos sin red: caer es quedar fuera', 'Io · lava lake, mining colony and two shortcuts with no safety net: fall and you are out'),
   unlockAfter: 'europa',
