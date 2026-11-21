@@ -396,7 +396,7 @@ export class Branch {
       this.up.set([ux * c - rx * sn, uy * c - ry * sn, uz * c - rz * sn], o);
     }
     this.wScale = (def.width || 32) / (main.width || 32);
-    this.open = def.open || []; this.bgaps = def.gaps || [];
+    this.open = def.open || []; this.bgaps = def.gaps || []; this.rail = def.rail || null;   // rail: 'L' | 'R' (x < 0 = izquierda del piloto)
     this.span = main.delta(this.sA, this.sB); if (this.span <= 0) this.span += main.length;
     this.ratio = this.span / this.blen;                // s principal por metro real recorrido en el ramal
     this.view = new BranchView(this);
@@ -415,7 +415,8 @@ export class Branch {
   }
   // posición de la divisoria en x de la principal; t = 0 en el morro (sA o sB), 1 al final del tramo de divisoria
   goreX(t, atFork) { const x0 = atFork ? this.splitX : this.splitXB, e = this.side * 16.6, k = Math.min(1, Math.max(0, (t - 0.3) / 0.7)); return x0 + (e - x0) * k * k * (3 - 2 * k); }
-  openAtU(u) { for (const [a, b] of this.open) if (u >= a && u <= b) return true; return false; }
+  // x (opcional): lado; con rail 'L' o 'R' ese lado lleva guardarraíl aunque el tramo sea abierto
+  openAtU(u, x) { if (x !== undefined && ((x < 0 && this.rail === 'L') || (x > 0 && this.rail === 'R'))) return false; for (const [a, b] of this.open) if (u >= a && u <= b) return true; return false; }
   gapAtU(u) { for (const [a, b] of this.bgaps) if (u >= a && u <= b) return (u - a) / (b - a); return -1; }
 }
 
@@ -441,7 +442,7 @@ class BranchView {
   kvAt(s) { const u = this.b.u(s), i = Math.max(0, Math.round((u - 6) / this.b.bds)), j = Math.min(this.b.count - 1, Math.round((u + 6) / this.b.bds)); return (this.b.tan[j * 3 + 1] - this.b.tan[i * 3 + 1]) / Math.max(1, (j - i) * this.b.bds); }
   gapAt(s) { return this.b.gapAtU(this.b.u(s)); }
   jumpLift(s, v) { const t = this.gapAt(s); return t < 0 ? 0 : 4 * t * (1 - t) * Math.min(16, 3 + v * 0.06); }
-  openAt(s) { return this.b.openAtU(this.b.u(s)); }
+  openAt(s, x) { return this.b.openAtU(this.b.u(s), x); }
   // la misma divisoria vista desde el ramal: prohibido volver al lado de la principal
   dividerAt(s) {
     const b = this.b, dm = b.main.dividerAt(s); if (!dm) return null;

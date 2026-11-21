@@ -97,6 +97,14 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
 - **Colonia**: plataforma de aterrizaje con anillo de luz y balizas, y farolas a lo largo de la conducción.
 - Medido: 356 órdenes de dibujo de mediana, sin compilaciones en carrera, sin tirones nuevos (pico de JS 18 ms).
 
+## Cuarta prueba de Dear (21 de noviembre)
+
+- **Desvío B imposible de tomar** (se llegaba del túnel a tope y el reparto estaba a 40 m de la boca): ahora está a 230 m de la salida del túnel, el carril de entrada es medio tablero (reparto en el eje) y la fila de turbos azules del túnel pasa a su entrada, para no llegar con el megaturbo encendido. El carril iluminado arranca ya dentro del túnel.
+- **«Solapamiento de rampas»**: los ramales macizos asomaban costados y quilla a través del tablero principal mientras se separaban de él, y la rampa del salto empezaba a subir encima de la principal. Ahora, mientras se solapan, solo se dibuja su superficie; la sección maciza empieza donde ya está separado del todo; la rampa no sube hasta haberse separado.
+- **Guardarraíl izquierdo** en el viaducto y en la recepción del salto (`rail: 'L'` en `addBranch`; `openAt(s, x)` mira el lado). El lado derecho sigue abierto y letal.
+- Medido en 2,5 min: ninguna caída en el viaducto (antes, 1–3); 3 en la recepción del salto.
+- Dear lo encuentra algo fácil de ganar (con mucha experiencia de juego). Pendiente de decidir si se sube el ritmo de la IA en ÍO.
+
 ## Orden de trabajo
 
 1. **Ramales en el motor** (bifurcaciones reales: geometría propia, posición traducida a la ruta principal para vueltas, clasificación, IA y esferas). Probarlos en un trazado de Ío con geometría simple.

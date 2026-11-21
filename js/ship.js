@@ -638,7 +638,7 @@ export class Ship {
     const airNow = !!CONFIG.fallOff && tr.gapAt(this.s) >= 0;
     if (this.inGap && !airNow && Math.abs(this.x) > (C.wallAt + 1.0) * tr.wAt(this.s) + this.halfWidthGeo * 0.3) { this.inGap = false; this.startFall(); return; }
     // tablero sin guardarraíles (viaducto de ÍO): salirse del borde es caer
-    const openEdge = !airNow && !!tr.openAt && tr.openAt(this.s);
+    const openEdge = !airNow && !!tr.openAt && tr.openAt(this.s, this.x);
     if (openEdge && Math.abs(this.x) > (C.wallAt + 0.6) * tr.wAt(this.s) + this.halfWidthGeo * 0.2) { this.startFall(); return; }
     this.inGap = airNow; if (!airNow) this.airLoose = 0;
     if (openEdge) { /* sin muro */ }

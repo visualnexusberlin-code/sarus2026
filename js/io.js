@@ -14,8 +14,8 @@ export const LAVA_Y = -70;
 
 // ── Planta por tramos (cerrada numéricamente): ['S', recta] · ['A', radio, grados (+ izquierda)] · ['M', marca] ──
 const SEGS = [['M', 'grid'], ['S', 1096.5], ['A', 420, 72], ['S', 260], ['A', 300, -58], ['A', 300, 64], ['S', 317.3], ['M', 'forkA'], ['S', 200], ['A', 260, 120],
-  ['S', 160], ['M', 'mergeA'], ['S', 80], ['A', 600, -6], ['S', 820], ['M', 'tunnel'], ['S', 420], ['M', 'tunnelOut'], ['S', 40], ['M', 'forkB'], ['A', 320, -38], ['S', 120],
-  ['A', 300, 146], ['S', 80], ['M', 'mergeB'], ['A', 400, -36], ['S', 300], ['A', 420, 94]];
+  ['S', 160], ['M', 'mergeA'], ['S', 80], ['A', 600, -6], ['S', 820], ['M', 'tunnel'], ['S', 420], ['M', 'tunnelOut'], ['S', 230], ['M', 'forkB'], ['A', 320, -38], ['S', 120],
+  ['A', 300, 146], ['S', 80], ['M', 'mergeB'], ['A', 400, -36], ['S', 110], ['A', 420, 94]];
 
 function turtle(segs, step = 4) {
   let x = 0, z = 0, h = Math.PI / 2, s = 0; const P = [new THREE.Vector3(0, 0, 0)], D = [0], marks = {};
@@ -84,11 +84,11 @@ export function ioTrack() {
   const sideA = inner(s.forkA, s.mergeA), sideB = inner(s.forkB, s.mergeB);
   // A · VIADUCTO: carril y medio (12 m), sin guardarraíles en todo el cruce, baja hacia la ensenada de lava
   const ptsA = branchPoints(track, { sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, yMid: [[0.5, 80]], tension: 0.3 });
-  const A = track.addBranch({ id: 'viaduct', pts: ptsA, sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, width: 12, lethal: true });
+  const A = track.addBranch({ id: 'viaduct', pts: ptsA, sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, width: 12, lethal: true, rail: 'L' });
   A.open = [[170, A.blen - 110]]; A.aiTake = 0.45;   // los primeros 170 m con muro: la nave se asienta antes de quedar sin red
   // B · SALTO: dos carriles (16 m); rampa que sube, vuelo sobre la cresta, recepción más baja (bordes abiertos los primeros 70 m)
-  const ptsB = branchPoints(track, { sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, yMid: [[0.2, 172], [0.27, 176], [0.5, 120]], tension: 0.3 });
-  const B = track.addBranch({ id: 'jump', pts: ptsB, sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, width: 16, lethal: true });
+  const ptsB = branchPoints(track, { sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, yMid: [[0.3, 168], [0.38, 174], [0.56, 122]], tension: 0.3 });
+  const B = track.addBranch({ id: 'jump', pts: ptsB, sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, width: 16, lethal: true, rail: 'L', splitX: 1.5 * sideB });
   // vuelo: desde la cima de la rampa hasta la recepción
   let uTop = 0, yTop = -1e9; for (let u = 110; u < B.blen - 110; u += 2) { B.sampleU(u, F); if (F.pos.y > yTop) { yTop = F.pos.y; uTop = u; } }
   const uLand = uTop + 95;
@@ -96,7 +96,7 @@ export function ioTrack() {
   // Filas de tres turbos azules (petición de Dear, 20 nov.): reaparecen enseguida para que casi todos cojan uno.
   // Puestas para la locura: dos seguidas en la recta de salida, una que lanza al viaducto sin guardarraíles,
   // una en la terraza que mete al pelotón en el túnel y otra dentro del túnel que lanza al salto.
-  track.megaRows = [300, 760, s.forkA - 260, s.mergeA + 420, s.tunnel + 260].map((q) => track.wrap(q));
+  track.megaRows = [300, 760, s.forkA - 260, s.mergeA + 420, s.tunnel + 40].map((q) => track.wrap(q));
   track.megaRespawn = 1.2;
   return { track, s, M, A, B };
 }
@@ -153,14 +153,29 @@ export function buildIo(def, { world, own, srcMat, renderer }) {
   const deckRuns = (br) => { const runs = []; let a = 0; for (const [g0, g1] of br.bgaps) { runs.push([a, g0]); a = g1; } runs.push([a, br.blen]); return runs; };
   for (const br of [A, B]) {
     const hw = 16 * br.wScale;
-    for (const [a, b] of deckRuns(br)) parts.deck.push(sweep(brU(br), a, b, 2, slab(hw), true, true));
-    // aviso: filo naranja en los bordes abiertos
-    for (const [a, b] of br.open) { parts.warn.push(sweep(brU(br), a, b, 2, [[-hw - 0.1, 0.02], [-hw - 0.1, 0.35], [-hw + 0.5, 0.35]], false, false), sweep(brU(br), a, b, 2, [[hw - 0.5, 0.35], [hw + 0.1, 0.35], [hw + 0.1, 0.02]], false, false)); }
+    // mientras el ramal se solapa con la principal solo se dibuja su superficie (con la sección maciza asomaban costados y
+    // quilla a través del tablero principal: parecía un error); la sección completa, desde que está separado del todo
+    const Fm = track.frame(), sep = (u) => { br.sampleU(u, F); track.sample(br.sOfU(u), Fm); return Math.hypot(F.pos.x - Fm.pos.x, F.pos.z - Fm.pos.z) > 16 + hw + 4; };
+    let u0 = 0, u1 = br.blen; while (u0 < br.blen && !sep(u0)) u0 += 2; while (u1 > u0 && !sep(u1)) u1 -= 2;
+    const top = [[-hw, 0], [hw, 0]];
+    for (const [a, b] of deckRuns(br)) {
+      const a0 = Math.max(a, u0), b0 = Math.min(b, u1);
+      if (b0 > a0) parts.deck.push(sweep(brU(br), a0, b0, 2, slab(hw), true, true));
+      if (a < Math.min(b, u0)) parts.deck.push(sweep(brU(br), a, Math.min(b, u0), 2, top, false, true));
+      if (Math.max(a, u1) < b) parts.deck.push(sweep(brU(br), Math.max(a, u1), b, 2, top, false, true));
+    }
+    // aviso: filo naranja en los bordes abiertos (solo del lado sin guardarraíl)
+    for (const [a, b] of br.open) {
+      if (br.rail !== 'L') parts.warn.push(sweep(brU(br), a, b, 2, [[-hw - 0.1, 0.02], [-hw - 0.1, 0.35], [-hw + 0.5, 0.35]], false, false));
+      if (br.rail !== 'R') parts.warn.push(sweep(brU(br), a, b, 2, [[hw - 0.5, 0.35], [hw + 0.1, 0.35], [hw + 0.1, 0.02]], false, false));
+    }
     // muros donde no está abierto ni en vuelo (rampa del salto)
     const closed = []; let a = 110; const cuts = [...br.open, ...br.bgaps].sort((p, q) => p[0] - q[0]);
     for (const [c0, c1] of cuts) { if (c0 > a) closed.push([a, c0]); a = Math.max(a, c1); } if (a < br.blen - 110) closed.push([a, br.blen - 110]);
     const wl = [[-hw - 0.35, -0.05], [-hw - 0.35, 1.6], [-hw - 0.9, 1.6], [-hw - 0.9, -0.6]], wr = wl.map(([x, h]) => [-x, h]).reverse();
     for (const [c0, c1] of closed) parts.guard.push(sweep(brU(br), c0, c1, 3, wl, false, false), sweep(brU(br), c0, c1, 3, wr, false, false));
+    // guardarraíl del lado pedido también en los tramos abiertos (petición de Dear: el viaducto era demasiado estrecho)
+    for (const [a, b] of br.open) { if (br.rail === 'L') parts.guard.push(sweep(brU(br), a, b, 3, wl, false, false)); if (br.rail === 'R') parts.guard.push(sweep(brU(br), a, b, 3, wr, false, false)); }
     // pilas del ramal hasta la lava
     for (let u = 90; u < br.blen - 90; u += 70) { br.sampleU(u, F); if (br.gapAtU(u) >= 0) continue; const h = F.pos.y - LAVA_Y; const c = new THREE.CylinderGeometry(1.6, 2.6, h, 10); c.translate(F.pos.x, LAVA_Y + h / 2 - 2.5, F.pos.z); parts.pier.push(c); }
   }
