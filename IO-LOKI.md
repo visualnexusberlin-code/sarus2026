@@ -89,6 +89,14 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
 - Medido: 356 órdenes de dibujo (137 en ligera), sin compilaciones en carrera.
 - Pendiente: el acantilado interior es aún una pared lisa; la colonia puede crecer (más módulos, pasarelas, luces); el lago en sí sigue siendo un plano.
 
+## Tercera tanda (21 de noviembre): más interés y tráfico aéreo
+
+- **Tráfico aéreo** (`IoTraffic`): cuatro lanzaderas mineras que despegan de una plataforma de la colonia, cruzan la caldera en arco y vuelven; un carguero de mineral de 160 m que cruza muy alto y despacio con su fila de luces; y una **patrulla VOSTOK** de tres naves en cuña dando vueltas sobre el lago (la escuadra de *Cortesía del Tiempo*). Se suman a las naves de fondo que ya cruzan todas las fases. La patrulla se monta fuera de la carrera para no dar tirones.
+- **Acantilados con estratos**: bandas de basalto, columnas y vetas de azufre en las paredes (en el shader del terreno).
+- **Lava con corrientes**: el lago deriva despacio, con grietas finas y pulso de calor.
+- **Colonia**: plataforma de aterrizaje con anillo de luz y balizas, y farolas a lo largo de la conducción.
+- Medido: 356 órdenes de dibujo de mediana, sin compilaciones en carrera, sin tirones nuevos (pico de JS 18 ms).
+
 ## Orden de trabajo
 
 1. **Ramales en el motor** (bifurcaciones reales: geometría propia, posición traducida a la ruta principal para vueltas, clasificación, IA y esferas). Probarlos en un trazado de Ío con geometría simple.

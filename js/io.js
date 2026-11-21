@@ -247,10 +247,14 @@ export function buildIo(def, { world, own, srcMat, renderer }) {
       void main(){
         #include <logdepthbuf_fragment>
         vec2 p = vW.xz * 0.012; float t = uT * 0.03;
+        vec2 w = vec2(vn(p * 0.4 + t * 0.5), vn(p * 0.4 - t * 0.4 + 7.0)) - 0.5;          // corrientes lentas
+        p += w * 1.6;
         float n = vn(p + t) * 0.55 + vn(p * 2.3 - t) * 0.3 + vn(p * 6.1 + t * 2.0) * 0.15;
         float crack = 1.0 - smoothstep(0.02, 0.09, abs(n - 0.5));
+        float fine = 1.0 - smoothstep(0.01, 0.05, abs(vn(p * 9.0 - t * 3.0) - 0.5));
+        float pulse = 0.75 + 0.25 * sin(uT * 1.3 + vn(p * 0.7) * 12.0);
         vec3 crust = vec3(0.035, 0.016, 0.012), hot = vec3(2.4, 0.62, 0.1);
-        gl_FragColor = vec4(mix(crust, hot, crack) + hot * 0.025, 1.0);
+        gl_FragColor = vec4(mix(crust, hot, clamp(crack * pulse + fine * 0.35, 0.0, 1.0)) + hot * 0.025, 1.0);
       }`,
   });
   own.push(lavaMat);
@@ -261,7 +265,8 @@ export function buildIo(def, { world, own, srcMat, renderer }) {
   if (renderer) { track.sample(0, F); jupiterSky(world, own, renderer, new THREE.Vector3(land.cx, 0, land.cz), F.tan.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.35), { dist: 150000, elev: 15, sunDir: ioSunDir() }); }
 
   const lavaFx = new LavaFX(world, own, track, [A, B], land);
-  const fx = { update(dt, cam, G) { lavaMat.uniforms.uT.value += dt; laneMat.uniforms.uT.value += dt; land.update(dt); lavaFx.update(dt, cam, G); } };
+  const traffic = new IoTraffic(world, own, land, track);
+  const fx = { update(dt, cam, G) { lavaMat.uniforms.uT.value += dt; laneMat.uniforms.uT.value += dt; land.update(dt); lavaFx.update(dt, cam, G); traffic.update(dt, G); } };
   return { track, ground: (x, z) => Math.max(LAVA_Y, land.heightAt(x, z)), tunnel: { s: s.tunnel, len: s.tunnelOut - s.tunnel }, bridges: 0, fx, dbg: { s, A, B } };
 }
 
@@ -495,8 +500,21 @@ function buildCaldera(world, own, track, branches, S) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 });
   // brillo de la lava desde abajo: las paredes se encienden cerca del lago
   mat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vLY;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvLY = (modelMatrix * vec4(transformed, 1.0)).y;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vLY;')
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vLY; varying vec3 vWP; varying vec3 vWN;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvec4 wq = modelMatrix * vec4(transformed, 1.0); vLY = wq.y; vWP = wq.xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying float vLY; varying vec3 vWP; varying vec3 vWN;
+      float ih(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float in2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(ih(i), ih(i + vec2(1, 0)), f.x), mix(ih(i + vec2(0, 1)), ih(i + vec2(1, 1)), f.x), f.y); }`)
+      // paredes: estratos de basalto (bandas horizontales irregulares), columnas verticales y vetas de azufre
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float steep = 1.0 - smoothstep(0.45, 0.8, normalize(vWN).y);
+        float along = vWP.x * 0.7 + vWP.z * 0.7;
+        float band = in2(vec2(along * 0.004, vLY * 0.09 + in2(vec2(along * 0.01, vLY * 0.02)) * 2.0));
+        float cols = in2(vec2(along * 0.18, vLY * 0.004));
+        float vein = smoothstep(0.8, 0.9, in2(vec2(along * 0.03, vLY * 0.25)));
+        vec3 wall = vec3(0.12, 0.09, 0.075) * (0.45 + 1.1 * band) * (0.75 + 0.5 * cols);
+        wall = mix(wall, vec3(0.55, 0.42, 0.08), vein * 0.8);
+        diffuseColor.rgb = mix(diffuseColor.rgb, wall, steep);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += vec3(1.0, 0.32, 0.06) * 1.3 * pow(1.0 - smoothstep(${LAVA_Y.toFixed(1)}, ${(LAVA_Y + 70).toFixed(1)}, vLY), 2.0);`);
   };
@@ -608,6 +626,21 @@ function buildCaldera(world, own, track, branches, S) {
       box(cg.red, 1.4, 1.4, 1.4, tp.clone().setY(tp.y + H2 + 15), 0);
     }
   }
+  // plataforma de aterrizaje (de aquí salen y aquí vuelven las lanzaderas)
+  let pad = null;
+  { const q = (t0 + t1) / 2; track.sample(track.wrap(q), F); let side = 1; { const p = F.pos.clone().addScaledVector(F.right, 80); if (inside(p.x, p.z)) side = -1; }
+    const p = F.pos.clone().addScaledVector(F.right, side * 150); p.y = Math.max(heightAt(p.x, p.z), F.pos.y - 10) + 6;
+    const deck = new THREE.CylinderGeometry(26, 28, 3, 8); deck.translate(p.x, p.y - 1.5, p.z); cg.metal.push(deck);
+    const leg = new THREE.CylinderGeometry(6, 8, 30, 8); leg.translate(p.x, p.y - 18, p.z); cg.metal.push(leg);
+    const ring = new THREE.TorusGeometry(22, 0.6, 6, 48); ring.rotateX(Math.PI / 2); ring.translate(p.x, p.y + 0.3, p.z); cg.glow.push(ring);
+    for (let a = 0; a < 8; a++) { const b = new THREE.BoxGeometry(1.2, 1.2, 1.2); b.translate(p.x + Math.cos(a * 0.785) * 26.5, p.y + 0.6, p.z + Math.sin(a * 0.785) * 26.5); cg.red.push(b); }
+    pad = p; }
+  // farolas cada 60 m junto a la conducción
+  for (let q = t0; q < S.tunnel; q += 60) {
+    track.sample(track.wrap(q), F); let side = 1; { const p = F.pos.clone().addScaledVector(F.right, 80); if (inside(p.x, p.z)) side = -1; }
+    const p = F.pos.clone().addScaledVector(F.right, side * 31); const g = new THREE.CylinderGeometry(0.35, 0.45, 14, 6); g.translate(p.x, F.pos.y + 4, p.z); cg.metal.push(g);
+    const l = new THREE.BoxGeometry(2.4, 0.5, 1.2); l.translate(p.x, F.pos.y + 11, p.z); cg.glow.push(l);
+  }
   // conducción junto a la pista hasta la boca del túnel
   for (let q = t0; q < S.tunnel + 30; q += 6) {
     track.sample(track.wrap(q), F); let side = 1; { const p = F.pos.clone().addScaledVector(F.right, 80); if (inside(p.x, p.z)) side = -1; }
@@ -615,5 +648,98 @@ function buildCaldera(world, own, track, branches, S) {
   }
   for (const [k, list] of Object.entries(cg)) { if (!list.length) continue; const g = mergeGeometries(list.map((q) => q.toNonIndexed ? q.toNonIndexed() : q), false); list.forEach((q) => q.dispose()); own.push(g); const mesh = new THREE.Mesh(g, k === 'metal' ? metal : k === 'glow' ? glow : red); mesh.castShadow = k === 'metal'; mesh.receiveShadow = true; world.add(mesh); }
 
-  return { heightAt, falls, cx, cz, half, update(dt) { fallMat.uniforms.uT.value += dt; } };
+  return { heightAt, falls, cx, cz, half, pad, update(dt) { fallMat.uniforms.uT.value += dt; } };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Tráfico aéreo de la colonia (petición de Dear, 21 nov.)
+// ─────────────────────────────────────────────────────────────
+// · Lanzaderas mineras: despegan de la plataforma, cruzan la caldera en arco hacia puntos de la pared y vuelven.
+// · Carguero de mineral: casco largo que cruza la caldera muy alto y despacio, con su fila de luces.
+// · Patrulla VOSTOK: tres naves de la escuadra en cuña dando vueltas sobre el lago (las de la flota, malla lejana;
+//   si la VOSTOK no está cargada, otras tres). Enlaza con «Cortesía del Tiempo».
+// Todo con materiales básicos y destellos: sin luces nuevas ni sombras.
+class IoTraffic {
+  constructor(world, own, land, track) {
+    this.world = world; this.land = land; this.t = 0; this.items = [];
+    const hull = new THREE.MeshStandardMaterial({ color: 0x4a4440, roughness: 0.6, metalness: 0.5 });
+    const lit = new THREE.MeshBasicMaterial({ color: 0xffc080 });
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    this.tex = new THREE.CanvasTexture(c);
+    const spr = (col, sc) => { const m = new THREE.SpriteMaterial({ map: this.tex, color: col, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }); own.push(m); const s = new THREE.Sprite(m); s.scale.setScalar(sc); return s; };
+    own.push(hull, lit, this.tex);
+    this.spr = spr;
+    // lanzadera: cuerpo, dos góndolas, cabina iluminada, motores y luces de posición
+    const shuttle = () => {
+      const g = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 14), hull); g.add(b);
+      for (const sx of [-4, 4]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 9, 8).rotateX(Math.PI / 2), hull); p.position.set(sx, -0.6, -1); g.add(p); const e = spr(0xff9040, 6); e.position.set(sx, -0.6, -6); g.add(e); }
+      const w = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.6, 2), lit); w.position.set(0, 1.4, 5); g.add(w);
+      const r = spr(0xff2020, 3.5); r.position.set(-5.4, 0, 0); g.add(r); const gr = spr(0x20ff60, 3.5); gr.position.set(5.4, 0, 0); g.add(gr);
+      g.userData.blink = [r, gr];
+      world.add(g); return g;
+    };
+    const pad = land.pad || new THREE.Vector3(land.cx, 200, land.cz);
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.57 + 0.4, R = land.half * (0.55 + 0.15 * (i % 2));
+      const far = new THREE.Vector3(land.cx + Math.cos(a) * R, 0, land.cz + Math.sin(a) * R); far.y = Math.min(420, land.heightAt(far.x, far.z) + 40);
+      this.items.push({ kind: 'shuttle', obj: shuttle(), from: pad.clone(), to: far, T: 26 + i * 5, t: i * 7, H: 160 + i * 40 });
+    }
+    // carguero
+    { const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(22, 14, 160), hull); g.add(body);
+      for (let k = -3; k <= 3; k++) { const pod = new THREE.Mesh(new THREE.BoxGeometry(30, 10, 16), hull); pod.position.set(0, -10, k * 20); g.add(pod); }
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(14, 6, 18), hull); bridge.position.set(0, 10, 66); g.add(bridge);
+      const win = new THREE.Mesh(new THREE.BoxGeometry(14.4, 1.2, 18.4), lit); win.position.set(0, 11, 66); g.add(win);
+      for (let k = -7; k <= 7; k++) for (const sx of [-11.5, 11.5]) { const l = spr(0xffd0a0, 4); l.position.set(sx, 2, k * 10); g.add(l); }
+      for (const sx of [-7, 0, 7]) { const e = spr(0x80c0ff, 22); e.position.set(sx, 0, -84); g.add(e); }
+      const beacon = spr(0xff3020, 10); beacon.position.set(0, 14, 0); g.add(beacon); g.userData.blink = [beacon];
+      world.add(g);
+      this.items.push({ kind: 'freighter', obj: g, t: 0, T: 110 });
+    }
+    this.patrol = null;   // se monta con las naves de la flota en cuanto están cargadas
+  }
+  makePatrol(G) {
+    const ships = G?.ships || []; if (!ships.length) return;
+    const pick = ships.filter((q) => /VOSTOK/i.test(q.node || q.def?.node || q.name || '')); const src = pick.length ? pick : ships.slice(0, 1);
+    const grp = new THREE.Group();
+    const one = (dx, dz) => {
+      const s0 = src[0], m = new THREE.Group(); m.scale.copy(s0.model.scale).multiplyScalar(1.4);
+      if (s0.lodMesh) { const lm = new THREE.Mesh(s0.lodMesh.geometry, (s0.lodMat || s0.lodMesh.material).clone()); m.add(lm); }
+      else { const c = s0.model.clone(true); const drop = []; c.traverse((o) => { if (o.isSprite || o.isLight || (o.material && o.material.isShaderMaterial)) drop.push(o); }); drop.forEach((o) => o.parent.remove(o)); m.add(c); }
+      m.position.set(dx, 0, dz); grp.add(m);
+      const e = this.spr(0x8fd0ff, 10); e.position.set(dx, 0.6, dz - 6); grp.add(e);
+    };
+    one(0, 0); one(-16, -14); one(16, -14);
+    this.world.add(grp); this.patrol = grp;
+  }
+  update(dt, G) {
+    this.t += dt;
+    // se monta fuera de la carrera (menú, intro, cuenta atrás) para que el clonado no dé un tirón en pista
+    if (!this.patrol && G?.ships?.length && (G.state !== 'race' || this.t > 1)) this.makePatrol(G);
+    const L = this.land, blinkOn = (this.t % 1.2) < 0.15;
+    for (const it of this.items) {
+      for (const b of it.obj.userData.blink || []) b.visible = blinkOn;
+      if (it.kind === 'shuttle') {
+        // ida y vuelta: despega, arco alto, se posa, espera y regresa
+        it.t += dt; const T = it.T, ph = (it.t % (2 * T + 8)) ;
+        let a, b, f;
+        if (ph < T) { a = it.from; b = it.to; f = ph / T; } else if (ph < T + 4) { a = it.to; b = it.to; f = 0; } else if (ph < 2 * T + 4) { a = it.to; b = it.from; f = (ph - T - 4) / T; } else { a = it.from; b = it.from; f = 0; }
+        const e = f * f * (3 - 2 * f), p = a.clone().lerp(b, e); p.y += Math.sin(e * Math.PI) * it.H;
+        const ahead = a.clone().lerp(b, Math.min(1, e + 0.01)); ahead.y += Math.sin(Math.min(1, e + 0.01) * Math.PI) * it.H;
+        it.obj.position.copy(p); if (a !== b) it.obj.lookAt(ahead);
+      } else {
+        // carguero: cruza la caldera en línea recta a 650 m, de pared a pared, y vuelve a empezar
+        it.t += dt; const f = (it.t % it.T) / it.T, a0 = 0.8;
+        const p0 = new THREE.Vector3(L.cx + Math.cos(a0) * L.half * 1.6, 650, L.cz + Math.sin(a0) * L.half * 1.6), p1 = new THREE.Vector3(L.cx - Math.cos(a0) * L.half * 1.6, 680, L.cz - Math.sin(a0) * L.half * 1.6);
+        it.obj.position.copy(p0).lerp(p1, f); it.obj.lookAt(p1);
+      }
+    }
+    if (this.patrol) {
+      // cuña VOSTOK en óvalo sobre el lago, 240 m, alabeando en las curvas
+      const w = this.t * 0.055, R = L.half * 0.42, p = new THREE.Vector3(L.cx + Math.cos(w) * R * 1.3, 240 + Math.sin(this.t * 0.3) * 20, L.cz + Math.sin(w) * R);
+      const q = new THREE.Vector3(L.cx + Math.cos(w + 0.02) * R * 1.3, p.y, L.cz + Math.sin(w + 0.02) * R);
+      this.patrol.position.copy(p); this.patrol.lookAt(q); this.patrol.rotateZ(-0.35);
+    }
+  }
 }
