@@ -481,12 +481,13 @@ CIRCUITS.push({
   sunFrom: 'io',
   atmosphere: {
     sunDir: new THREE.Vector3(-0.4, 0.5, 0.75).normalize(),
-    baseDensity: 0.00002, heightDensity: 0.00012, heightFalloff: 0.006, fogMax: 0.55,
+    // Ío no tiene atmósfera: casi sin niebla (antes quedaba una bruma naranja por toda la fase)
+    baseDensity: 0.000003, heightDensity: 0.00001, heightFalloff: 0.02, fogMax: 0.18,
     exposure: 1.0, saturation: 1.0, redKeep: 0.95,
-    bloom: { strength: 0.7, radius: 0.6, threshold: 0.82 },
+    bloom: { strength: 0.45, radius: 0.5, threshold: 0.9 },
     sky: {
-      horizon: [0.03, 0.018, 0.01], zenith: [0.002, 0.0018, 0.0016], below: [0.06, 0.02, 0.008], zLow: -0.05, zHigh: 0.3,
-      glow: [1.0, 0.5, 0.2], glowK: 0.2, glowExp: 4, haloCol: [1.0, 0.7, 0.4], halo: 0.0, haloExp: 400,
+      horizon: [0.008, 0.006, 0.005], zenith: [0.001, 0.001, 0.0012], below: [0.05, 0.016, 0.006], zLow: -0.05, zHigh: 0.2,
+      glow: [1.0, 0.5, 0.2], glowK: 0.05, glowExp: 8, haloCol: [1.0, 0.7, 0.4], halo: 0.0, haloExp: 400,
       sun: [1.0, 0.97, 0.92], corona: 0.2, coronaExp: 5000, disc: 3.0, discExp: 60000,
     },
     clouds: null,

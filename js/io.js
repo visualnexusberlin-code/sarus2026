@@ -119,10 +119,10 @@ export function buildIo(def, { world, own, srcMat }) {
 
   // barrido de un perfil a lo largo de la principal (s) o de un ramal (u); escribe aTrack (s, x, h, máscara) para la pintura del tablero
   const sweep = (smp, a, b, step, prof, closed, deckLike) => {
-    const rows = Math.max(1, Math.round((b - a) / step)), m = prof.length, pos = [], uv = [], at = [], idx = [];
+    const rows = Math.max(1, Math.round((b - a) / step)), m = (typeof prof === 'function' ? prof(a) : prof).length, pos = [], uv = [], at = [], idx = [];
     for (let r = 0; r <= rows; r++) {
       const q = a + (b - a) * r / rows, w = smp(q, F);
-      prof.forEach(([x0, h], k) => { const x = x0 * w; pos.push(F.pos.x + F.right.x * x + F.up.x * h, F.pos.y + F.right.y * x + F.up.y * h, F.pos.z + F.right.z * x + F.up.z * h); uv.push(k / (m - 1), q / 32); at.push(q, x, h, 0); });
+      (typeof prof === 'function' ? prof(q) : prof).forEach(([x0, h], k) => { const x = x0 * w; pos.push(F.pos.x + F.right.x * x + F.up.x * h, F.pos.y + F.right.y * x + F.up.y * h, F.pos.z + F.right.z * x + F.up.z * h); uv.push(k / (m - 1), q / 32); at.push(q, x, h, 0); });
     }
     const segs = closed ? m : m - 1;
     for (let r = 0; r < rows; r++) for (let k = 0; k < segs; k++) { const i0 = r * m + k, i1 = r * m + (k + 1) % m, c = i0 + m, d = i1 + m; idx.push(i0, c, i1, i1, c, d); }
@@ -164,6 +164,61 @@ export function buildIo(def, { world, own, srcMat }) {
   // pilas de la principal
   for (let q = 40; q < L; q += 90) { track.sample(q, F); const h = F.pos.y - LAVA_Y; for (const sd of [-9, 9]) { const p = F.pos.clone().addScaledVector(F.right, sd); const c = new THREE.CylinderGeometry(2.2, 3.4, h, 10); c.translate(p.x, LAVA_Y + h / 2 - 3, p.z); parts.pier.push(c); } }
 
+  // Señalización de cada desvío: carril de entrada iluminado con flechas que se mueven hacia el ramal (260 m antes),
+  // pórtico con el nombre sobre la salida y divisoria con luces (el morro) donde las dos rutas se separan y se juntan.
+  const lane = [], gores = [];
+  for (const br of [A, B]) {
+    const x0 = br.splitX, x1 = br.side * 15.6;
+    const a0 = br.sA - 260, prof = [[Math.min(x0, x1), 0.12], [Math.max(x0, x1), 0.12]];
+    lane.push(sweep((q, Fo) => { track.sample(track.wrap(q), Fo); return 1; }, a0, br.sA + 30, 2, prof, false, false));
+    // la divisoria sigue la misma línea que la física (Branch.goreX): del morro hacia el borde
+    const gx = (q) => track.dividerAt(track.wrap(q))?.x ?? br.side * 16.6;
+    const gp = (q) => { const x = gx(q); return [[x - 0.45, -0.02], [x - 0.45, 1.1], [x + 0.45, 1.1], [x + 0.45, -0.02]]; };
+    const gl = (q) => { const x = gx(q); return [[x - 0.5, 1.1], [x + 0.5, 1.1], [x + 0.5, 1.35], [x - 0.5, 1.35]]; };
+    const msm = (q, Fo) => { track.sample(track.wrap(q), Fo); return 1; };
+    gores.push(sweep(msm, br.sA + 0.5, br.sA + br.gore, 2, gp, false, false), sweep(msm, br.sB - br.gore, br.sB - 0.5, 2, gp, false, false));
+    parts.warn.push(sweep(msm, br.sA + 0.5, br.sA + br.gore, 2, gl, true, false), sweep(msm, br.sB - br.gore, br.sB - 0.5, 2, gl, true, false));
+  }
+  parts.guard.push(...gores);
+  const laneMat = new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `#include <common>
+      #include <logdepthbuf_pars_vertex>
+      varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `#include <common>
+      #include <logdepthbuf_pars_fragment>
+      uniform float uT; varying vec2 vUv;
+      void main(){
+        #include <logdepthbuf_fragment>
+        // flechas «>» a lo largo del carril, corriendo hacia el desvío
+        float v = vUv.y * 32.0 / 14.0 - uT * 3.0, x = abs(vUv.x - 0.5) * 2.0;
+        float chev = fract(v - x * 0.55), a = smoothstep(0.0, 0.08, chev) * (1.0 - smoothstep(0.32, 0.4, chev));
+        float edge = smoothstep(0.86, 0.98, x);
+        gl_FragColor = vec4(vec3(1.0, 0.42, 0.08) * (a * 3.0 + edge * 2.2 + 0.22), 1.0);
+      }`,
+  });
+  own.push(laneMat);
+  { const g = mergeGeometries(lane.map((q) => { q.deleteAttribute('normal'); return q; }), false); lane.forEach((q) => q.dispose()); own.push(g); world.add(new THREE.Mesh(g, laneMat)); }
+  // pórtico con el nombre del desvío sobre la salida
+  const sign = (txt, sub) => {
+    const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256; const x = cv.getContext('2d');
+    x.fillStyle = '#120a06'; x.fillRect(0, 0, 1024, 256); x.fillStyle = '#ff7a1e'; x.fillRect(0, 0, 1024, 14); x.fillRect(0, 242, 1024, 14);
+    x.fillStyle = '#ffe6cc'; x.font = '84px Michroma, sans-serif'; x.textAlign = 'center'; x.fillText(txt, 512, 128);
+    x.fillStyle = '#ff9a4a'; x.font = '40px "IBM Plex Mono", monospace'; x.fillText(sub, 512, 205);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; own.push(t); return t;
+  };
+  for (const br of [A, B]) {
+    const [txt, sub] = br.id === 'viaduct' ? ['A · VIADUCTO', 'SIN GUARDARRAÍL · LAVA'] : ['B · SALTO', 'RECEPCIÓN SIN RED · LAVA'];
+    const m = new THREE.MeshBasicMaterial({ map: sign(txt, sub), toneMapped: false }); own.push(m);
+    track.sample(br.sA - 160, F);
+    const cx = (br.splitX + br.side * 15.6) / 2, p = F.pos.clone().addScaledVector(F.right, cx).addScaledVector(F.up, 11.5);
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(22, 5.5), m); own.push(board.geometry);
+    board.position.copy(p); board.lookAt(p.clone().sub(F.tan)); world.add(board);
+    for (const px of [br.splitX, br.side * 16.5]) { const q = F.pos.clone().addScaledVector(F.right, px); const g = new THREE.BoxGeometry(0.6, 14, 0.6); g.translate(q.x, q.y + 7, q.z); parts.pier.push(g); }
+  }
+
   for (const [k, list] of Object.entries(parts)) {
     if (!list.length) continue;
     const norm = list.map((g) => { for (const a of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'aTrack'].includes(a)) g.deleteAttribute(a); if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2)); if (!g.attributes.aTrack && (k === 'deck' || k === 'guard')) g.setAttribute('aTrack', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 4), 4)); return g; });
@@ -190,8 +245,8 @@ export function buildIo(def, { world, own, srcMat }) {
         vec2 p = vW.xz * 0.012; float t = uT * 0.03;
         float n = vn(p + t) * 0.55 + vn(p * 2.3 - t) * 0.3 + vn(p * 6.1 + t * 2.0) * 0.15;
         float crack = 1.0 - smoothstep(0.02, 0.09, abs(n - 0.5));
-        vec3 crust = vec3(0.05, 0.02, 0.015), hot = vec3(4.0, 1.1, 0.18);
-        gl_FragColor = vec4(mix(crust, hot, crack) + hot * 0.06, 1.0);
+        vec3 crust = vec3(0.035, 0.016, 0.012), hot = vec3(2.4, 0.62, 0.1);
+        gl_FragColor = vec4(mix(crust, hot, crack) + hot * 0.025, 1.0);
       }`,
   });
   own.push(lavaMat);
@@ -200,6 +255,6 @@ export function buildIo(def, { world, own, srcMat }) {
   const ctr = c.getCenter(new THREE.Vector3()); lava.position.set(ctr.x, LAVA_Y, ctr.z);
   own.push(lava.geometry); world.add(lava);
 
-  const fx = { update(dt) { lavaMat.uniforms.uT.value += dt; } };
+  const fx = { update(dt) { lavaMat.uniforms.uT.value += dt; laneMat.uniforms.uT.value += dt; } };
   return { track, ground: () => LAVA_Y, tunnel: { s: s.tunnel, len: s.tunnelOut - s.tunnel }, bridges: 0, fx, dbg: { s, A, B } };
 }

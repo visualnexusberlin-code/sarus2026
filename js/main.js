@@ -1634,6 +1634,16 @@ function updateRace(dt) {
     }
     sh.update(dt, i, locked);
     if (sh === ship && sh.landEvent) { G.chase.addShake(sh.landEvent); sh.landEvent = 0; }
+    // aviso de desvío (ÍO): una vez por vuelta, a ~450 m, con el lado en pantalla
+    if (sh === ship && !ship.branch && G.track.branches?.length) for (const b of G.track.branches) {
+      const d = G.track.delta(ship.s, b.sA), key = `${b.id}:${Math.floor(ship.distance / G.track.length)}`;
+      if (d > 300 && d < 480 && G._forkHint !== key) {
+        G._forkHint = key; const Fh = G.track.frame(); G.track.sample(b.sA, Fh);
+        const camR = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), right = Math.sign(Fh.right.dot(camR)) * b.side > 0;
+        const name = b.id === 'viaduct' ? tr('Desvío A · Viaducto sin red', 'Shortcut A · No-rail viaduct') : tr('Desvío B · Salto', 'Shortcut B · Jump');
+        hud.banner(name, right ? tr('Carril derecho →', 'Right lane →') : tr('← Carril izquierdo', '← Left lane'), false, 2.2, true);
+      }
+    }
     if (sh.fallEvent === 'lava') {                       // ÍO: caída desde un desvío → eliminada
       if (sh === ship) { hud.banner(tr('Eliminado', 'Eliminated'), tr('Tragado por la lava', 'Swallowed by the lava'), true, 3.2); G.chase.addShake(1.2); }
       else if (G.track.delta(ship.s, sh.s) < 900) hud.banner(`${sh.name} ${tr('eliminada', 'eliminated')}`, tr('en la lava', 'in the lava'), false, 1.4, true);

@@ -502,9 +502,9 @@ export class Ship {
     // eliminada: restos que se arrastran hasta pararse y quedan tendidos en la pista
     if (this.out) { if (!this.sunk) this.wreckUpdate(dt); return; }
     if (this.fall > 0) { this.fallUpdate(dt); return; }
-    this.routeStep();
+    if (this._ps === undefined) this._ps = this.s;
     if (this.invuln > 0) { this.invuln = Math.max(0, this.invuln - dt); this.model.visible = this.invuln === 0 || Math.floor(this.invuln * 12) % 2 === 0; }
-    const tr = this.track;
+    let tr = this.track;
     tr.sample(this.s, this.frame);
     const k = this.frame.kappa;
     const vPrev = this.v;
@@ -625,6 +625,8 @@ export class Ship {
     this.phi = THREE.MathUtils.clamp(this.phi, -1.6, 1.6);
     const ds = sdot * dt * (tr.ratio || 1);               // en un ramal, s avanza en la medida de la ruta principal
     this.s = tr.wrap(this.s + ds);
+    // cambio de ruta (ÍO) justo al cruzar sA/sB, antes de muros y divisoria
+    { const was = tr; this.routeStep(); tr = this.track; if (tr !== was) tr.sample(this.s, this.frame); }
     this.distance += ds;
     this.x += -this.v * Math.sin(this.phi) * dt;
 
@@ -657,6 +659,17 @@ export class Ship {
         this.scraping = 1;
         this.v *= 1 - (0.55 - 0.25 * A) * dt;
         this.phi *= 0.5;
+      }
+    }
+
+    // Divisoria de un desvío (ÍO): una vez elegida la ruta, el morro no deja cruzar al otro carril
+    const dv = !airNow && tr.dividerAt ? tr.dividerAt(this.s) : null;
+    if (dv) {
+      const lx = dv.x - dv.side * this.halfWidthGeo * 0.85;
+      if (dv.side * (this.x - lx) > 0) {
+        this.x = lx; const into = Math.abs(Math.sin(this.phi));
+        if (into > 0.09) { this.wallHit = this.v * into; this.v *= 1 - THREE.MathUtils.clamp((0.1 + into * 0.9) * C.wallLoss * (1 - 0.6 * A) / Math.sqrt(C.mass), 0, 0.6); this.phi *= -0.2; this.psi *= 0.45; }
+        else { this.scraping = 1; this.v *= 1 - (0.55 - 0.25 * A) * dt; this.phi *= 0.5; }
       }
     }
 
@@ -790,7 +803,7 @@ export class Ship {
     }
   }
   // vuelve a la ruta principal (salida, reinicio, caída no letal)
-  leaveBranch() { if (this.branch) { this.track = this.branch.main; this.branch = null; } }
+  leaveBranch() { if (this.branch) this.track = this.branch.main; this.branch = null; }   // null siempre (no undefined): cohetes y esferas comparan rutas
   fallUpdate(dt) {
     this.fall += dt;
     this.v *= Math.exp(-0.25 * dt);

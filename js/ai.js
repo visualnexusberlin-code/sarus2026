@@ -65,6 +65,8 @@ export class AIDriver {
       }
     }
     this.avoid += (avoidT - this.avoid) * Math.min(1, dt * (tr.obstacles?.length ? 4 : 2.5));
+    // divisoria de un desvío (ÍO) por delante: quedarse en su lado con margen
+    if (tr.dividerAt) for (let d = 0; d <= Ld; d += 20) { const dv = tr.dividerAt(sh.s + d); if (dv) { const lx = dv.x - dv.side * 3.2; if (dv.side * (xt - lx) > 0) xt = lx; } }
     let xw = 13.6 * tr.wAt(sh.s);
     if (tr.openAt && (tr.openAt(sh.s) || tr.openAt(sh.s + Ld))) xw *= 0.45;   // sin guardarraíles: lejos del borde
     xt = clamp(xt + this.avoid, -xw, xw);
@@ -151,7 +153,7 @@ export function resolveCollisions(ships, track, onHit, dt = 1 / 60) {
     for (let j = i + 1; j < ships.length; j++) {
       const a = ships[i], b = ships[j];
       if (a.out && b.out) continue;
-      if (a.branch !== b.branch || a.sunk || b.sunk) continue;          // en rutas distintas (ÍO) no se tocan
+      if ((a.branch || null) !== (b.branch || null) || a.sunk || b.sunk) continue;          // en rutas distintas (ÍO) no se tocan
       const ds = track.delta(a.s, b.s);                    // + → b va delante
       const len = (a.length + b.length) * 0.5 * 0.92;
       if (Math.abs(ds) > len) continue;

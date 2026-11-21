@@ -66,6 +66,18 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
 
 **Pendiente de la fase 1:** el salto no es aún un vuelo balístico real (sigue la cota del ramal); la recepción no castiga despegar lento.
 
+## Prueba de Dear (21 de noviembre) y arreglos
+
+- **Los cohetes no impactaban en ninguna fase de la beta.** Fallo del código de ramales: la ruta de una nave valía `undefined` y la del cohete `null`, y al compararlas ningún blanco «estaba en la misma ruta». Ahora la ruta es siempre `null` fuera de un ramal y las comparaciones lo normalizan. Medido en ÍO y EUROPA: mismo resultado que la versión pública.
+- **Entradas a los desvíos casi invisibles y confusas.**
+  - Carril de entrada iluminado en naranja con flechas que corren hacia el desvío, los 260 m previos.
+  - Pórtico grande con el nombre («A · VIADUCTO», «B · SALTO») sobre la entrada.
+  - Aviso en pantalla a ~450 m, una vez por vuelta, con el lado («Carril derecho →» / «← Carril izquierdo»).
+  - **Divisoria física** (morro con luces) en la salida y en la vuelta de cada ramal: arranca en el punto de reparto y se abre hacia el borde a medida que el ramal se aleja (en la vuelta, al revés). Antes se podía cruzar de una ruta a la otra sobre el tablero compartido, y la nave «entraba» o no casi por casualidad.
+  - El cambio de ruta se decide justo al cruzar la salida, antes de muros y divisoria (`Ship.update`).
+  - La IA respeta la divisoria.
+- **Bruma naranja por toda la fase.** Ío no tiene atmósfera: niebla casi a cero, cielo negro, menos resplandor y lava menos sobreexpuesta.
+
 ## Orden de trabajo
 
 1. **Ramales en el motor** (bifurcaciones reales: geometría propia, posición traducida a la ruta principal para vueltas, clasificación, IA y esferas). Probarlos en un trazado de Ío con geometría simple.

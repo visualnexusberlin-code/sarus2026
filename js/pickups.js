@@ -258,7 +258,7 @@ export class Missiles {
     // objetivo: la nave más cercana por delante (hasta 450 m)
     let target = null, bd = Infinity;
     for (const o of ships) {
-      if (o === owner || o.dead > 0 || o.invuln > 0 || o.branch !== owner.branch) continue;   // ÍO: solo blancos de su misma ruta
+      if (o === owner || o.dead > 0 || o.invuln > 0 || (o.branch || null) !== (owner.branch || null)) continue;   // ÍO: solo blancos de su misma ruta
       const d = this.track.delta(owner.s, o.s);
       // firma mínima (PHANTOM): solo se fija a corta distancia y cuesta más elegirla como blanco
       const st = o.C?.stealth ? 1 : 0;
@@ -285,7 +285,7 @@ export class Missiles {
       if (m.route && tr.delta(m.route.sB, m.s) >= 0) { m.x += m.route.offB; m.route = null; }
       const mt = m.route ? m.route.view : tr;
       m.s = tr.wrap(m.s + m.v * dt * (mt.ratio || 1));
-      if (m.target && m.target.branch !== m.route) m.target = null;
+      if (m.target && (m.target.branch || null) !== m.route) m.target = null;
       if (m.target) {
         const d = tr.delta(m.s, m.target.s);
         if (d < -6) m.target = null;
@@ -303,7 +303,7 @@ export class Missiles {
       // impacto
       let hit = null;
       for (const o of ships) {
-        if ((o === m.owner && m.life > 4.2) || o.out || o === m.skip || o.branch !== m.route) continue;
+        if ((o === m.owner && m.life > 4.2) || o.out || o === m.skip || (o.branch || null) !== m.route) continue;
         if (Math.abs(tr.delta(m.s, o.s)) < 3 && Math.abs(o.x - m.x) < 2.1) { hit = o; break; }
       }
       const wall = Math.abs(m.x) > Math.max(15.6 * (mt.isBranch ? mt.wAt(m.s) : 1), (mt.flightAt ? mt.flightAt(m.s) : 0) * (mt.flightR || 26) * 1.92 + 1);
@@ -316,7 +316,7 @@ export class Missiles {
           if (m.charges > 1) {
             let bd = CONFIG.heavy?.reach ?? 320;
             for (const o of ships) {
-              if (o === hit || o === m.owner || o.out || o.dead > 0 || o.invuln > 0 || o.branch !== hit.branch) continue;
+              if (o === hit || o === m.owner || o.out || o.dead > 0 || o.invuln > 0 || (o.branch || null) !== (hit.branch || null)) continue;
               const d = tr.delta(hit.s, o.s);
               if (d > 3 && d < bd) { bd = d; next = o; }
             }

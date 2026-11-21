@@ -193,6 +193,17 @@ export class Track {
 
   // Ramal (desvío real, ÍO): geometría propia entre sA y sB de la ruta principal. Ver class Branch.
   addBranch(def) { const b = new Branch(this, def); this.branches.push(b); return b; }
+  // Divisoria (morro) en la salida y en la vuelta de cada ramal: desde la ruta principal no se puede invadir el carril
+  // del desvío una vez pasado sA (ni antes de sB). { x, side }: prohibido side·(x − x0) > 0.
+  // La divisoria arranca en splitX justo en sA y se abre hacia el borde a medida que el ramal se aleja (la principal
+  // recupera su anchura); antes de sB se cierra del borde a splitXB (la principal estrecha para dejar entrar al ramal).
+  dividerAt(s) {
+    for (const b of this.branches) {
+      const da = this.delta(b.sA, s); if (da >= 0 && da <= b.gore) return { x: b.goreX(da / b.gore, true), side: b.side };
+      const db = this.delta(s, b.sB); if (db >= 0 && db <= b.gore) return { x: b.goreX(db / b.gore, false), side: b.side };
+    }
+    return null;
+  }
 
   // Índice espacial (rejilla XZ de 60 m) sobre la línea central ORIGINAL del GLB.
   buildIndex() {
@@ -354,7 +365,8 @@ export class Track {
 export class Branch {
   constructor(main, def) {
     Object.assign(this, { id: def.id, main, sA: def.sA, sB: def.sB, offA: def.offA, offB: def.offB, lethal: !!def.lethal });
-    this.splitX = def.splitX ?? def.offA / 2;
+    this.splitX = def.splitX ?? def.offA / 2; this.splitXB = def.splitXB ?? def.offB / 2;
+    this.gore = def.gore ?? 140;                       // metros de divisoria tras sA y antes de sB
     this.side = Math.sign(def.offA) || 1;
     const curve = new THREE.CatmullRomCurve3(def.pts, false, 'centripetal', 0.5);
     curve.arcLengthDivisions = def.pts.length * 40;
@@ -401,6 +413,8 @@ export class Branch {
     out.kappa = this.kappa[i] + (this.kappa[j] - this.kappa[i]) * t;
     return out;
   }
+  // posición de la divisoria en x de la principal; t = 0 en el morro (sA o sB), 1 al final del tramo de divisoria
+  goreX(t, atFork) { const x0 = atFork ? this.splitX : this.splitXB, e = this.side * 16.6, k = Math.min(1, Math.max(0, (t - 0.3) / 0.7)); return x0 + (e - x0) * k * k * (3 - 2 * k); }
   openAtU(u) { for (const [a, b] of this.open) if (u >= a && u <= b) return true; return false; }
   gapAtU(u) { for (const [a, b] of this.bgaps) if (u >= a && u <= b) return (u - a) / (b - a); return -1; }
 }
@@ -428,4 +442,13 @@ class BranchView {
   gapAt(s) { return this.b.gapAtU(this.b.u(s)); }
   jumpLift(s, v) { const t = this.gapAt(s); return t < 0 ? 0 : 4 * t * (1 - t) * Math.min(16, 3 + v * 0.06); }
   openAt(s) { return this.b.openAtU(this.b.u(s)); }
+  // la misma divisoria vista desde el ramal: prohibido volver al lado de la principal
+  dividerAt(s) {
+    const b = this.b, dm = b.main.dividerAt(s); if (!dm) return null;
+    // la divisoria está definida sobre la principal: se lleva al marco del ramal
+    const Fm = this._fm || (this._fm = b.main.frame()), Fb = this._fb || (this._fb = b.main.frame());
+    b.main.sample(s, Fm); this.sample(s, Fb);
+    const px = Fm.pos.x + Fm.right.x * dm.x - Fb.pos.x, py = Fm.pos.y + Fm.right.y * dm.x - Fb.pos.y, pz = Fm.pos.z + Fm.right.z * dm.x - Fb.pos.z;
+    return { x: px * Fb.right.x + py * Fb.right.y + pz * Fb.right.z, side: -b.side };
+  }
 }
