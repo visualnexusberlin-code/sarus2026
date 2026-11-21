@@ -78,6 +78,17 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
   - La IA respeta la divisoria.
 - **Bruma naranja por toda la fase.** Ío no tiene atmósfera: niebla casi a cero, cielo negro, menos resplandor y lava menos sobreexpuesta.
 
+## Segunda prueba de Dear (21 de noviembre): grosor, lava viva y paisaje
+
+- El «humo» en la pista era la estela de los cohetes que nunca impactaban (volaban 4,5 s soltando humo). Resuelto con el arreglo de los cohetes.
+- **Grosor de los desvíos:** sección maciza (hombro, costado y quilla en V de 7,9 m) en lugar de la losa de 2 m.
+- **Géiseres y burbujas** (`LavaFX`): 16 respiraderos sobre la lava junto a la pista y bajo los desvíos entran en erupción cada 3–12 s (gotas incandescentes que suben 60–170 m y caen enfriándose); burbujas de piel de lava que se hinchan cerca de la cámara y revientan en salpicadura; chispas al pie de las cascadas. Una nube de puntos y una malla instanciada: dos programas, ninguna luz nueva.
+- **Caldera** (`buildCaldera`, primera versión): terreno en rejilla según la pista. Dentro del lazo, lago; junto a los tramos altos, repisa de roca bajo el tablero que cae en acantilado al lago. Fuera, la pared de la caldera sube hasta ~380 m y sigue una llanura de azufre. Color por vértice (basalto, azufre, ocre, escarcha, óxido) y brillo de la lava desde abajo.
+- **Tres cascadas de lava** por el acantilado (flanco derecho y bajo la colonia), **rocas** sueltas en repisas y lago, **colonia minera** en la terraza alta (módulos con ventanas iluminadas, algunos asomados sobre las cascadas, castilletes con luz roja, conducción hasta el túnel).
+- **Júpiter** enorme sobre el horizonte, visible desde la recta de salida (`jupiterSky`, la misma textura que en EUROPA).
+- Medido: 356 órdenes de dibujo (137 en ligera), sin compilaciones en carrera.
+- Pendiente: el acantilado interior es aún una pared lisa; la colonia puede crecer (más módulos, pasarelas, luces); el lago en sí sigue siendo un plano.
+
 ## Orden de trabajo
 
 1. **Ramales en el motor** (bifurcaciones reales: geometría propia, posición traducida a la ruta principal para vueltas, clasificación, IA y esferas). Probarlos en un trazado de Ío con geometría simple.

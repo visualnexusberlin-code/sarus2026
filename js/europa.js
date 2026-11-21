@@ -284,8 +284,8 @@ function iceMaterial(tex) {
 }
 
 // Júpiter (mapa horneado) e Io (procedural, pequeña): luz del Sol real por detrás
-function planetMaterial(center, sunDir, kind, tex) {
-  const toV = JUP_DIR.clone().negate().setY(0).normalize(), east = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toV).normalize().multiplyScalar(MX);
+function planetMaterial(center, sunDir, kind, tex, jdir = JUP_DIR) {
+  const toV = jdir.clone().negate().setY(0).normalize(), east = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toV).normalize().multiplyScalar(MX);
   return new THREE.ShaderMaterial({
     fog: false,
     uniforms: { uC: { value: center }, uSun: { value: sunDir }, uV: { value: toV }, uE: { value: east }, uT: { value: 0 }, uMap: { value: tex || null } },
@@ -881,4 +881,15 @@ export function buildEuropa(def, { world, own, srcMat, renderer }) {
   let ymin = Infinity, ymax = -Infinity; for (const v of y) { ymin = Math.min(ymin, v); ymax = Math.max(ymax, v); }
   console.info(`[SRS] EUROPA: ${L.toFixed(0)} m · cota ${ymin.toFixed(0)}…${ymax.toFixed(0)} m · cúpulas ${nDome} · torres ${nTower} · faros ${lamps.length} · anillos ${gates.length} · fisuras ${fiss.length} · ${(performance.now() - T0).toFixed(0)} ms`);
   return { track, ground: H, tunnel: false, bridges: 0, introKeys, fx };
+}
+
+// Júpiter para otras fases del sistema joviano (ÍO): misma textura horneada y mismo material que en EUROPA.
+// dir: dirección horizontal desde el centro del circuito; dist y elev (grados) colocan el planeta en el cielo.
+export function jupiterSky(world, own, renderer, centroid, dir, { dist = 150000, elev = 16, sunDir } = {}) {
+  const d = dir.clone().setY(0).normalize(), jc = centroid.clone().addScaledVector(d, dist).setY(dist * Math.tan(elev * Math.PI / 180));
+  const big = renderer.capabilities.maxTextureSize >= 8192 && !('ontouchstart' in window);
+  const rt = gpuBake(renderer, big ? 4096 : 2048, big ? 2048 : 1024, JUP_BAKE, false); own.push(rt);
+  const m = planetMaterial(jc, sunDir, 0, rt.texture, d); m.userData.tag = 'jup'; own.push(m);
+  const j = new THREE.Mesh(new THREE.SphereGeometry(JUP_R, 128, 96), m); j.position.copy(jc); j.scale.y = 0.935; j.frustumCulled = false; world.add(j); own.push(j.geometry);
+  return j;
 }
