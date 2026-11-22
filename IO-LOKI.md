@@ -111,6 +111,13 @@ Cinco ilustraciones de Ío con Júpiter enorme en el cielo. Lo que se toma de el
 - Rama `claude/io` publicada en `main`. Copia de la versión anterior: rama `estable/2026-11-21-antes-de-io`.
 - Pendiente de la fase: ritmo de la IA en ÍO (Dear la encuentra fácil), los cuatro arcos con sus premios, salto balístico real, lava letal en todo el lago.
 
+## Quinta prueba de Dear (22 de noviembre): cuatro fallos
+
+- **Cámara de la intro dentro de la montaña.** ÍO no tenía intro propia y usaba la de SELENE, con coordenadas fijas que aquí caen dentro de la pared de la caldera; el evitador de terreno no lo veía porque el rayo topaba con acantilados casi verticales. Ahora hay intro propia (Júpiter sobre el borde → bajada al lago junto a una cascada → pasada junto al viaducto → recta de meta) y el evitador usa además el mapa de alturas (`introGround`). Medido: ningún tramo bajo el terreno.
+- **Desvío B: la nave seguía recto un tramo y salía «bajo» la principal.** El lado del desvío se calculaba mal: B salía por la izquierda, cruzaba por encima del tablero principal y al final lo volvía a cruzar 1,5–4 m por debajo. Ahora el lado se toma hacia la vuelta (sB vista desde sA): B sale por la derecha y nunca cruza. Además, mientras un ramal pisa el tablero principal toma su misma cota y su peralte (diferencia medida: menos de 0,5 m en los bordes). B sigue un 27 % más corto.
+- **Naves colgando en el aire.** Al caer de un desvío la nave desaparecía a los 2,6 s, aún a 100 m sobre la lava. Ahora cae de verdad hasta la lava o la roca (`track.groundAt`), con salpicadura de fuego. En pleno salto, una nave que se sale más de 6 m del ancho de la recepción cae en el acto (solo en los desvíos; CERES no cambia).
+- Medido (150 s, 21 rivales): 13 pasos por el viaducto, 17 saltos, 2 eliminadas en la lava, ningún retroceso en la clasificación; 297 órdenes de dibujo de mediana, sin compilaciones en carrera. CERES y EUROPA sin cambios.
+
 ## Orden de trabajo
 
 1. **Ramales en el motor** (bifurcaciones reales: geometría propia, posición traducida a la ruta principal para vueltas, clasificación, IA y esferas). Probarlos en un trazado de Ío con geometría simple.

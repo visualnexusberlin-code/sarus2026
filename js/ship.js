@@ -637,6 +637,9 @@ export class Ship {
     // aterrizaje: fuera del tablero → caída al vacío; en el borde, roce contra el muro
     const airNow = !!CONFIG.fallOff && tr.gapAt(this.s) >= 0;
     if (this.inGap && !airNow && Math.abs(this.x) > (C.wallAt + 1.0) * tr.wAt(this.s) + this.halfWidthGeo * 0.3) { this.inGap = false; this.startFall(); return; }
+    // salto de un desvío (ÍO), en pleno vuelo y ya muy fuera del ancho de la recepción: no hay nada debajo, cae ya (antes seguía flotando a la
+    // altura del tablero hasta el final del salto)
+    if (airNow && tr.isBranch && Math.abs(this.x) > (C.wallAt + 1.0) * tr.wAt(this.s) + this.halfWidthGeo * 0.3 + 6) { this.inGap = false; this.startFall(); return; }
     // tablero sin guardarraíles (viaducto de ÍO): salirse del borde es caer
     const openEdge = !airNow && !!tr.openAt && tr.openAt(this.s, this.x);
     if (openEdge && Math.abs(this.x) > (C.wallAt + 0.6) * tr.wAt(this.s) + this.halfWidthGeo * 0.2) { this.startFall(); return; }
@@ -809,21 +812,24 @@ export class Ship {
     this.v *= Math.exp(-0.25 * dt);
     this.s = this.track.wrap(this.s + this.v * Math.cos(this.phi) * dt);
     this.x += this.fallVx * dt;
-    this.fallVy += 15 * dt; this.fallY += this.fallVy * dt;
+    this.fallVy += (this.fallLethal ? 24 : 15) * dt; this.fallY += this.fallVy * dt;
     this.power = 0.15; this.updateEngine(dt, 0.15);
     this.updateTransform();
     this.root.position.y -= this.fallY;
     const k = this.fall;
     _e.set(0.35 * k, this.yawVis + 0.6 * k, this.fallRoll * k, 'YXZ'); this.body.quaternion.setFromEuler(_e);
     this.deckScrape = 0;
-    if (this.fall > 2.6 && this.fallLethal) {           // en la lava: eliminada, sin restos
+    // desde un desvío letal la nave cae de verdad hasta la lava o la roca (antes desaparecía a los 2,6 s, aún en el aire)
+    const gnd = this.fallLethal && this.track.b?.main.groundAt;
+    const landed = gnd ? this.root.position.y <= gnd(this.root.position.x, this.root.position.z) + 1.5 || this.fall > 9 : this.fall > 2.6;
+    if (landed && this.fallLethal) {                    // en la lava: eliminada, sin restos
       this.fall = 0; this.fallLethal = false;
       this.hull = 0; this.out = true; this.sunk = true; this.dead = 1e9; this.outAt = this.t;
       this.boost = 0; this.ammo = 0; this.heavy = 0; this.v = 0; this.draft = 0;
       this.root.visible = false; this.fallEvent = 'lava';
       return;
     }
-    if (this.fall > 2.6) {
+    if (this.fall > 2.6 && !this.fallLethal) {
       this.leaveBranch();
       const R = CONFIG.respawn;
       this.s = this.track.wrap(this.fallGap.s0 - 110);

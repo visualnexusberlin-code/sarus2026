@@ -543,7 +543,7 @@ function buildCircuit(def) {
   G.circuitId = def.id;
   applyLook(def);
   const own = G.disposables = [];
-  G.circuitFx = null; G.introKeys = null; G.flyers?.dispose(); G.flyers = null;
+  G.circuitFx = null; G.introKeys = null; G.introGround = null; G.flyers?.dispose(); G.flyers = null;
   if (def.generated) return buildGenerated(def, own, t0);
   const circuit = G.circuitSrc.clone(true);
   if (def.mirror) circuit.scale.x *= -1;          // SELENE: el trazado en espejo (las curvas cambian de lado respecto a ARCADIA)
@@ -802,7 +802,7 @@ function buildGenerated(def, own, t0) {
   G.structures = buildStructures(world, track, def.structures, { tunnel: own_tube ? false : (r.tunnel || false), bridges: own_tube ? 0 : (r.bridges ?? 2), ground: r.ground, rock: true });
   if (own_tube) G.structures.tunnel = r.tunnel;
   G.structures.group.traverse((o) => { if (o.isMesh) own.push(o.geometry, o.material); });
-  G.circuitFx = r.fx; G.introKeys = r.introKeys; G.circuitDbg = r.dbg;
+  G.circuitFx = r.fx; G.introKeys = r.introKeys; G.introGround = r.introGround ? r.ground : null; G.circuitDbg = r.dbg;
   if (G.fx.rockets) G.fx.rockets.enabled = false;
   finishCircuit(def, world, track, t0);
 }
@@ -879,7 +879,7 @@ function resetRace() {
   G.fx.engine?.reset();
   G.missiles?.reset();
   G.chase.snap(player);
-  G.intro = new EagleFlight(camera, track, player, G.chase, G.introKeys);
+  G.intro = new EagleFlight(camera, track, player, G.chase, G.introKeys, G.introGround);
   if (G.world) {   // la cámara de la intro no debe atravesar montes: se comprueba la trayectoria contra el escenario (una vez por circuito)
     const c = G.liftCache;
     if (c && c.world === G.world && c.duration === G.intro.duration) G.intro.lift = c.lift;

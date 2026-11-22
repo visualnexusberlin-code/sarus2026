@@ -89,8 +89,8 @@ export class ChaseCamera {
 
 // ── Vuelo de águila: planeo desde los monolitos hasta la parrilla ──
 export class EagleFlight {
-  constructor(camera, track, ship, chase, introKeys = null) {
-    this.cam = camera; this.track = track; this.ship = ship; this.chase = chase; this.introKeys = introKeys;
+  constructor(camera, track, ship, chase, introKeys = null, ground = null) {
+    this.cam = camera; this.track = track; this.ship = ship; this.chase = chase; this.introKeys = introKeys; this.ground = ground;
     this.build();
     this.t = 0;
     this.roll = 0;
@@ -169,7 +169,7 @@ export class EagleFlight {
   avoidTerrain(meshes, clearance = 9) {
     this.lift = null;
     this.liftInfo = [];
-    if (!meshes.length) return 0;
+    if (!meshes.length && !this.ground) return 0;
     const dtS = 0.15, n = Math.ceil(this.duration / dtS) + 1, L = new Float32Array(n);
     const rc = new THREE.Raycaster(), up = new THREE.Vector3(0, 1, 0), down = new THREE.Vector3(0, -1, 0), p = new THREE.Vector3(), nrm = new THREE.Vector3();
     const sides = new Map(); for (const m of meshes) { const mats = Array.isArray(m.material) ? m.material : [m.material]; for (const q of mats) if (!sides.has(q)) { sides.set(q, q.side); q.side = THREE.DoubleSide; } }
@@ -186,6 +186,8 @@ export class EagleFlight {
         const d = h.point.y - p.y + clearance; lift += d; p.y += d;
         if (this.liftInfo.length < 40) this.liftInfo.push(`${(k * dtS).toFixed(1)}s ${(h.object.name || h.object.material.name || h.object.material.type).slice(0, 30)} +${d.toFixed(0)} tris ${Math.round((h.object.geometry.index ? h.object.geometry.index.count : h.object.geometry.attributes.position.count) / 3)}`);
       }
+      // fases con mapa de alturas: además, nunca por debajo del suelo (un acantilado casi vertical no lo detecta el rayo)
+      if (this.ground) { const gy = this.ground(p.x, p.z) + clearance; if (p.y < gy) { lift += gy - p.y; p.y = gy; } }
       L[k] = lift; worst = Math.max(worst, lift);
     }
     for (const [q, sd] of sides) q.side = sd;

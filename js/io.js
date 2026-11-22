@@ -52,7 +52,7 @@ function sOfD(track, D, d) {
 // Ramal: una sola curva (Bézier en planta) desde main(sA) desplazado offA hasta main(sB) desplazado offB, tangente a la
 // principal en los dos extremos: se separa del tablero suavemente, sin quiebros. Cotas por claves (yMid: [[f, cota], …]).
 // Mientras se solapa con la principal, su tablero va un pelo por debajo y manda el principal.
-function branchPoints(track, { sA, sB, offA, offB, yMid, tension = 0.33 }) {
+function branchPoints(track, { sA, sB, offA, offB, yMid, tension = 0.33, bw = 8 }) {
   const F = track.frame();
   track.sample(sA, F); const p0 = F.pos.clone().addScaledVector(F.right, offA), t0 = F.tan.clone().setY(0).normalize();
   track.sample(sB, F); const p3 = F.pos.clone().addScaledVector(F.right, offB), t3 = F.tan.clone().setY(0).normalize();
@@ -67,7 +67,28 @@ function branchPoints(track, { sA, sB, offA, offB, yMid, tension = 0.33 }) {
     const p = p0.clone().multiplyScalar(a * a * a).addScaledVector(c1, 3 * a * a * t).addScaledVector(c2, 3 * a * t * t).addScaledVector(p3, t * t * t);
     p.y = yAt(t); pts.push(p);
   }
+  // Mientras el ramal pisa el tablero principal, los dos son la misma superficie: la cota del ramal se lleva a la
+  // del principal en ese punto (con su peralte) y solo se separa en altura cuando ya no se tocan en planta.
+  // Antes quedaba hasta 1,5–4 m por encima o por debajo y la nave parecía ir por un plano bajo la principal.
+  const span = track.delta(sA, sB) + 120, hw = (track.width || 32) / 2;
+  for (const p of pts) {
+    let best = 1e9, bs = sA;
+    for (let q = -60; q <= span; q += 4) { track.sample(track.wrap(sA + q), F); const d = (F.pos.x - p.x) ** 2 + (F.pos.z - p.z) ** 2; if (d < best) { best = d; bs = sA + q; } }
+    for (let q = bs - 4; q <= bs + 4; q += 0.5) { track.sample(track.wrap(q), F); const d = (F.pos.x - p.x) ** 2 + (F.pos.z - p.z) ** 2; if (d < best) { best = d; bs = q; } }
+    track.sample(track.wrap(bs), F);
+    const lat = (p.x - F.pos.x) * F.right.x + (p.z - F.pos.z) * F.right.z;
+    const ySurf = F.pos.y + F.right.y * lat / Math.max(0.3, Math.hypot(F.right.x, F.right.z));
+    const w = 1 - sstep(hw + bw * 0.5, hw + bw + 10, Math.abs(lat));
+    p.y = lerp(p.y, ySurf, w);
+    p.bank = Math.asin(Math.max(-1, Math.min(1, F.right.y))) * w;   // y el mismo peralte que el tablero que pisa
+  }
   return pts;
+}
+// peralte del ramal por fracción de longitud, desde los puntos de branchPoints
+function branchBank(pts) {
+  const d = [0]; for (let i = 1; i < pts.length; i++) d.push(d[i - 1] + pts[i].distanceTo(pts[i - 1]));
+  const L = d[d.length - 1];
+  return (f) => { const x = f * L; let i = 0; while (i < pts.length - 2 && d[i + 1] < x) i++; const t = Math.min(1, Math.max(0, (x - d[i]) / Math.max(1e-6, d[i + 1] - d[i]))); return lerp(pts[i].bank || 0, pts[i + 1].bank || 0, t); };
 }
 
 export function ioTrack() {
@@ -79,16 +100,18 @@ export function ioTrack() {
     bank: (f, k) => THREE.MathUtils.clamp(k * 30, -0.16, 0.16),
   });
   const s = {}; for (const [k, v] of Object.entries(M)) s[k] = sOfD(track, D, v);
-  // lado interior de cada desvío (hacia el centro de la curva que recorta)
-  const F = track.frame(), inner = (sa, sb) => { track.sample(sa, F); const a = F.pos.clone(), r = F.right.clone(); track.sample((sa + sb) / 2, F); return Math.sign(F.pos.clone().sub(a).dot(r)) || 1; };
+  // lado del desvío: hacia donde queda la vuelta (sB) vista desde la salida (sA). Así el ramal nunca cruza por
+  // encima ni por debajo del tablero principal (antes se medía con el punto medio de la principal, y en B el
+  // ramal salía por la izquierda, cruzaba la principal y volvía a cruzarla por debajo al final).
+  const F = track.frame(), inner = (sa, sb) => { track.sample(sb, F); const e = F.pos.clone(); track.sample(sa, F); return Math.sign(e.sub(F.pos).dot(F.right)) || 1; };
   const sideA = inner(s.forkA, s.mergeA), sideB = inner(s.forkB, s.mergeB);
   // A · VIADUCTO: carril y medio (12 m), sin guardarraíles en todo el cruce, baja hacia la ensenada de lava
-  const ptsA = branchPoints(track, { sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, yMid: [[0.5, 80]], tension: 0.3 });
-  const A = track.addBranch({ id: 'viaduct', pts: ptsA, sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, width: 12, lethal: true, rail: 'L' });
+  const ptsA = branchPoints(track, { sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, yMid: [[0.5, 80]], tension: 0.3, bw: 6 });
+  const A = track.addBranch({ id: 'viaduct', pts: ptsA, sA: s.forkA, sB: s.mergeA, offA: 10 * sideA, offB: 10 * sideA, width: 12, lethal: true, rail: 'L', bank: branchBank(ptsA) });
   A.open = [[170, A.blen - 110]]; A.aiTake = 0.45;   // los primeros 170 m con muro: la nave se asienta antes de quedar sin red
   // B · SALTO: dos carriles (16 m); rampa que sube, vuelo sobre la cresta, recepción más baja (bordes abiertos los primeros 70 m)
-  const ptsB = branchPoints(track, { sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, yMid: [[0.3, 168], [0.38, 174], [0.56, 122]], tension: 0.3 });
-  const B = track.addBranch({ id: 'jump', pts: ptsB, sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, width: 16, lethal: true, rail: 'L', splitX: 1.5 * sideB });
+  const ptsB = branchPoints(track, { sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, yMid: [[0.3, 168], [0.38, 174], [0.56, 122]], tension: 0.3, bw: 8 });
+  const B = track.addBranch({ id: 'jump', pts: ptsB, sA: s.forkB, sB: s.mergeB, offA: 8 * sideB, offB: 8 * sideB, width: 16, lethal: true, rail: 'L', splitX: 1.5 * sideB, bank: branchBank(ptsB) });
   // vuelo: desde la cima de la rampa hasta la recepción
   let uTop = 0, yTop = -1e9; for (let u = 110; u < B.blen - 110; u += 2) { B.sampleU(u, F); if (F.pos.y > yTop) { yTop = F.pos.y; uTop = u; } }
   const uLand = uTop + 95;
@@ -282,7 +305,25 @@ export function buildIo(def, { world, own, srcMat, renderer }) {
   const lavaFx = new LavaFX(world, own, track, [A, B], land);
   const traffic = new IoTraffic(world, own, land, track);
   const fx = { update(dt, cam, G) { lavaMat.uniforms.uT.value += dt; laneMat.uniforms.uT.value += dt; land.update(dt); lavaFx.update(dt, cam, G); traffic.update(dt, G); } };
-  return { track, ground: (x, z) => Math.max(LAVA_Y, land.heightAt(x, z)), tunnel: { s: s.tunnel, len: s.tunnelOut - s.tunnel }, bridges: 0, fx, dbg: { s, A, B } };
+  const ground = (x, z) => Math.max(LAVA_Y, land.heightAt(x, z));
+  track.groundAt = ground;   // la nave que cae de un desvío cae hasta aquí (lava o roca), no desaparece en el aire
+  // Intro propia (antes usaba la de SELENE, con coordenadas fijas que en ÍO caen dentro de la pared de la caldera):
+  // alto sobre el borde con Júpiter de frente, bajada sobre el lago junto a una cascada, pasada por el viaducto y
+  // llegada por la recta de meta. Cada clave queda al menos 45 m sobre el terreno.
+  track.sample(0, F);
+  const jd = F.tan.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.35).setY(0).normalize();
+  const C = new THREE.Vector3(land.cx, 0, land.cz), sideJ = new THREE.Vector3(-jd.z, 0, jd.x);
+  const safe = (p, c = 45) => { p.y = Math.max(p.y, ground(p.x, p.z) + c); return p; };
+  const fall = (land.falls || [])[0];
+  const fallP = fall ? new THREE.Vector3(fall.x, LAVA_Y, fall.z) : C.clone().addScaledVector(jd, 400).setY(LAVA_Y);
+  const vA = A.sampleU(A.blen * 0.5, track.frame()).pos.clone();
+  const introKeys = (at) => [
+    [0.0, safe(C.clone().addScaledVector(jd, -land.half * 0.55).addScaledVector(sideJ, 260).setY(380)), C.clone().addScaledVector(jd, 6000).setY(1500), 52],
+    [4.2, safe(fallP.clone().lerp(C, 0.35).setY(LAVA_Y + 150)), fallP.clone().setY(LAVA_Y + 40), 56],
+    [7.4, safe(vA.clone().addScaledVector(sideJ, -170).setY(vA.y + 75)), vA.clone(), 58],
+    [9.5, safe(at(-760, -70, 120)), at(-520, 0, 10), 60],
+  ];
+  return { track, ground, introKeys, introGround: true, tunnel: { s: s.tunnel, len: s.tunnelOut - s.tunnel }, bridges: 0, fx, dbg: { s, A, B } };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -380,6 +421,13 @@ class LavaFX {
   update(dt, cam, G) {
     if (!dt) return;
     dt = Math.min(dt, 0.05);
+    // nave que cae de un desvío: salpicadura de fuego donde toca la lava o la roca
+    for (const sh of G?.ships || []) {
+      if (!sh.sunk) { sh._splash = false; continue; }
+      if (sh._splash) continue; sh._splash = true;
+      const q = sh.root.position;
+      for (let j = 0; j < 90; j++) { const a = Math.random() * 6.283, sp = 4 + Math.random() * 22; this.emit(q.x, q.y + 1, q.z, Math.cos(a) * sp * 0.6, 14 + Math.random() * 40, Math.sin(a) * sp * 0.6, 3.5, 2 + Math.random() * 4); }
+    }
     const Y = LAVA_Y + 0.5;
     // géiseres
     for (const g of this.vents) {
