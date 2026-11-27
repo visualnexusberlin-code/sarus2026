@@ -143,8 +143,11 @@ function toStandard(src) {
 
 export class Ship {
   // model: Object3D con la nave (morro +Z, escala real en metros). def: entrada de FLEET + stats.
-  constructor(model, track, def = {}, { player = false, lod = null } = {}) {
+  constructor(model, track, def = {}, { player = false, lod = null, mid = null } = {}) {
     this.lodSrc = lod;
+    // nivel intermedio (tools/mid.mjs): índices simplificados que comparten los vértices de cada pieza, por su accesor de posición
+    this.midIdx = null;
+    if (mid) { this.midIdx = new Map(); mid.traverse((o) => { if (o.isMesh && o.geometry.index) this.midIdx.set(o.geometry.attributes.position, o.geometry.index.array); }); }
     this.track = track;
     this.def = def;
     this.name = def.name || 'NAVE';
@@ -186,10 +189,11 @@ export class Ship {
   mergeModel() {
     const model = this.model;
     const inv = new THREE.Matrix4().copy(model.matrixWorld).invert();
-    const groups = new Map(); const old = [];
+    const groups = new Map(); const old = [], midOf = new Map();
     model.traverse((o) => {
       if (!o.isMesh) return;
       const g = o.geometry.clone();
+      const mi = this.midIdx && this.midIdx.get(o.geometry.attributes.position); if (mi) midOf.set(g, mi);
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
       for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', '_rim'].includes(k)) g.deleteAttribute(k);
       if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
@@ -199,7 +203,7 @@ export class Ship {
       old.push(o);
     });
     model.clear();
-    this.meshes = [];
+    this.meshes = []; this.midMeshes = []; this.midSwap = new Set(); this.mid = false;
     this.reactorMats = [];
     this.ionGeos = [];
     this.ionColor = new THREE.Color(1, 0.2, 0.06);
@@ -219,7 +223,7 @@ export class Ship {
       addPalette(mat);
       const m = new THREE.Mesh(geo, mat);
       m.castShadow = true; m.receiveShadow = true;
-      model.add(m); this.meshes.push(m);
+      model.add(m); this.meshes.push(m); this.addMid(geos, geo, m, midOf);
     }
     for (let [mat, geos] of groups) {
       let geo = mergeGeometries(geos, false);
@@ -255,8 +259,28 @@ export class Ship {
       }
       model.add(m);
       this.meshes.push(m);
+      if (!(POLISH[this.name] && /Meshy/.test(mat.name))) this.addMid(geos, geo, m, midOf);
     }
     this.buildLod(model);
+  }
+
+  // Gemela intermedia de una malla fundida: mismos atributos (mismo búfer en la GPU) y mismo material, otro índice.
+  // Las piezas sin índice simplificado entran con su índice completo.
+  addMid(geos, merged, full, midOf) {
+    if (!geos.some((g) => midOf.has(g))) return;
+    let n = 0; for (const g of geos) n += (midOf.get(g) || g.index.array).length;
+    const idx = new Uint32Array(n); let off = 0, k = 0;
+    for (const g of geos) { const src = midOf.get(g) || g.index.array; for (let i = 0; i < src.length; i++) idx[k++] = src[i] + off; off += g.attributes.position.count; }
+    const mg = new THREE.BufferGeometry();
+    for (const a in merged.attributes) mg.setAttribute(a, merged.attributes[a]);
+    mg.setIndex(new THREE.BufferAttribute(idx, 1));
+    if (!merged.boundingSphere) merged.computeBoundingSphere();
+    mg.boundingSphere = merged.boundingSphere.clone();
+    const mm = new THREE.Mesh(mg, full.material);
+    Object.assign(mm, { visible: false, castShadow: false, receiveShadow: full.receiveShadow, renderOrder: full.renderOrder, name: full.name + '_mid' });
+    mm.userData.lod = true; mm.userData.mid = true;   // el hangar descarta los niveles reducidos
+    full.parent.add(mm);
+    this.midMeshes.push(mm); this.midSwap.add(full);
   }
 
   // LOD: malla única con color en vértices (~1,8k triángulos, 1 draw call) para cuando la nave está lejos.
@@ -280,8 +304,19 @@ export class Ship {
     if (!this.lodMesh || far === this.far) return;
     this.far = far;
     this.lodMesh.visible = far || this.shadowProxy;
-    for (const m of this.meshes) m.visible = !far;
+    this.applyVis();
     this.applyProxy();
+  }
+
+  // nivel intermedio: las piezas con gemela simplificada se cambian por ella (las pequeñas siguen igual)
+  setMid(on) {
+    if (!this.midMeshes || !this.midMeshes.length || on === this.mid) return;
+    this.mid = on; this.applyVis();
+  }
+  applyVis() {
+    const mid = this.mid && !this.far;
+    for (const m of this.meshes) m.visible = !this.far && !(mid && this.midSwap.has(m));
+    for (const m of this.midMeshes || []) m.visible = mid;
   }
 
   // Sombra por la malla ligera: el modelo completo deja de proyectar sombra y la proyecta el LOD, que en la imagen

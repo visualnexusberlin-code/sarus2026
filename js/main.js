@@ -67,6 +67,7 @@ installFogChunks();
 // ?nolog: prueba sin búfer de profundidad logarítmico (con él, cada píxel escribe su profundidad a mano y la GPU
 // del móvil no puede descartar pronto lo que queda tapado). Solo para medir en el dispositivo: puede dar parpadeos a lo lejos.
 const NOLOG = new URLSearchParams(location.search).has('nolog');
+const NOMID = new URLSearchParams(location.search).has('nomid');   // sin nivel intermedio de naves (ver updateLods)
 const BUILD = document.querySelector('meta[name=build]')?.content || 'dev';
 console.info(`[SRS] build ${BUILD}`);
 // ── Renderer / escena ──
@@ -395,7 +396,7 @@ function onLoaded(gltf, fleetGltf) {
   G.ships = FLEET.map((def) => {
     const node = findNode(fleetGltf, def.node);
     if (!node) { console.warn('[SRS] falta la nave', def.node); return null; }
-    const sh = new Ship(node, track, { ...def, stats: statsFor(def) }, { lod: findNode(fleetGltf, def.node + '_lod') });
+    const sh = new Ship(node, track, { ...def, stats: statsFor(def) }, { lod: findNode(fleetGltf, def.node + '_lod'), mid: NOMID ? null : findNode(fleetGltf, def.node + '_mid') });
     scene.add(sh.root);
     sh.trails = new Trails(scene, 2);
     return sh;
@@ -2132,6 +2133,10 @@ function frame() {
 const LOD_D = LITE ? 42 : 85, LOD_LOW = 26;
 const MAX_FULL = LITE ? 4 : 7, MAX_FULL_LOW = LITE ? 3 : 4, _near = [];
 const NEAR_FULL = LITE ? 22 : 34, NEAR_EXTRA = LITE ? 4 : 7;   // radio (m) en el que una rival siempre va completa, y cuántas pueden pasar del presupuesto
+// Nivel intermedio (tools/mid.mjs, ~9k triángulos; 5k en ligera): entre MID_R y el umbral de la malla ligera, y para las que
+// no caben en el presupuesto de completas. Como mucho MAX_DRAWN naves dibujadas con modelo (completo o intermedio); el resto, malla ligera.
+// ?nomid lo desactiva (comportamiento anterior) para comparar.
+const MID_R = LITE ? 12 : 18, MID_D = LITE ? 32 : 55, MAX_DRAWN = LITE ? 9 : 14;   // MID_R: completa más cerca; MID_D: malla ligera más lejos (antes 85 / 42 para todas)
 const FX_FAR = LITE ? 260 : 420, SHADOW_FULL = 28, _camDir = new THREE.Vector3(), _rel = new THREE.Vector3();
 const INTRO_LOD = +(new URLSearchParams(location.search).get('ilod') || (LITE ? 0.7 : 0.45));
 function updateLods(inCircuit) {
@@ -2141,7 +2146,7 @@ function updateLods(inCircuit) {
   camera.getWorldDirection(_camDir);
   _near.length = 0;
   for (const sh of G.ships) {
-    if (!inCircuit || sh === G.ship) { sh.setFar(false); sh.setFx(2); sh.setShadowProxy(false); continue; }
+    if (!inCircuit || sh === G.ship) { sh.setFar(false); sh.setMid(false); sh.setFx(2); sh.setShadowProxy(false); continue; }
     _rel.subVectors(sh.root.position, cp);
     const real = _rel.length(), d = real / zoom;
     sh._d = d; sh._real = real; sh._ahead = _rel.dot(_camDir);
@@ -2157,14 +2162,23 @@ function updateLods(inCircuit) {
   const nearR = NEAR_FULL * (perf.low ? 0.6 : 1);
   _near.forEach((sh, i) => {
     const close = sh._ahead > -6 && sh._real < nearR * (sh.far ? 0.9 : 1.1);
-    sh.setFar(!(i < K || (close && i < K + NEAR_EXTRA)));
+    const full = i < K || (close && i < K + NEAR_EXTRA);
+    if (sh.midMeshes && sh.midMeshes.length) {
+      // con nivel intermedio: completa solo a quemarropa (dentro del presupuesto ampliado); intermedia el resto hasta MAX_DRAWN.
+      // Medido con carreras grabadas (ARCADIA, ÍO): mediana de triángulos de naves −40/−65 %, p95 −10/−30 %, pico −22/−25 %
+      // en completa; sin mallas ligeras a menos de 40 m delante de la cámara.
+      const near = i < K + NEAR_EXTRA && sh._ahead > -6 && sh._d < MID_R * (sh.mid ? 0.9 : 1.1);
+      if (near) { sh.setFar(false); sh.setMid(false); }
+      else if (i < MAX_DRAWN * (perf.low ? 0.5 : 1) && sh._d < MID_D * perf.lodK * (sh.far ? 0.9 : 1.1)) { sh.setFar(false); sh.setMid(true); }
+      else sh.setFar(true);
+    } else sh.setFar(!full);
   });
   for (const sh of G.ships) {
     if (!inCircuit || sh === G.ship) continue;
     // llamas, halos y estelas de los rivales: completas cerca; solo el destello lejos; nada si quedan detrás de la cámara o muy lejos
     sh.setFx(sh._ahead < -25 || sh._real > FX_FAR * perf.fxK ? 0 : sh.far ? 1 : 2);
     // sombra de los rivales: a más de SHADOW_FULL m la proyecta su malla ligera (antes, cada rival cercano volvía a dibujarse entero en el mapa de sombras)
-    if (QUALITY.shadows) sh.setShadowProxy(!sh.far && sh._real > SHADOW_FULL * perf.lodK);
+    if (QUALITY.shadows) sh.setShadowProxy(!sh.far && (sh.mid || sh._real > SHADOW_FULL * perf.lodK));   // la intermedia no proyecta sombra propia
   }
 }
 
