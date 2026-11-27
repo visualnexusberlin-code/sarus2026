@@ -984,7 +984,7 @@ $('setReset').addEventListener('click', () => {
 
 // ── Hangar ──
 G.family = null;
-// Hangar: si el navegador compila shaders en paralelo, se preparan las 22 naves de golpe sin bloquear;
+// Hangar: si el navegador compila shaders en paralelo, se preparan las 24 naves de golpe sin bloquear;
 // así pasar de una nave a otra no da tirones. (Sin esa extensión se compilan una a una al mostrarlas.)
 function prewarmHangar() {
   if (G.hangarWarm || !renderer.extensions.has('KHR_parallel_shader_compile') || !renderer.compileAsync) return;
@@ -2135,7 +2135,7 @@ const FX_FAR = LITE ? 260 : 420, SHADOW_FULL = 28, _camDir = new THREE.Vector3()
 const INTRO_LOD = +(new URLSearchParams(location.search).get('ilod') || (LITE ? 0.7 : 0.45));
 function updateLods(inCircuit) {
   const cp = camera.position, zoom = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(35));
-  // en la intro la cámara llega a la parrilla con las 22 naves en cuadro: umbral más corto para no dibujarlas todas completas a la vez
+  // en la intro la cámara llega a la parrilla con las 24 naves en cuadro: umbral más corto para no dibujarlas todas completas a la vez
   const D = perf.low ? LOD_LOW : LOD_D * perf.lodK * (G.state === 'intro' ? INTRO_LOD : 1);
   camera.getWorldDirection(_camDir);
   _near.length = 0;

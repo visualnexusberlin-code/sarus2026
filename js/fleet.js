@@ -1,4 +1,4 @@
-// Flota SARUS (ships45.glb): 22 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
+// Flota SARUS (ships45.glb): 24 escuderías. V = velocidad punta, A = aceleración, M = manejo (1–5).
 // Cada nave tiene además un ESTILO: cómo responde, cuánto derrapa, cuánto pesa, cómo se inclina y flota.
 // Todo es provisional y se ajusta aquí.
 import { SHIP_LORE } from './lore.js';
@@ -72,6 +72,14 @@ export const FLEET = [
   { num: '22', node: 'SAILETOR_22', hull: 5, flame: [0.78, 0.7, 1.0], name: 'SEILATOR', tag: L('Composite de Plutón. Estable como pocas en apoyo y a fondo, aguanta golpes y frío extremo; le falta chispa al salir.', 'Pluto composite. Rock-steady under load and flat out, it shrugs off hits and extreme cold; a little flat off the line.'),
     V: 4, A: 3, M: 4,
     style: { response: 7.2, grip: 7.0, gripAB: 9.0, ab: 1.0, mass: 1.12, lean: 0.2, bob: 0.02, bobHz: 1.4, drift: 0.1, pitch: 0.5, wallLoss: 0.5 } },
+  // AKO_23 (AKO RESEARCH, Ío): modelo de Dear (Meshy) con cabina biplaza en tándem, librea blanca y azufre, 4 toberas (tools/addship.mjs)
+  { num: '23', node: 'AKO_23', hull: 5, flame: [1.0, 0.82, 0.3], name: 'AKO', tag: L('Investigación militar de largo alcance. Punta altísima y blindaje de primera; pesa, le cuesta girar y tarda en arrancar, pero su turbo dura más que ninguno.', 'Long-range military research. Very high top speed and first-rate armor; heavy, hard to turn and slow off the line, but its boost outlasts everyone else\'s.'),
+    V: 5, A: 3, M: 3,
+    style: { response: 6.2, grip: 6.2, gripAB: 8.8, ab: 1.05, mass: 1.32, lean: 0.26, bob: 0.03, bobHz: 1.6, drift: 0.18, pitch: 0.6, wallLoss: 0.85, boostDrain: 0.75 } },
+  // EOS_24 (EOS VESSELS, Fobos): transporte de carga rápido no tripulado; modelo de Dear (Meshy), aros de neón en los ventiladores, dos toberas de popa
+  { num: '24', node: 'EOS_24', hull: 3, flame: [1.0, 0.5, 0.35], name: 'EOS', tag: L('Carguero rápido sin tripulación. Sin piloto a bordo, aguanta fuerzas laterales brutales y traza como sobre raíles; ligera y frágil: cada roce con el muro le cuesta.', 'Fast uncrewed freighter. With no pilot aboard it takes brutal lateral forces and corners as if on rails; light and fragile: every wall scrape costs it.'),
+    V: 4, A: 4, M: 5,
+    style: { response: 10, grip: 7.6, gripAB: 9.4, ab: 1.0, mass: 0.85, lean: 0.48, bob: 0.06, bobHz: 2.2, drift: 0.14, pitch: 0.9, wallLoss: 1.2, boostRegen: 1.3 } },
 ];
 
 // capa creativa: escudería, modelo, clase, familia, linaje, procedencia y lore (lore.js)

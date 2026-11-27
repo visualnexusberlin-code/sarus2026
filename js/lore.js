@@ -168,6 +168,14 @@ export const SHIP_LORE = {
     sector: L('Materiales aerodinámicos para condiciones extremas', 'Aerodynamic materials for extreme conditions'), origin: L('Fundiciones de la llanura helada de Plutón', 'Ice-plain foundries of Pluto'),
     doctrine: L('Que nada la mueva.', 'Let nothing move it.'),
     lore: L('SEILATOR VANGUARD fragua sus cascos en Plutón, a doscientos treinta grados bajo cero, donde un material que no aguanta se rompe en el primer invierno. Sus composites curvos se diseñan como velas: dejan pasar el aire sin pelear con él. En SARUS compite para demostrar que la estabilidad también gana carreras.', 'SEILATOR VANGUARD forges its hulls on Pluto, at two hundred and thirty degrees below zero, where a material that cannot hold breaks in its first winter. Its curved composites are designed like sails: they let the air through without fighting it. In SARUS it races to prove that stability wins races too.') },
+  AKO_23: { house: 'AKO RESEARCH', model: 'LONGBOW', family: 'heavy', lineage: 'outer', cls: L('PESADA / INVESTIGACIÓN MILITAR', 'HEAVY / MILITARY RESEARCH'),
+    sector: L('Ingeniería militar de largo alcance', 'Long-range military engineering'), origin: L('Laboratorios de la colonia de Loki · Ío', 'Loki colony laboratories · Io'),
+    doctrine: L('Llegar más lejos que nadie y volver entera.', 'Go further than anyone and come back whole.'),
+    lore: L('AKO RESEARCH nació en los laboratorios de la colonia minera de Loki, en Ío, donde el azufre corroe todo lo que no está bien hecho. Diseña cazas de exploración para misiones largas en el sistema de Júpiter: biplazas, piloto e ingeniera, blindados como búnkeres. En SARUS corre para probar sus motores a plena carga.', 'AKO RESEARCH was born in the laboratories of the Loki mining colony on Io, where sulfur eats away at anything that is not well made. It designs exploration fighters for long missions in the Jupiter system: two-seaters, pilot and engineer, armored like bunkers. In SARUS it races to test its engines at full load.') },
+  EOS_24: { house: 'EOS VESSELS', model: 'DAWN FREIGHT', family: 'handling', lineage: 'orbital', cls: L('MANEJO / CARGA SIN TRIPULACIÓN', 'HANDLING / UNCREWED FREIGHT'),
+    sector: L('Transporte rápido de carga no tripulado', 'Fast uncrewed freight'), origin: L('Muelles de carga del cráter Stickney · Fobos', 'Stickney crater freight docks · Phobos'),
+    doctrine: L('Nadie a bordo, nada que perder.', 'No one aboard, nothing to lose.'),
+    lore: L('EOS VESSELS mueve la carga urgente entre Fobos y las órbitas de Marte con naves sin tripulación que salen al amanecer de Stickney. Sin un cuerpo que proteger, sus mantas aguantan giros que ningún piloto soportaría. En SARUS compite una IA de carga que aprendió a correr entregando paquetes.', 'EOS VESSELS moves urgent freight between Phobos and the orbits of Mars with uncrewed ships that leave Stickney at dawn. With no body to protect, its mantas take turns no pilot could survive. In SARUS a freight AI that learned to race by delivering cargo competes.') },
   ORION_18: { house: 'ORION AERONAUTICS', model: 'HUNTER', family: 'balanced', lineage: 'outer', cls: L('EQUILIBRADA / EXPLORACIÓN', 'BALANCED / EXPLORATION'),
     sector: L('Sistemas de espacio profundo', 'Deep Space Systems'), origin: L('Exploración y búsqueda de largo alcance', 'Long-range exploration and search'),
     doctrine: L('Persecución y equilibrio ofensivo.', 'Pursuit and offensive balance.'),
@@ -198,7 +206,9 @@ const DOCKS = {
   ANTARES_20: L('Puerto de hielo · Saturno', 'Ice port · Saturn'),
   VOSTOK_21: L('Escuadrón Vostok · Patrulla sobre Tritón', 'Vostok Squadron · Patrol over Triton'),
   SAILETOR_22: L('Hangar de la llanura helada · Plutón', 'Ice-plain hangar · Pluto'),
+  AKO_23: L('Hangar de la colonia de Loki · Ío', 'Loki colony hangar · Io'),
+  EOS_24: L('Muelle de carga de Stickney · Fobos', 'Stickney freight dock · Phobos'),
 };
 for (const k in DOCKS) if (SHIP_LORE[k]) SHIP_LORE[k].dock = DOCKS[k];
 
-export const MOTTO = L('SARUS no enfrenta veintidós naves. Enfrenta veintidós filosofías tecnológicas.', 'SARUS does not pit twenty-two ships against each other. It pits twenty-two technological philosophies.');
+export const MOTTO = L('SARUS no enfrenta veinticuatro naves. Enfrenta veinticuatro filosofías tecnológicas.', 'SARUS does not pit twenty-four ships against each other. It pits twenty-four technological philosophies.');
