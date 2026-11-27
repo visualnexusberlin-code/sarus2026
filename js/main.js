@@ -2131,6 +2131,7 @@ function frame() {
 // LOD de naves: a partir de cierta distancia de cámara, cada rival pasa a su malla ligera (1 draw call, ~1,8k triángulos).
 const LOD_D = LITE ? 42 : 85, LOD_LOW = 26;
 const MAX_FULL = LITE ? 4 : 7, MAX_FULL_LOW = LITE ? 3 : 4, _near = [];
+const NEAR_FULL = LITE ? 22 : 34, NEAR_EXTRA = LITE ? 4 : 7;   // radio (m) en el que una rival siempre va completa, y cuántas pueden pasar del presupuesto
 const FX_FAR = LITE ? 260 : 420, SHADOW_FULL = 28, _camDir = new THREE.Vector3(), _rel = new THREE.Vector3();
 const INTRO_LOD = +(new URLSearchParams(location.search).get('ilod') || (LITE ? 0.7 : 0.45));
 function updateLods(inCircuit) {
@@ -2151,7 +2152,13 @@ function updateLods(inCircuit) {
   // Quien ya estaba completo conserva el puesto mientras no lo adelante otro por más de un 15 % (sin parpadeo).
   const K = perf.low ? 2 : perf.lodK < 1 ? MAX_FULL_LOW : MAX_FULL;
   if (_near.length > K) _near.sort((a, b) => a._d * (a.far ? 1.15 : 1) - b._d * (b.far ? 1.15 : 1));
-  _near.forEach((sh, i) => sh.setFar(i >= K));
+  // a quemarropa nunca malla ligera (se notaba en pelotón: la 8.ª nave a pocos metros salía como proxy).
+  // Excepción al presupuesto para las que están muy cerca y no detrás de la cámara, con tope de NEAR_EXTRA más.
+  const nearR = NEAR_FULL * (perf.low ? 0.6 : 1);
+  _near.forEach((sh, i) => {
+    const close = sh._ahead > -6 && sh._real < nearR * (sh.far ? 0.9 : 1.1);
+    sh.setFar(!(i < K || (close && i < K + NEAR_EXTRA)));
+  });
   for (const sh of G.ships) {
     if (!inCircuit || sh === G.ship) continue;
     // llamas, halos y estelas de los rivales: completas cerca; solo el destello lejos; nada si quedan detrás de la cámara o muy lejos
